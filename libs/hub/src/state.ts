@@ -10,6 +10,8 @@ import type { ClientKind } from './protocol.ts';
 export type CallResult = { readonly isError: boolean; readonly text: string };
 
 type Client = {
+  /** The owning app instance's id (validated at the handshake); safe to put on telemetry. */
+  readonly appSessionId: string;
   /** Close the socket (hub shutting down): clients reconnect, possibly starting a new hub. */
   readonly close: Effect.Effect<void>;
   readonly kind: ClientKind;
@@ -89,20 +91,34 @@ export const makeHubState = () => {
 
     isRegistered: (token: string): boolean => credentials.has(token),
 
-    /** Forward one tool call to the client owning `token` and wait for its answer. */
-    route: Effect.fnUntraced(function* (token: string, tool: string, args: unknown): Effect.fn.Return<CallResult> {
-      const clientId = credentials.get(token)?.clientId;
+    /**
+     * Forward one tool call to the client owning `token` and wait for its answer. The span and logs carry allowlisted
+     * attributes only (root ADR 0002): never args, results or the token.
+     */
+    route: (token: string, tool: string, args: unknown): Effect.Effect<CallResult> => {
+      const credential = credentials.get(token);
+      const clientId = credential?.clientId;
       const client = clientId === undefined ? undefined : clients.get(clientId);
-      if (clientId === undefined || client === undefined) {
-        return toolError('The Harness client that owns this session is no longer connected.');
+      if (credential === undefined || clientId === undefined || client === undefined) {
+        return Effect.succeed(toolError('The Harness client that owns this session is no longer connected.'));
       }
-      const requestId = crypto.randomUUID();
-      const reply = yield* Deferred.make<CallResult>();
-      inFlight.set(requestId, { clientId, reply });
-      yield* client.send({ args, requestId, token, tool, type: 'toolCall' });
-      // Also cleans up when the agent abandons the request (interrupt).
-      return yield* Deferred.await(reply).pipe(Effect.ensuring(Effect.sync(() => inFlight.delete(requestId))));
-    }),
+      const attributes = {
+        'app_session.id': client.appSessionId,
+        'hub.client.kind': client.kind,
+        'hub.tool': tool,
+        ...(credential.binding === undefined
+          ? {}
+          : { 'acp.agent': credential.binding.launchTarget, 'acp.sessionId': credential.binding.sessionId }),
+      };
+      return Effect.gen(function* () {
+        const requestId = crypto.randomUUID();
+        const reply = yield* Deferred.make<CallResult>();
+        inFlight.set(requestId, { clientId, reply });
+        yield* client.send({ args, requestId, token, tool, type: 'toolCall' });
+        // Also cleans up when the agent abandons the request (interrupt).
+        return yield* Deferred.await(reply).pipe(Effect.ensuring(Effect.sync(() => inFlight.delete(requestId))));
+      }).pipe(Effect.annotateLogs(attributes), Effect.withSpan('hub.toolCall', { attributes }));
+    },
 
     /** A client's answer; ignored unless that client was asked. */
     resolve: (clientId: number, requestId: string, result: CallResult): Effect.Effect<void> =>

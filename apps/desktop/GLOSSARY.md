@@ -380,6 +380,10 @@ _Avoid_: Ignored version, dismissed update
 User and workspace content that never reaches telemetry as plain text: prompt and Agent response text, Agent error text, tool call titles, inputs and outputs, plan entries, elicitation messages and answers, permission option labels, file content, file paths and `file://` URIs (session cwd included), URLs, command lines, and environment values. Identifiers (session id, launch target, pid, tool call id), counts, durations, exit codes, and ACP protocol discriminators (session update kind, tool kind, tool call status, stop reason, permission option kind and outcome, elicitation mode and action, error code) are not private data.
 _Avoid_: PII, sensitive data, secrets
 
+**App session id**:
+An id minted once per Harness instance (a desktop window load, or one VS Code webview load) and attached to every log and span the Harness exports; the Hub client also sends it when it connects, so the Hub's signals for that client's calls carry it too. It ties together everything one app run produced, and a new run gets a new id. It is not the ACP `sessionId` (one agent session): one app session spans many agent sessions, and an agent session can outlive the app session that started it (a reopened session gets the new run's app session id).
+_Avoid_: session id (alone; that is the ACP `sessionId`), run id, instance id
+
 **Orphaned tool call**:
 A tool call the Agent announced during a **Turn** but never reported completed or failed before that Turn ended.
 _Avoid_: Dangling tool call, lost tool call

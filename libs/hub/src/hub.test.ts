@@ -4,7 +4,7 @@
  */
 import { NodeFileSystem, NodePath } from '@effect/platform-node';
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Exit, Fiber, Layer, Scope } from 'effect';
+import { Effect, Exit, Fiber, Layer, Logger, References, Scope, Tracer } from 'effect';
 import type { Duration } from 'effect';
 import { existsSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,7 +13,16 @@ import { join } from 'node:path';
 import { startHub } from './hub.ts';
 import { runHubProcess } from './hubProcess.ts';
 import { clientsQuery, HUB_APP_ID, HUB_TOOL_NAMES, MAX_HANDOFF_DOCUMENT_CHARS, PROTOCOL_VERSION } from './protocol.ts';
-import { connectTestClient, mcpCallTool, mcpInitialize, mcpPost, registerToken, rpcResult } from './testing.ts';
+import type { TestClient } from './testing.ts';
+import {
+  connectTestClient,
+  mcpCallTool,
+  mcpInitialize,
+  mcpPost,
+  registerToken,
+  rpcResult,
+  testClientQuery,
+} from './testing.ts';
 import { HubToolkit } from './tools.ts';
 
 const SECRET = 'test-secret';
@@ -21,6 +30,49 @@ const SECRET = 'test-secret';
 const hubUp = (idleGrace: Duration.Input = '5 seconds', port = 0) => startHub({ idleGrace, port, secret: SECRET });
 const mcpUrl = (port: number) => `http://127.0.0.1:${port}/mcp`;
 const listTools = { id: 2, jsonrpc: '2.0', method: 'tools/list' };
+
+/** Spans and log lines the hub emitted, captured in memory (no exporter). */
+const capture = () => {
+  const spans: Tracer.NativeSpan[] = [];
+  const logs: { readonly annotations: Record<string, unknown>; readonly message: unknown }[] = [];
+  const layer = Layer.mergeAll(
+    Layer.succeed(
+      Tracer.Tracer,
+      Tracer.make({
+        span: options => {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      }),
+    ),
+    Logger.layer([
+      Logger.make(options => {
+        logs.push({ annotations: options.fiber.getRef(References.CurrentLogAnnotations), message: options.message });
+      }),
+    ]),
+  );
+  return { layer, logs, spans };
+};
+
+const TOOL_CALL_ATTRIBUTE_ALLOWLIST = ['acp.agent', 'acp.sessionId', 'app_session.id', 'hub.client.kind', 'hub.tool'];
+
+/** Call `submit_handoff` as `token` through `owner` and answer it with `resultText`. */
+const callHandoff = Effect.fnUntraced(function* (
+  port: number,
+  owner: TestClient,
+  token: string,
+  document: string,
+  resultText: string,
+) {
+  const { sessionId } = yield* mcpInitialize(mcpUrl(port), token);
+  const call = yield* Effect.forkChild(mcpCallTool(mcpUrl(port), token, sessionId, 'submit_handoff', { document }));
+  const routed = yield* Effect.promise(() => owner.waitFor(m => m.type === 'toolCall' && m.token === token));
+  owner.send({ isError: false, requestId: routed.requestId, text: resultText, type: 'toolResult' });
+  yield* Fiber.join(call);
+});
+
+const toolCallSpans = (spans: readonly Tracer.NativeSpan[]) => spans.filter(span => span.name === 'hub.toolCall');
 
 describe('hub', () => {
   it('declares exactly the tools the protocol names', () => {
@@ -40,20 +92,118 @@ describe('hub', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.live('/clients rejects a bad secret, a protocol version mismatch and an unknown client kind', () =>
-    Effect.gen(function* () {
-      const { port } = yield* hubUp();
-      const good = new URLSearchParams(clientsQuery({ clientKind: 'test', secret: SECRET }));
-      const variant = (key: string, value: string) => {
-        const query = new URLSearchParams(good);
-        query.set(key, value);
-        return Effect.exit(connectTestClient(port, query.toString()));
-      };
-      assert.isTrue(Exit.isFailure(yield* variant('secret', 'nope')));
-      assert.isTrue(Exit.isFailure(yield* variant('protocolVersion', '999')));
-      assert.isTrue(Exit.isFailure(yield* variant('clientKind', 'toaster')));
-    }).pipe(Effect.scoped),
+  it.live(
+    '/clients rejects a bad secret, a protocol version mismatch, an unknown client kind and a bad app session id',
+    () =>
+      Effect.gen(function* () {
+        const { port } = yield* hubUp();
+        const good = new URLSearchParams(clientsQuery({ appSessionId: 'app-1', clientKind: 'test', secret: SECRET }));
+        const variant = (key: string, value: string) => {
+          const query = new URLSearchParams(good);
+          query.set(key, value);
+          return Effect.exit(connectTestClient(port, query.toString()));
+        };
+        assert.isTrue(Exit.isFailure(yield* variant('secret', 'nope')));
+        assert.isTrue(Exit.isFailure(yield* variant('protocolVersion', '999')));
+        assert.isTrue(Exit.isFailure(yield* variant('clientKind', 'toaster')));
+        assert.isTrue(Exit.isFailure(yield* variant('appSessionId', 'has spaces & <free text>')));
+        assert.isTrue(Exit.isFailure(yield* variant('appSessionId', '')));
+        const missing = new URLSearchParams(good);
+        missing.delete('appSessionId');
+        assert.isTrue(Exit.isFailure(yield* Effect.exit(connectTestClient(port, missing.toString()))));
+      }).pipe(Effect.scoped),
   );
+
+  it.live('a tool-call span carries the bound ACP session, its agent, the owning app session and the tool', () => {
+    const { layer, spans } = capture();
+    return Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port, testClientQuery('app-run-1'));
+      yield* registerToken(owner, 'tok-span');
+      owner.send({ launchTarget: 'claude-agent-acp', sessionId: 'acp-s1', token: 'tok-span', type: 'bind' });
+      yield* registerToken(owner, 'tok-sync'); // frames are ordered: the bind has landed once this is answered
+      yield* callHandoff(port, owner, 'tok-span', 'doc', 'ok');
+
+      const [span] = toolCallSpans(spans);
+      assert.deepStrictEqual(Object.fromEntries(span?.attributes ?? []), {
+        'acp.agent': 'claude-agent-acp',
+        'acp.sessionId': 'acp-s1',
+        'app_session.id': 'app-run-1',
+        'hub.client.kind': 'test',
+        'hub.tool': 'submit_handoff',
+      });
+    }).pipe(Effect.scoped, Effect.provide(layer));
+  });
+
+  it.live('a pending (unbound) token has no ACP session on its span', () => {
+    const { layer, spans } = capture();
+    return Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-pending');
+      yield* callHandoff(port, owner, 'tok-pending', 'doc', 'ok');
+      const [span] = toolCallSpans(spans);
+      assert.isFalse(span?.attributes.has('acp.sessionId'));
+      assert.isFalse(span?.attributes.has('acp.agent'));
+      assert.strictEqual(span?.attributes.get('app_session.id'), 'test-app-session');
+    }).pipe(Effect.scoped, Effect.provide(layer));
+  });
+
+  it.live('each call span carries its own owner’s app session id', () => {
+    const { layer, spans } = capture();
+    return Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const one = yield* connectTestClient(port, testClientQuery('app-one'));
+      const two = yield* connectTestClient(port, testClientQuery('app-two'));
+      yield* registerToken(one, 'tok-one');
+      yield* registerToken(two, 'tok-two');
+      yield* callHandoff(port, one, 'tok-one', 'a', 'ok');
+      yield* callHandoff(port, two, 'tok-two', 'b', 'ok');
+      assert.deepStrictEqual(
+        toolCallSpans(spans).map(span => span.attributes.get('app_session.id')),
+        ['app-one', 'app-two'],
+      );
+    }).pipe(Effect.scoped, Effect.provide(layer));
+  });
+
+  it.live('ADR 0002: no span or log carries tool args, results or the bearer token; span keys are allowlisted', () => {
+    const { layer, logs, spans } = capture();
+    const CANARY = 'CANARY-7f3a91';
+    return Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, `tok-bearer-9d2c`);
+      owner.send({
+        launchTarget: 'claude-agent-acp',
+        sessionId: 'acp-canary',
+        token: `tok-bearer-9d2c`,
+        type: 'bind',
+      });
+      yield* registerToken(owner, 'tok-sync');
+      yield* callHandoff(port, owner, `tok-bearer-9d2c`, `plan ${CANARY}`, `result ${CANARY}`);
+      owner.close();
+      yield* Effect.sleep('100 millis');
+
+      const calls = toolCallSpans(spans);
+      assert.isAbove(calls.length, 0);
+      for (const span of calls) {
+        for (const key of span.attributes.keys()) {
+          assert.include(TOOL_CALL_ATTRIBUTE_ALLOWLIST, key);
+        }
+      }
+      const everything = JSON.stringify({
+        logs: logs.map(log => ({ annotations: log.annotations, message: log.message })),
+        spans: spans.map(span => ({
+          attributes: [...span.attributes],
+          events: span.events,
+          name: span.name,
+        })),
+      });
+      assert.notInclude(everything, CANARY);
+      assert.notInclude(everything, 'tok-bearer-9d2c');
+      assert.notInclude(everything, 'test-secret'); // the hub secret in the `/clients` query
+    }).pipe(Effect.scoped, Effect.provide(layer));
+  });
 
   it.live('acknowledges a registered token, after which the very next agent request authenticates', () =>
     Effect.gen(function* () {

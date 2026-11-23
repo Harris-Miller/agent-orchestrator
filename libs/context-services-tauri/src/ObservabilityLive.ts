@@ -1,4 +1,4 @@
-import { buildTarget } from '@lib/context-services';
+import { appSessionId, buildTarget } from '@lib/context-services';
 import type { BuildTarget } from '@lib/context-services';
 import { ConfigProvider, Layer, References } from 'effect';
 import { FetchHttpClient } from 'effect/http';
@@ -35,7 +35,10 @@ export const makeObservabilityLive = (target: BuildTarget) =>
     ? Layer.merge(
         AllLogLevelsLive,
         Otlp.layerFromConfig({
-          resource: { attributes: { build_target: target }, serviceName: 'hoa-desktop' },
+          resource: {
+            attributes: { 'app_session.id': appSessionId, build_target: target },
+            serviceName: 'hoa-desktop',
+          },
         }).pipe(
           Layer.provide(OtlpSerialization.layerJson),
           Layer.provide(FetchHttpClient.layer),

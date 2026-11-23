@@ -84,8 +84,12 @@ export type TestClient = {
   readonly waitFor: (predicate: (message: HubTestMessage) => boolean) => Promise<HubTestMessage>;
 };
 
+/** The `/clients` query a test client connects with; `appSessionId` is overridable to tell clients apart. */
+export const testClientQuery = (appSessionId = 'test-app-session') =>
+  clientsQuery({ appSessionId, clientKind: 'test', secret: 'test-secret' });
+
 /** A `/clients` connection (fails if the handshake is refused), closed with the scope. */
-export const connectTestClient = (port: number, query = clientsQuery({ clientKind: 'test', secret: 'test-secret' })) =>
+export const connectTestClient = (port: number, query = testClientQuery()) =>
   Effect.acquireRelease(
     Effect.promise(
       () =>

@@ -6,6 +6,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Schedule, Schema } from 'effect';
 import { execFileSync } from 'node:child_process';
+import { createServer } from 'node:http';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -23,12 +24,12 @@ for (const file of SHIPPED) {
 }
 
 /** Run the launcher (it returns at once) for a hub on an ephemeral port that exits 300 ms after going idle. */
-const launch = (home: string) =>
+const launch = (home: string, extraArgs: readonly string[] = [], env: Record<string, string> = {}) =>
   Effect.sync(() =>
     execFileSync(
       process.execPath,
-      [join(dist, 'hub-launcher.mjs'), join(dist, 'hub.mjs'), '--port', '0', '--idle-grace-ms', '300'],
-      { env: { ...process.env, HOA_HOME: home }, timeout: 5000 },
+      [join(dist, 'hub-launcher.mjs'), join(dist, 'hub.mjs'), '--port', '0', '--idle-grace-ms', '300', ...extraArgs],
+      { env: { ...process.env, HOA_HOME: home, ...env }, timeout: 5000 },
     ),
   );
 
@@ -89,6 +90,36 @@ describe('hub bundles', () => {
       yield* eventually(() => {
         assert.isFalse(isAlive(discovery.pid));
       });
+    }),
+  );
+
+  it.live('a prod-target hub exports nothing, even with an OTLP endpoint in its environment', () =>
+    Effect.gen(function* () {
+      const requests: string[] = [];
+      const collector = createServer((request, response) => {
+        requests.push(request.url ?? '');
+        response.end();
+      });
+      yield* Effect.promise(
+        () =>
+          new Promise<void>(done => {
+            collector.listen(0, '127.0.0.1', done);
+          }),
+      );
+      const address = collector.address();
+      const collectorPort = typeof address === 'object' && address !== null ? address.port : 0;
+      const home = mkdtempSync(join(tmpdir(), 'hoa-hub-bundle-'));
+      yield* launch(home, ['--build-target', 'prod'], {
+        OTEL_EXPORTER_OTLP_ENDPOINT: `http://127.0.0.1:${collectorPort}`,
+      });
+      const discovery = yield* readDiscovery(home);
+      yield* Effect.promise(() => fetch(`http://127.0.0.1:${discovery.port}/health`));
+      yield* eventually(() => {
+        assert.isFalse(isAlive(discovery.pid));
+      });
+      yield* Effect.sleep('300 millis');
+      collector.close();
+      assert.deepStrictEqual(requests, []);
     }),
   );
 });

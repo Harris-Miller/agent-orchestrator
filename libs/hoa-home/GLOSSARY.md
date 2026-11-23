@@ -65,3 +65,5 @@ _Avoid_: system browser, Host OpenUrl (when you mean the helper path)
 ## Package law
 
 Every filesystem read or write under the HOA home goes through `@lib/hoa-home`. Apps must not perform ad-hoc `FileSystem` I/O against that tree.
+
+A path segment that comes from an id (Session id, Workstream id, Launch target, runtime version) must pass an allowlist schema, or be hashed. Reject a value that fails the schema. Do not strip characters from it (`sanitize-filename`): two different ids can then give the same name. Do not use `encodeURIComponent`: it does not change `..`. Today the Launch target (`LaunchTargetSchema`) and the runtime version (`isSafeRuntimeVersion`) follow this rule. All other paths in the HOA home are fixed names. No Session id is a path segment.

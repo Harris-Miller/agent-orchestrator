@@ -78,7 +78,7 @@ describe('makeAnalyticsLive', () => {
         distinct_id: appSessionId,
         launch_target: 'codex-acp',
         os: 'darwin',
-        runtime: 'desktop',
+        host: 'desktop',
       });
     }),
   );

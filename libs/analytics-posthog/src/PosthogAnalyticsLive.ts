@@ -4,7 +4,7 @@ import { Config, DateTime, Effect, Layer } from 'effect';
 import { HttpClient, HttpClientRequest } from 'effect/http';
 
 /** Which Host the events come from. */
-export type AnalyticsRuntime = 'desktop' | 'vscode';
+export type AnalyticsHost = 'desktop' | 'vscode';
 
 /** One capture attempt is abandoned after this long: no retry. */
 const ATTEMPT_TIMEOUT = '5 seconds';
@@ -40,8 +40,8 @@ const send = (
     yield* client.execute(request);
   }).pipe(
     Effect.timeout(ATTEMPT_TIMEOUT),
-    // Analytics never fails the app: a failed attempt is only a debug log.
-    Effect.catchCause(cause => Effect.logDebug('Analytics capture failed', cause)),
+    // Analytics never fails the app: a failed attempt is only a fixed debug log (the cause can carry the request body, incl. `api_key`).
+    Effect.catchCause(() => Effect.logDebug('Analytics capture failed')),
   );
 
 /**
@@ -52,7 +52,7 @@ const send = (
  */
 export const makeAnalyticsLive = (
   target: BuildTarget,
-  runtime: AnalyticsRuntime,
+  host: AnalyticsHost,
 ): Layer.Layer<Analytics, never, HttpClient.HttpClient | OS> =>
   target === 'dev'
     ? Layer.unwrap(
@@ -61,15 +61,15 @@ export const makeAnalyticsLive = (
           if (token === '') {
             return AnalyticsNoopLive;
           }
-          const host = (yield* Config.String('POSTHOG_HOST').pipe(Config.withDefault(DEFAULT_HOST))).trim();
+          const posthogHost = (yield* Config.String('POSTHOG_HOST').pipe(Config.withDefault(DEFAULT_HOST))).trim();
           const client = yield* HttpClient.HttpClient;
           const os = yield* OS;
-          const endpoint = `${host.replace(/\/+$/, '')}/i/v0/e/`;
+          const endpoint = `${posthogHost.replace(/\/+$/, '')}/i/v0/e/`;
           const common = {
             app_version: appVersion,
             build_target: target,
             os: os.platform(),
-            runtime,
+            host,
           };
           return Layer.succeed(Analytics, {
             // Forked and detached so a slow or down PostHog can never block or fail the user action.

@@ -10,6 +10,8 @@ import { updateHarnessSnapshot } from '../atoms/harnessSnapshot.ts';
 import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
 import { runAtomFn } from '../atoms/runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from '../atoms/sessionLifecycle.atoms.ts';
+import { createComposerAtoms } from '../atoms/composer.atoms.ts';
+import { createVirtualSessionAtoms } from '../atoms/virtualSession.atoms.ts';
 
 import { makeRecordingAnalytics, summarize } from './recordingAnalytics.testing.ts';
 import { captureAppOpened, trackEvent } from './trackEvent.ts';
@@ -138,6 +140,40 @@ describe('action triggers', () => {
         { name: 'elicitation_responded', properties: { action: 'decline', mode: 'form' } },
       ]);
       assert.notInclude(JSON.stringify(summarize(s.events)), MARKER);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('fork captures session_forked with the launch target only', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      advertise(s.registry, CODEX, { agentCapabilities: { sessionCapabilities: { fork: {} } } });
+      yield* runAtomFn(s.registry, s.lifecycle.forkSessionAtomFn, { ...target, cwd: `/${MARKER}` });
+      assert.deepStrictEqual(summarize(s.events), [{ name: 'session_forked', properties: { launch_target: CODEX } }]);
+      assert.notInclude(JSON.stringify(summarize(s.events)), MARKER);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('materializing a draft captures session_created (and prompt_sent) without the draft or cwd', () =>
+    Effect.gen(function* () {
+      const recording = makeRecordingAnalytics();
+      const registry = yield* freshRegistry;
+      yield* installFakeAgent([]);
+      const runtime = createHostRuntime(Layer.merge(mockHostLayer, recording.layer));
+      const virtual = createVirtualSessionAtoms(runtime);
+      const { submitComposerAtomFn } = createComposerAtoms(runtime);
+      registry.mount(virtual.ensureVirtualSessionAtomFn);
+      registry.mount(virtual.patchVirtualSessionAtomFn);
+      registry.mount(virtual.setVirtualLaunchTargetAtomFn);
+      registry.mount(submitComposerAtomFn);
+      updateHarnessSnapshot(registry, CODEX, current => ({ ...current, phase: 'connecting' }));
+      yield* runAtomFn(registry, virtual.ensureVirtualSessionAtomFn, { cwd: `/${MARKER}` });
+      yield* runAtomFn(registry, virtual.setVirtualLaunchTargetAtomFn, CODEX);
+      updateHarnessSnapshot(registry, CODEX, current => ({ ...current, phase: 'ready' }));
+      yield* runAtomFn(registry, virtual.patchVirtualSessionAtomFn, { draft: MARKER });
+      yield* runAtomFn(registry, submitComposerAtomFn, undefined);
+      const summary = summarize(recording.events);
+      assert.deepInclude(summary, { name: 'session_created', properties: { launch_target: CODEX } });
+      assert.notInclude(JSON.stringify(summary), MARKER);
     }).pipe(Effect.scoped),
   );
 });

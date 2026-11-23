@@ -42,6 +42,7 @@ makeHostServicesLive(options: { readonly client: IpcClient }): Layer.Layer<HostS
 ## Telemetry
 
 - **New user-facing actions get an Analytics event** from the closed catalog in `libs/ui/src/analytics/catalog.ts`, via `trackEvent` as one extra `pipe` stage next to the action's root span (captures on success only). Add a builder to the catalog; never call `makeAnalyticsEvent` elsewhere or add a free-form event. See `docs/adr/0004-analytics-events-separate-from-otlp.md`.
+  - **Exception**: when the event needs data computed inside the action (permission / elicitation responded in `chat.atoms.ts`, `prompt_sent` in `promptTurn.ts`, `session_created` at the end of `materialize` in `virtualSession.atoms.ts`), call `captureEvent` mid-generator instead. Success-only capture still applies (call it only after the action's last failure point) and the event is still built from the catalog.
 - **Event properties are allowlisted only** (root ADR 0002): launch target, counts, closed unions. Never prompt text, titles, paths, URLs, ids, option names or agent text.
 - **New Effects follow the existing span and log conventions**: user action roots get a root span, private data in logs is wrapped in `Redacted`.
 - **Unit tests never provide a real analytics or OTLP layer.** Use a recording `Analytics` layer (`libs/ui/src/analytics/recordingAnalytics.testing.ts`).

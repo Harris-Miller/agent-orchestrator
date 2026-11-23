@@ -25,14 +25,14 @@ The host capability to pick filesystem paths via a native open dialog (`pickFile
 _Avoid_: showOpenDialog, plugin-dialog, `<input type="file">` (when you mean the portable Seam)
 
 **Analytics** (service):
-The host capability to capture a product Analytics event (`capture(event)`). Fire-and-forget: it cannot fail or block the caller, and an undeliverable event is dropped. Accepts only an Analytics event built from the closed catalog in `@lib/ui`.
+The host capability to capture a product Analytics event. Fire-and-forget: it cannot fail or block the caller, and an undeliverable event is dropped. Accepts only an Analytics event built from the closed catalog in `@lib/ui`.
 _Avoid_: telemetry service, tracker, `posthog.capture` (when you mean the portable Seam)
 
 **Analytics event**:
-A named product event with allowlisted primitive properties (`boolean | number | string`) and no free text or Private data, captured when a user action succeeds. A separate pipeline from OTLP traces, logs and metrics. See root ADR 0004.
+A named product event with allowlisted simple properties and no free text or Private data, captured when a user action succeeds. A separate pipeline from OTLP traces, logs and metrics. See root ADR 0004.
 
 **App version**:
-The version of the app bundle, fixed when the bundle is built (`unknown` when not set). Sent with every Analytics event.
+The version of the app bundle, fixed when the bundle is built. Sent with every Analytics event.
 
 **Notifier** (service):
 The host capability to raise an OS Notification (`notify({ title, body, sound })`), play its own chime without a Notification (`playSound`), report whether the Host window is focused (`isWindowFocused`), and report `supported: 'os' | 'in-app'`. Used for Attention events. Failures are swallowed by callers.

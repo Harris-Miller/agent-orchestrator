@@ -20,7 +20,7 @@ Multi-context index for **Harness Orchestrating Agents**. Each package under `ap
 
 ## Relationships
 
-- **context-services-tauri / context-services-vscode-webview → analytics-posthog**: both Hosts compose the PostHog Live (`makeAnalyticsLive`) as their `Analytics` service
+- **context-services-tauri / context-services-vscode-webview → analytics-posthog**: both Hosts compose the PostHog Live as their `Analytics` service
 - **analytics-posthog → context-services**: implements the portable `Analytics` tag
 - **desktop → effect-acp**: the Agent Harness (this repo's Orchestrator) is the ACP Client; effect-acp is its wire library (`connectAcpAgent`, schemas, transport)
 - **desktop → context-services**: portable host abstractions (`OS`, `BundledResource`, `Clipboard`, Host services)

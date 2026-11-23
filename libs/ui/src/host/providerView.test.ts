@@ -2,6 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 
 import {
   authFromHarness,
+  isRuntimeJobIdle,
   isSwitchingJob,
   overallStatus,
   providersToCheckForUpdates,
@@ -135,6 +136,13 @@ describe('per-status decisions', () => {
       'not-signed-in',
       'signing-in',
     ]);
+  });
+
+  it('treats only Idle and Failed jobs as idle', () => {
+    assert.isTrue(isRuntimeJobIdle({ _tag: 'Idle' }));
+    assert.isTrue(isRuntimeJobIdle({ _tag: 'Failed', detail: 'boom', message: 'boom' }));
+    assert.isFalse(isRuntimeJobIdle({ _tag: 'Downloading', version: '2.0.0' }));
+    assert.isFalse(isRuntimeJobIdle({ _tag: 'Removing' }));
   });
 
   it('treats Installing and Removing as switching runtimes', () => {

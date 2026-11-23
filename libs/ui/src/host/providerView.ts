@@ -33,6 +33,9 @@ export type RuntimeJob =
 /** Install / Remove swap the active runtime: the provider stops and restarts, so nothing may launch against it. */
 export const isSwitchingJob = (job: RuntimeJob): boolean => job._tag === 'Installing' || job._tag === 'Removing';
 
+/** No runtime job in flight (Idle, or Failed and awaiting a retry). */
+export const isRuntimeJobIdle = (job: RuntimeJob): boolean => job._tag === 'Idle' || job._tag === 'Failed';
+
 /** Directory whose deletion failed; retried at startup. */
 export type CleanupFailure = { readonly error: string; readonly version: string };
 
@@ -255,7 +258,7 @@ export const providersToCheckForUpdates = (views: readonly ProviderView[]): Agen
       p =>
         p.enabled &&
         p.runtime?.active !== undefined &&
-        (p.runtime.job._tag === 'Idle' || p.runtime.job._tag === 'Failed') &&
+        isRuntimeJobIdle(p.runtime.job) &&
         p.runtime.latest._tag !== 'Checking',
     )
     .map(p => p.id);

@@ -1,4 +1,6 @@
+export * from './Analytics.ts';
 export * from './AppSession.ts';
+export * from './AppVersion.ts';
 export * from './AtomicFile.ts';
 export * from './BuildTarget.ts';
 export * from './BundledResource.ts';

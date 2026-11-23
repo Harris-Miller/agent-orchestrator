@@ -1,5 +1,6 @@
 import type { HostServices } from '@lib/context-services';
 import {
+  AnalyticsNoopLive,
   AtomicFile,
   BundledResource,
   Clipboard,
@@ -21,6 +22,7 @@ import { ChildProcessSpawner } from 'effect/process';
  * layer after it (`Layer.merge(mockHostLayer, myFsLayer)`; the later layer wins).
  */
 export const mockHostLayer: Layer.Layer<HostServices> = Layer.mergeAll(
+  AnalyticsNoopLive,
   Layer.succeed(AtomicFile, {
     replaceFileString: () => Effect.void,
   }),

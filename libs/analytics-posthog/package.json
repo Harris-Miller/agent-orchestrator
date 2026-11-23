@@ -1,0 +1,30 @@
+{
+  "name": "@lib/analytics-posthog",
+  "private": true,
+  "license": "ISC",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "pnpm run lint:check --fix",
+    "lint:check": "oxlint --type-aware --deny-warnings --report-unused-disable-directives",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lib/context-services": "workspace:^",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@tooling/oxlint": "workspace:^",
+    "@tooling/tsconfig": "workspace:^",
+    "@tooling/vitest": "workspace:^",
+    "@types/node": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

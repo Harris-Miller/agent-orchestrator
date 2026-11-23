@@ -2,10 +2,14 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv } from 'vite';
 
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
+// The repo-root `package.json` is the version source of truth.
+const rootVersion = (JSON.parse(readFileSync(path.join(rootDir, '../../package.json'), 'utf8')) as { version?: string })
+  .version;
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
@@ -19,6 +23,7 @@ export default defineConfig(({ mode }) => {
 
     define: {
       'process.env.HOA_ANTIGRAVITY_BETA': JSON.stringify(env.HOA_ANTIGRAVITY_BETA || ''),
+      'process.env.HOA_APP_VERSION': JSON.stringify(rootVersion ?? 'unknown'),
       'process.env.HOA_BUILD_TARGET': JSON.stringify(mode === 'development' ? 'dev' : 'prod'),
       'process.env.HOA_CURSOR_BETA': JSON.stringify(env.HOA_CURSOR_BETA || ''),
     },

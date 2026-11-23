@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@lib/analytics-posthog": "workspace:^",
     "@lib/context-services": "workspace:^",
     "@lib/hoa-home": "workspace:^",
     "@tauri-apps/api": "catalog:",

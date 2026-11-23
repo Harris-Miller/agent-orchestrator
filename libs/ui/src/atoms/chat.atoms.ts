@@ -4,6 +4,8 @@ import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
+import { elicitationResponded, permissionResponded, promptCancelled } from '../analytics/catalog.ts';
+import { captureEvent, trackEvent } from '../analytics/trackEvent.ts';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget, SessionRef } from '../host/agentLaunchTarget.ts';
 import { answerElicitation, answerPermission } from '../host/harnessStateTransitions.ts';
@@ -44,6 +46,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) => {
       const parent = getPromptSpan(arg.launchTarget, arg.sessionId);
       return cancelPrompt(get.registry, arg).pipe(
+        trackEvent(promptCancelled(arg.launchTarget)),
         Effect.withSpan('cancelPromptAtomFn', parent !== undefined ? { parent } : { root: true }),
       );
     })
@@ -104,6 +107,13 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
             answerElicitation(current, arg.sessionId, pending, 'summary' in arg ? arg.summary : undefined),
           );
+          const { mode } = pending.request;
+          yield* captureEvent(
+            elicitationResponded({
+              action: arg.response.action,
+              mode: mode === 'form' || mode === 'url' ? mode : 'unknown',
+            }),
+          );
         },
         Effect.withSpan('respondElicitationAtomFn', arg => {
           const parent = getPromptSpan(arg.launchTarget, arg.sessionId);
@@ -136,6 +146,11 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           pending.resolve({ outcome: { optionId: arg.optionId, outcome: 'selected' } });
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
             answerPermission(current, arg.sessionId, pending),
+          );
+          yield* captureEvent(
+            permissionResponded(
+              pending.request.options.find(option => option.optionId === arg.optionId)?.kind ?? 'unknown',
+            ),
           );
         },
         Effect.withSpan('respondPermissionAtomFn', arg => {

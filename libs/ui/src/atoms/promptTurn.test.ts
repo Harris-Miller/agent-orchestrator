@@ -4,6 +4,8 @@
  */
 import { assert, layer } from '@effect/vitest';
 import { Notifier, OS } from '@lib/context-services';
+
+import { makeRecordingAnalytics, summarize } from '../analytics/recordingAnalytics.testing.ts';
 import { acpErrorData, acpErrorMessage } from '@libs/effect-acp';
 import type { AcpError } from '@libs/effect-acp';
 import { Clock, Effect, Exit, Fiber, Layer, Option, Predicate } from 'effect';
@@ -39,7 +41,10 @@ type Sent = { body: string; sound: boolean; title: string };
 /** Notifications raised by the current test (reset by {@link harness}). */
 const sent: Sent[] = [];
 
+const analytics = makeRecordingAnalytics();
+
 const hostLayer = Layer.mergeAll(
+  analytics.layer,
   Layer.succeed(Notifier, {
     isWindowFocused: Effect.succeed(false),
     playSound: Effect.void,
@@ -70,6 +75,7 @@ const pendingPermission = { request: {}, resolve: () => undefined } as unknown a
  */
 const harness = Effect.fnUntraced(function* (opts: FakeAgentOpts = {}, ids: readonly string[] = ['s1']) {
   sent.length = 0;
+  analytics.events.length = 0;
   const calls: string[] = [];
   yield* installFakeAgent(calls, opts);
   const registry = yield* freshRegistry;
@@ -166,6 +172,26 @@ layer(hostLayer)('Send', layeredIt => {
   refused('when Bootstrap is not usable, even for an active Session', registry => {
     setPhase(registry, CODEX, 'initialized');
   });
+
+  layeredIt.effect('a Send captures prompt_sent with the launch target and attachment count, never the text', () =>
+    Effect.gen(function* () {
+      const h = yield* harness();
+      yield* send(h.registry, 'CANARY-prompt-text');
+      assert.deepStrictEqual(summarize(analytics.events), [
+        { name: 'prompt_sent', properties: { attachment_count: 0, launch_target: CODEX } },
+      ]);
+      assert.notInclude(JSON.stringify(summarize(analytics.events)), 'CANARY');
+    }).pipe(Effect.scoped),
+  );
+
+  layeredIt.effect('a refused Send captures no event', () =>
+    Effect.gen(function* () {
+      const h = yield* harness();
+      patch(h.registry, 's1', { pendingClientRequest: 'prompt' });
+      yield* Effect.flip(send(h.registry));
+      assert.deepStrictEqual(analytics.events, []);
+    }).pipe(Effect.scoped),
+  );
 
   layeredIt.effect('a session failure in the prompt response is a row, deduped by id and revision', () =>
     Effect.gen(function* () {

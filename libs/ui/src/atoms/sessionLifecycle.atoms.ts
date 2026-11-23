@@ -6,6 +6,15 @@
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
+import {
+  projectTrackingStopped,
+  sessionArchived,
+  sessionDeleted,
+  sessionForked,
+  sessionRenamed,
+  sessionUnarchived,
+} from '../analytics/catalog.ts';
+import { trackEvent } from '../analytics/trackEvent.ts';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { SessionTarget } from '../host/projectSessions.ts';
 
@@ -47,7 +56,10 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, restartBack
 
   const forkSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget & { readonly cwd: string }, get: Atom.FnContext) =>
-      forkSession(get.registry, arg).pipe(rootSpan('forkSessionAtomFn', arg)),
+      forkSession(get.registry, arg).pipe(
+        trackEvent(sessionForked(arg.launchTarget)),
+        rootSpan('forkSessionAtomFn', arg),
+      ),
     )
     .pipe(Atom.keepAlive);
 
@@ -66,19 +78,28 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, restartBack
 
   const stopTrackingProjectAtomFn = atomRuntime
     .fn((cwd: string, get: Atom.FnContext) =>
-      stopTrackingProject(get.registry, cwd).pipe(rootSpan('stopTrackingProjectAtomFn')),
+      stopTrackingProject(get.registry, cwd).pipe(
+        trackEvent(projectTrackingStopped()),
+        rootSpan('stopTrackingProjectAtomFn'),
+      ),
     )
     .pipe(Atom.keepAlive);
 
   const archiveSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget, get: Atom.FnContext) =>
-      archiveSession(get.registry, arg).pipe(rootSpan('archiveSessionAtomFn', arg)),
+      archiveSession(get.registry, arg).pipe(
+        trackEvent(sessionArchived(arg.launchTarget)),
+        rootSpan('archiveSessionAtomFn', arg),
+      ),
     )
     .pipe(Atom.keepAlive);
 
   const unarchiveSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget, get: Atom.FnContext) =>
-      unarchiveSession(get.registry, arg).pipe(rootSpan('unarchiveSessionAtomFn', arg)),
+      unarchiveSession(get.registry, arg).pipe(
+        trackEvent(sessionUnarchived(arg.launchTarget)),
+        rootSpan('unarchiveSessionAtomFn', arg),
+      ),
     )
     .pipe(Atom.keepAlive);
 
@@ -96,14 +117,20 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, restartBack
 
   const renameSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget & { readonly title: string }, get: Atom.FnContext) =>
-      renameSession(get.registry, arg).pipe(rootSpan('renameSessionAtomFn', arg)),
+      renameSession(get.registry, arg).pipe(
+        trackEvent(sessionRenamed(arg.launchTarget)),
+        rootSpan('renameSessionAtomFn', arg),
+      ),
     )
     .pipe(Atom.keepAlive);
 
   const deleteSessionAtomFn = atomRuntime
     .fn(
       (arg: SessionTarget, get: Atom.FnContext) =>
-        deleteSession(get.registry, arg).pipe(rootSpan('deleteSessionAtomFn', arg)),
+        deleteSession(get.registry, arg).pipe(
+          trackEvent(sessionDeleted(arg.launchTarget)),
+          rootSpan('deleteSessionAtomFn', arg),
+        ),
       // Callers do not await the RPC, so a later Delete must not interrupt an earlier one still in flight.
       { concurrent: true },
     )

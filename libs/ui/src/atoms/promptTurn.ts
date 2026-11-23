@@ -42,6 +42,8 @@ import type { AcpError, SessionFailure, StopReason } from '@libs/effect-acp';
 import { Clock, Effect, Exit, Option, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
+import { promptSent } from '../analytics/catalog.ts';
+import { captureEvent } from '../analytics/trackEvent.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ComposerAction } from '../host/composerAction.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
@@ -200,6 +202,12 @@ export const sendPromptTurn = Effect.fn('sendPromptTurn')(function* (registry: R
       return yield* restore(
         runPrompt(registry, { attachments, launchTarget, sessionId, text }, input.notifyTurnEnd !== false),
       ).pipe(
+        // Counted once the prompt was accepted (a Rejected prompt is not a sent one). Never the text.
+        Effect.tap(result =>
+          result._tag === 'Rejected'
+            ? Effect.void
+            : captureEvent(promptSent({ attachmentCount: attachments.length, launchTarget })),
+        ),
         Effect.onExit(exit =>
           Effect.flatMap(Clock.currentTimeMillis, endedAt =>
             Effect.sync(() => {

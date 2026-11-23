@@ -304,7 +304,11 @@ describe('startSpawnedSubagent', () => {
       const release = Deferred.makeUnsafe<null>();
       const h = yield* setup({
         duringPrompt: Effect.suspend(() => {
-          h.childFold.onPermissionRequest(CHILD, {} as PendingPermission['request'], () => undefined);
+          h.childFold.onPermissionRequest(
+            CHILD,
+            { options: [] } as unknown as PendingPermission['request'],
+            () => undefined,
+          );
           return Deferred.await(release);
         }),
       });
@@ -326,7 +330,7 @@ describe('a Spawned subagent session pending interaction', () => {
     const answers: unknown[] = [];
     const h = yield* setup({
       duringPrompt: Effect.suspend(() => {
-        h.childFold.onPermissionRequest(CHILD, {} as PendingPermission['request'], response => {
+        h.childFold.onPermissionRequest(CHILD, { options: [] } as unknown as PendingPermission['request'], response => {
           answers.push(response);
         });
         return Deferred.await(release);

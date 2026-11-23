@@ -46,6 +46,8 @@ import { bindSession, dropSession, dropSessionIfPresent } from '../host/harnessS
 import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { createSession, deleteSession } from '../host/sessionRpc.ts';
+import { sessionCreated } from '../analytics/catalog.ts';
+import { captureEvent } from '../analytics/trackEvent.ts';
 
 import {
   backendHarnessSnapshotAtom,
@@ -666,6 +668,7 @@ const materialize = Effect.fn('materialize')(
     if (registry.get(selectedAtom)?._tag === 'Virtual') {
       registry.set(selectedAtom, { _tag: 'Session', sessionId });
     }
+    yield* captureEvent(sessionCreated(launchTarget));
     return { attachments, draft, launchTarget, sessionId } satisfies MaterializedVirtual;
   },
   (effect, registry) =>

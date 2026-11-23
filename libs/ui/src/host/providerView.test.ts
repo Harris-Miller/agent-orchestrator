@@ -2,8 +2,11 @@ import { assert, describe, it } from '@effect/vitest';
 
 import {
   authFromHarness,
+  isRuntimeJobIdle,
   isSwitchingJob,
   overallStatus,
+  providersToCheckForUpdates,
+  providerUpdates,
   readyToInstallVersion,
   STATUS_META,
   unavailableReason,
@@ -135,11 +138,45 @@ describe('per-status decisions', () => {
     ]);
   });
 
+  it('treats only Idle and Failed jobs as idle', () => {
+    assert.isTrue(isRuntimeJobIdle({ _tag: 'Idle' }));
+    assert.isTrue(isRuntimeJobIdle({ _tag: 'Failed', detail: 'boom', message: 'boom' }));
+    assert.isFalse(isRuntimeJobIdle({ _tag: 'Downloading', version: '2.0.0' }));
+    assert.isFalse(isRuntimeJobIdle({ _tag: 'Removing' }));
+  });
+
   it('treats Installing and Removing as switching runtimes', () => {
     assert.isTrue(isSwitchingJob({ _tag: 'Installing', version: '2.0.0' }));
     assert.isTrue(isSwitchingJob({ _tag: 'Removing' }));
     assert.isFalse(isSwitchingJob({ _tag: 'Idle' }));
     assert.isFalse(isSwitchingJob({ _tag: 'Downloading', version: '2.0.0' }));
     assert.isFalse(isSwitchingJob({ _tag: 'Failed', detail: 'boom', message: 'boom' }));
+  });
+});
+
+describe('provider updates', () => {
+  it('reports Available and downloaded versions, skipping disabled and runtime-less providers', () => {
+    const views = [
+      view({ runtime: runtime({ latest: { _tag: 'Available', version: '2.0.0' } }) }),
+      view({ id: 'codex-acp', runtime: runtime({ downloaded: ['0.5.0'] }) }),
+      view({ id: 'antigravity-acp', enabled: false, runtime: runtime({ downloaded: ['9.0.0'] }) }),
+      view({ id: 'cursor-acp', runtime: undefined }),
+      view({ id: 'codex-acp', runtime: runtime({ active: undefined, downloaded: ['1.0.0'] }) }),
+      view({ id: 'claude-agent-acp', runtime: runtime({ latest: { _tag: 'UpToDate' } }) }),
+    ];
+    assert.deepStrictEqual(providerUpdates(views), [
+      { id: 'claude-agent-acp', version: '2.0.0' },
+      { id: 'codex-acp', version: '0.5.0' },
+    ]);
+  });
+
+  it('checks only enabled, idle, active-runtime providers that are not already checking', () => {
+    const views = [
+      view(),
+      view({ id: 'codex-acp', runtime: runtime({ latest: { _tag: 'Checking' } }) }),
+      view({ id: 'antigravity-acp', runtime: runtime({ job: { _tag: 'Installing', version: '1' } }) }),
+      view({ id: 'cursor-acp', runtime: undefined }),
+    ];
+    assert.deepStrictEqual(providersToCheckForUpdates(views), ['claude-agent-acp']);
   });
 });

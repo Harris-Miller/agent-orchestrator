@@ -16,6 +16,7 @@ import { showProvidersOnStartupAtom } from '../../atoms/boundHarnessAtoms.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import {
   activeVersionLabel,
+  isRuntimeJobIdle,
   overallStatus,
   PROVIDER_META,
   readyToInstallVersion,
@@ -166,7 +167,7 @@ const ProviderDetail: FC<{ readonly provider: ProviderView; readonly request: Pr
   const meta = PROVIDER_META[provider.id];
   const status = overallStatus(provider);
   const { runtime } = provider;
-  const busy = runtime !== undefined && runtime.job._tag !== 'Idle' && runtime.job._tag !== 'Failed';
+  const busy = runtime !== undefined && !isRuntimeJobIdle(runtime.job);
 
   return (
     <>

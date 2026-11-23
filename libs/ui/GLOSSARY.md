@@ -129,6 +129,10 @@ _Avoid_: backend (the running process), agent
 The downloaded program backing a Provider (see hoa-home _Provider runtime document_). Check for latest resolves the newest version without touching the running provider; Download fetches it in the background; Install switches the Active runtime (stopping the provider, bootstrapping once, then deleting superseded runtimes); Remove clears it.
 _Avoid_: adapter resource tree, bundled adapter
 
+**Provider update check**:
+A background Check for latest run after Provider bootstrap and every 6 hours for enabled managed Providers with an Active runtime. Notifies at most once per Provider version per launch, linking to Settings > Providers; never downloads or installs.
+_Avoid_: auto-update
+
 **Managed provider**:
 A Provider that has a Provider runtime (Claude, Codex, Antigravity). Cursor is not managed: it runs the Vendor CLI directly. Download, Install, Remove, and Check for latest apply only to managed providers.
 _Avoid_: Managed ACP Agent (a spawn kind, Antigravity only), bundled provider

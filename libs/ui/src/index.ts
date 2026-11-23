@@ -55,6 +55,7 @@ export * from './components/HubMount.tsx';
 export * from './components/KeepAwakeMount.tsx';
 export * from './components/LucideMuiIcon.tsx';
 export * from './components/PersistUserSettingsToast.tsx';
+export * from './components/providers/ProviderUpdateNotice.tsx';
 export * from './components/providers/ProvidersSettingsPane.tsx';
 export * from './components/providers/ProvidersStartupMount.tsx';
 export * from './components/providers/VscodeExtensionUpdateDialog.tsx';

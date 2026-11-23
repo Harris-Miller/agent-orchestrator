@@ -10,6 +10,7 @@ import { Clock, DateTime, Deferred, Effect, Exit, Schema, Stream } from 'effect'
 import { AtomRegistry } from 'effect/reactivity';
 
 import { resolveSessionCwd } from '../../host/acpSessionBootstrap.ts';
+import { PARENT_SESSION_ATTRIBUTE } from '../../host/acpTelemetry.ts';
 import type { AgentLaunchTarget, SessionRef } from '../../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { closeOnAgent } from '../../host/closeOnAgent.ts';
@@ -238,7 +239,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
       `You already have ${MAX_LIVE_CHILDREN} subagents running. Wait for one to finish (wait_subagent) before starting another.`,
     );
   }
-  const created = yield* createSession(input.launchTarget, cwd).pipe(
+  const created = yield* createSession(input.launchTarget, cwd, parent.sessionId).pipe(
     Effect.onError(() => Effect.sync(slot.release)),
     Effect.mapError(error => {
       const label = agentLaunchTargetLabel(input.launchTarget);
@@ -252,6 +253,8 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     }),
   );
   const child = { launchTarget: input.launchTarget, sessionId: created.result.sessionId } as const;
+  // The span's `acp.sessionId` is the parent's: this id completes the link, so the children of a parent are findable.
+  yield* Effect.annotateCurrentSpan('acp.childSessionId', child.sessionId);
   const link = slot.register({ child, description: input.description, task });
   // The hub connection can drop mid-setup (interrupting this handler): whatever was written is torn down then too.
   return yield* Effect.gen(function* () {
@@ -280,13 +283,23 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     );
     attach(registry, child, { projection });
 
-    const configured = yield* applySessionConfigValues(registry, child, input.configOptions);
+    const configured = yield* applySessionConfigValues(registry, child, input.configOptions).pipe(
+      Effect.annotateSpans(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
+      Effect.annotateLogs(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
+    );
     if (configured.stoppedEarly) {
       yield* abandonSpawn(registry, child);
       return yield* refuse('Could not apply the requested config options to the new subagent.');
     }
 
-    yield* Effect.forkDetach(runChildTurn(registry, { ...link, projection }, task));
+    // The turn runs in the spawn's trace, but an attribute is what a query can filter on: it ties the child's turn
+    // back to the parent session (ids only), also when both run on one launch target and `acp.agent` is the same.
+    yield* Effect.forkDetach(
+      runChildTurn(registry, { ...link, projection }, task).pipe(
+        Effect.annotateSpans(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
+        Effect.annotateLogs(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
+      ),
+    );
     return { childSessionId: child.sessionId, outcome: link.outcome };
   }).pipe(
     Effect.onExit(exit =>
@@ -296,7 +309,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
 });
 
 /** A child ends with its parent: cancelled, its turn cancelled and its session closed (never deleted), the link removed. */
-const endChild = Effect.fnUntraced(function* (registry: Registry, link: SpawnedLink, why: string) {
+const endChildWork = Effect.fnUntraced(function* (registry: Registry, link: SpawnedLink, why: string) {
   const child = { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId };
   // Settled first, so the mirror reads cancelled rather than whatever the cancelled turn reports; a finished child keeps its state.
   settleLink(registry, link, { status: 'cancelled', text: why }, 'cancelled');
@@ -306,6 +319,12 @@ const endChild = Effect.fnUntraced(function* (registry: Registry, link: SpawnedL
   updateHarnessSnapshot(registry, child.launchTarget, current => markSessionInactive(current, child.sessionId));
   yield* endLink(registry, child);
 });
+
+const endChild = (registry: Registry, link: SpawnedLink, why: string) =>
+  endChildWork(registry, link, why).pipe(
+    Effect.annotateSpans(PARENT_SESSION_ATTRIBUTE, link.parentSessionId),
+    Effect.annotateLogs(PARENT_SESSION_ATTRIBUTE, link.parentSessionId),
+  );
 
 /** The parent session was closed or deleted: every child it started ends with it. */
 export const endSpawnedChildren = Effect.fnUntraced(function* (registry: Registry, parent: SessionRef) {

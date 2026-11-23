@@ -4,6 +4,7 @@
  * session RPCs, and serves the tool calls the hub routes here. Reconnects (and restarts the hub) when the socket drops,
  * re-registering every credential it owns, so a hub crash only fails the calls in flight.
  */
+import { appSessionId } from '@lib/context-services';
 import { resolveHome } from '@lib/hoa-home';
 import {
   clientsQuery,
@@ -144,7 +145,7 @@ const ensureHub = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>) 
 /** One connection: connect, install, serve until the socket drops (always ends in `HubUnavailable`). */
 const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>) {
   const discovery = yield* ensureHub(options);
-  const url = `ws://${HUB_HOST}:${options.port}/clients?${clientsQuery({ clientKind: options.clientKind, secret: discovery.secret })}`;
+  const url = `ws://${HUB_HOST}:${options.port}/clients?${clientsQuery({ appSessionId, clientKind: options.clientKind, secret: discovery.secret })}`;
   const socket = yield* Socket.makeWebSocket(url).pipe(Effect.provide(Socket.layerWebSocketConstructorGlobal));
   // The reader dials and waits for open; the writer is only usable after that.
   const pull = yield* Socket.readerString(socket).pipe(
@@ -162,7 +163,14 @@ const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>
   /** token → the hub's answer to its `register`. */
   const answers = new Map<string, Deferred.Deferred<boolean>>();
   const hub: HubConnection = {
-    bind: (token, launchTarget, sessionId) => send({ launchTarget, sessionId, token, type: 'bind' }),
+    bind: (token, launchTarget, sessionId, parentSessionId) =>
+      send({
+        launchTarget,
+        ...(parentSessionId === undefined ? {} : { parentSessionId }),
+        sessionId,
+        token,
+        type: 'bind',
+      }),
     mcpUrl: `http://${HUB_HOST}:${options.port}/mcp`,
     register: token =>
       Effect.gen(function* () {
@@ -205,7 +213,7 @@ const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>
     if (accepted) {
       restoring.delete(token);
       if (credential.sessionId !== undefined) {
-        yield* hub.bind(token, credential.launchTarget, credential.sessionId);
+        yield* hub.bind(token, credential.launchTarget, credential.sessionId, credential.parentSessionId);
       }
       return;
     }

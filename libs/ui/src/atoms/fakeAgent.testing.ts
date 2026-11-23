@@ -300,7 +300,12 @@ export const installFakeHub = (calls: string[], options: { readonly accept?: boo
       }),
     );
     yield* installHub({
-      bind: (_token, launchTarget, sessionId) => Effect.sync(() => calls.push(`bind:${launchTarget}:${sessionId}`)),
+      bind: (_token, launchTarget, sessionId, parentSessionId) =>
+        Effect.sync(() =>
+          calls.push(
+            `bind:${launchTarget}:${sessionId}${parentSessionId === undefined ? '' : `:parent=${parentSessionId}`}`,
+          ),
+        ),
       mcpUrl: 'http://hub.test/mcp',
       register: () => Effect.sync(() => calls.push('register') > 0 && options.accept !== false),
       revoke: () => Effect.sync(() => calls.push('revoke')),

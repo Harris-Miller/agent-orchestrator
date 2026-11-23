@@ -9,7 +9,7 @@ import { OS } from '@lib/context-services';
 import { runHubProcess, startHub as startHubServer } from '@lib/hub';
 import { PROTOCOL_VERSION } from '@lib/hub/protocol';
 import { mcpCallTool, mcpInitialize } from '@lib/hub/testing';
-import { Deferred, Effect, Exit, Layer, Scope } from 'effect';
+import { Deferred, Effect, Exit, Layer, Scope, Tracer } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -79,13 +79,14 @@ const waitFor = (predicate: (availability: HubAvailability) => boolean) =>
 const isAvailable = (availability: HubAvailability) => availability._tag === 'available';
 
 /** Create a Codex session through the real RPC; the agent's view of its hub credential. */
-const sessionWithCredential = Effect.gen(function* () {
-  const received: McpReceived[] = [];
-  yield* installFakeAgent([], { mcp: { received } });
-  const { result } = yield* createSession('codex-acp', '/w');
-  const [server] = received[0].servers as readonly { url: string }[];
-  return { sessionId: result.sessionId, token: bearerOf(received[0].servers), url: server.url };
-});
+const sessionWithCredential = (parentSessionId?: string) =>
+  Effect.gen(function* () {
+    const received: McpReceived[] = [];
+    yield* installFakeAgent([], { mcp: { received } });
+    const { result } = yield* createSession('codex-acp', '/w', parentSessionId);
+    const [server] = received[0].servers as readonly { url: string }[];
+    return { sessionId: result.sessionId, token: bearerOf(received[0].servers), url: server.url };
+  });
 
 /** The agent calls `submit_handoff` over MCP while a Handoff waits; resolves to the document the Harness received. */
 const agentSubmitsHandoff = (url: string, token: string, sessionId: string, document: string) =>
@@ -122,7 +123,7 @@ describe('hub client + hub', () => {
       yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, registry, startHub }));
       yield* waitFor(isAvailable);
 
-      const { sessionId, token, url } = yield* sessionWithCredential;
+      const { sessionId, token, url } = yield* sessionWithCredential();
       assert.strictEqual(url, `http://127.0.0.1:${port}/mcp`);
       assert.strictEqual(yield* agentSubmitsHandoff(url, token, sessionId, 'end to end plan'), 'end to end plan');
     }).pipe(Effect.scoped, Effect.provide(homeLayer(home)));
@@ -130,6 +131,18 @@ describe('hub client + hub', () => {
 
   it.live('survives a hub restart: existing credentials are re-registered and route again', () => {
     const home = mkdtempSync(join(tmpdir(), 'hoa-e2e-'));
+    // The hub runs in this process, so its spans land here: a Spawned subagent session's parent must survive the restart.
+    const hubSpans: Tracer.NativeSpan[] = [];
+    const tracerLive = Layer.succeed(
+      Tracer.Tracer,
+      Tracer.make({
+        span: options => {
+          const span = new Tracer.NativeSpan(options);
+          hubSpans.push(span);
+          return span;
+        },
+      }),
+    );
     return Effect.gen(function* () {
       yield* Effect.addFinalizer(() => reset);
       const port = yield* freePort;
@@ -141,7 +154,7 @@ describe('hub client + hub', () => {
 
       yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, registry, startHub }));
       yield* waitFor(isAvailable);
-      const { sessionId, token, url } = yield* sessionWithCredential;
+      const { sessionId, token, url } = yield* sessionWithCredential('parent-1');
 
       // The hub dies; the client notices, starts a new one on the same port and re-registers the session's token.
       const seen: HubAvailability['_tag'][] = [];
@@ -156,7 +169,10 @@ describe('hub client + hub', () => {
       );
 
       assert.strictEqual(yield* agentSubmitsHandoff(url, token, sessionId, 'after restart'), 'after restart');
-    }).pipe(Effect.scoped, Effect.provide(homeLayer(home)));
+      const restartedCall = hubSpans.filter(span => span.name === 'hub.toolCall').at(-1);
+      assert.strictEqual(restartedCall?.attributes.get('acp.sessionId'), sessionId);
+      assert.strictEqual(restartedCall?.attributes.get('acp.parentSessionId'), 'parent-1');
+    }).pipe(Effect.scoped, Effect.provide(homeLayer(home)), Effect.provide(tracerLive));
   });
 
   it.live("ignores a crashed hub's leftover discovery file and connects to the hub it started", () => {

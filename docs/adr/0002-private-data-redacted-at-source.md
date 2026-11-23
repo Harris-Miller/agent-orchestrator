@@ -16,4 +16,5 @@
 
 - The dev console redacts too. There is one rule, with no Build target branching.
 - The developer panel's RPC wire log is not telemetry: it shows the raw traffic in memory, credentials masked.
+- Hub signals follow the same rule: allowlisted span and log attributes only (tool name, client kind, app session id, ACP session id and launch target), never tool args, results or tokens; a test plants a canary through a tool call and asserts it reaches no span or log.
 - Known gaps, deferred: every `PlatformError` names the path it failed on, including those built by this repo's Tauri `FileSystemLive` (fixing that drops the path from all filesystem debugging); errors raised by the Tauri opener or VS Code can name the URL in their own message; npm's stderr copied into provider-runtime install errors can name cache or log paths. A schema decode failure of an Agent response is not a gap: Effect's `SchemaError` names the path and the expected type, never the value.

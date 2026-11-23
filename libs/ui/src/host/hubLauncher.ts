@@ -3,7 +3,7 @@
  * the launcher starts the hub detached and exits at once, so the hub is no Host's tracked child and outlives whichever
  * window started it (root ADR 0003: the exception to VS Code ADR 0003, "webview lifetime equals process lifetime").
  */
-import { BundledResource, OS } from '@lib/context-services';
+import { buildTarget, BundledResource, OS } from '@lib/context-services';
 import { defaultSettings, readUserSettings } from '@lib/hoa-home';
 import { DEFAULT_HUB_PORT } from '@lib/hub/protocol';
 import type { ClientKind } from '@lib/hub/protocol';
@@ -43,9 +43,14 @@ export const launchHub = Effect.fnUntraced(function* (port: number) {
     new HubUnavailable({ reason: 'This build does not include the HOA hub. Reinstall or rebuild the app.' });
   const launcher = yield* resources.resolve(HUB_LAUNCHER_RESOURCE).pipe(Effect.mapError(missing));
   const hub = yield* resources.resolve(HUB_RESOURCE).pipe(Effect.mapError(missing));
-  const result = yield* runCapturedProcess('node', [launcher, hub, '--port', String(port)]).pipe(
-    Effect.mapError(cannotStart),
-  );
+  const result = yield* runCapturedProcess('node', [
+    launcher,
+    hub,
+    '--port',
+    String(port),
+    '--build-target',
+    buildTarget,
+  ]).pipe(Effect.mapError(cannotStart));
   if (result.exitCode !== 0) {
     yield* Effect.logWarning('Hub launcher failed', result.exitCode, Redacted.make(result.stderr));
     return yield* cannotStart();

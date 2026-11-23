@@ -9,7 +9,12 @@ import { bearerOf, CLAUDE, CODEX, installFakeAgent, installFakeHub } from '../at
 import type { McpReceived } from '../atoms/fakeAgent.testing.ts';
 
 import { setHubAvailability } from './hubConnection.ts';
-import { beginMcp, handleHubToolCall as callHubTool, currentHubUnavailableReason } from './hubSessions.ts';
+import {
+  beginMcp,
+  handleHubToolCall as callHubTool,
+  currentHubUnavailableReason,
+  registeredTokens,
+} from './hubSessions.ts';
 import type { HubToolCall } from './hubSessions.ts';
 import { closeSession, createSession, deleteSession, forkSession, loadSession, resumeSession } from './sessionRpc.ts';
 
@@ -51,6 +56,22 @@ describe('hub MCP injection', () => {
         'register',
         'bind:codex-acp:fork-1',
       ]);
+    }),
+  );
+
+  it.effect('a Spawned subagent session binds with its parent session, and keeps it for a hub restart', () =>
+    Effect.gen(function* () {
+      const hubCalls: string[] = [];
+      yield* installFakeHub(hubCalls);
+      yield* installFakeAgent([], { mcp: { received: [] } });
+
+      yield* createSession('codex-acp', '/w', 'parent-1');
+
+      assert.deepStrictEqual(hubCalls, ['register', 'bind:codex-acp:bound-1:parent=parent-1']);
+      assert.deepStrictEqual(
+        registeredTokens().map(({ parentSessionId, sessionId }) => [sessionId, parentSessionId]),
+        [['bound-1', 'parent-1']],
+      );
     }),
   );
 

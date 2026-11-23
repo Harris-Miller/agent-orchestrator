@@ -7,11 +7,11 @@ import { NodeHttpServer } from '@effect/platform-node';
 import type { Duration, Scope } from 'effect';
 import { ByteSize, Context, Deferred, Effect, Fiber, Layer, Option, Ref, Schema } from 'effect';
 import { McpProtocol, McpServer } from 'effect/ai';
-import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { HttpMiddleware, HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Socket } from 'effect/socket';
 import { createServer } from 'node:http';
 
-import { ClientKind, ClientMessage, HUB_APP_ID, HUB_HOST, PROTOCOL_VERSION } from './protocol.ts';
+import { AppSessionId, ClientKind, ClientMessage, HUB_APP_ID, HUB_HOST, PROTOCOL_VERSION } from './protocol.ts';
 import { makeHubState } from './state.ts';
 import { forwardingHandlers, HubToolkit } from './tools.ts';
 
@@ -99,7 +99,7 @@ export const startHub = Effect.fnUntraced(function* (
       }
       case 'bind': {
         return Effect.sync(() => {
-          state.bind(clientId, message.token, message.launchTarget, message.sessionId);
+          state.bind(clientId, message.token, message.launchTarget, message.sessionId, message.parentSessionId);
         });
       }
       case 'revoke': {
@@ -115,6 +115,7 @@ export const startHub = Effect.fnUntraced(function* (
 
   const decodeClientMessage = Schema.decodeUnknownEffect(Schema.fromJsonString(ClientMessage));
   const decodeClientKind = Schema.decodeUnknownOption(ClientKind);
+  const decodeAppSessionId = Schema.decodeUnknownOption(AppSessionId);
 
   const clientsRoute = HttpRouter.add(
     'GET',
@@ -132,15 +133,23 @@ export const startHub = Effect.fnUntraced(function* (
       if (Option.isNone(kind)) {
         return HttpServerResponse.text('Unknown client kind', { status: 400 });
       }
+      const appSessionId = decodeAppSessionId(query.get('appSessionId'));
+      if (Option.isNone(appSessionId)) {
+        return HttpServerResponse.text('Bad app session id', { status: 400 });
+      }
       const socket = yield* request.upgrade;
       const write = yield* socket.writer;
       const send = (message: object) => write.write(JSON.stringify(message)).pipe(Effect.ignore);
       const clientId = state.addClient({
+        appSessionId: appSessionId.value,
         close: write.write(new Socket.CloseEvent(1001, 'hub shutting down')).pipe(Effect.ignore),
         kind: kind.value,
         send,
       });
       yield* disarmIdle;
+      yield* Effect.logInfo('Hub client connected').pipe(
+        Effect.annotateLogs({ 'app_session.id': appSessionId.value, 'hub.client.kind': kind.value }),
+      );
       yield* Effect.gen(function* () {
         const pull = yield* Socket.readerString(socket);
         while (true) {
@@ -156,6 +165,9 @@ export const startHub = Effect.fnUntraced(function* (
         Effect.ignore,
         Effect.ensuring(
           Effect.gen(function* () {
+            yield* Effect.logInfo('Hub client disconnected').pipe(
+              Effect.annotateLogs({ 'app_session.id': appSessionId.value, 'hub.client.kind': kind.value }),
+            );
             yield* state.removeClient(clientId);
             if (state.clientCount() === 0) {
               yield* armIdle;
@@ -196,7 +208,11 @@ export const startHub = Effect.fnUntraced(function* (
   const served = HttpRouter.serve(app, {
     middleware: Effect.provideService(HttpServerRequest.MaxBodySize, ByteSize.bytes(MAX_MESSAGE_BYTES)),
   });
-  const context = yield* Layer.build(served.pipe(Layer.provideMerge(serverLayer)));
+  // No automatic HTTP server span on any route (root ADR 0002 allows allowlisted attributes only): `/clients` has the hub
+  // secret in its URL, and the other routes' spans record the URL, user agent, headers and client address. The
+  // `hub.toolCall` span is the hub's tool-call trace.
+  const noHttpTracing = Layer.succeed(HttpMiddleware.TracerDisabledWhen)(() => true);
+  const context = yield* Layer.build(served.pipe(Layer.provide(noHttpTracing), Layer.provideMerge(serverLayer)));
   // Added after the server, so it runs before the server's own shutdown (finalizers run in reverse).
   yield* Effect.addFinalizer(() => state.closeAll);
   const { address } = Context.get(context, HttpServer.HttpServer);

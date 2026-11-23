@@ -11,7 +11,13 @@ export interface HubConnection {
   readonly mcpUrl: string;
   /** Resolves `true` once the hub can route `token`, `false` if it refused or never confirmed. */
   readonly register: (token: string) => Effect.Effect<boolean>;
-  readonly bind: (token: string, launchTarget: string, sessionId: string) => Effect.Effect<void>;
+  /** `parentSessionId`: set when the session is a Spawned subagent session (hub spans then link it to its parent). */
+  readonly bind: (
+    token: string,
+    launchTarget: string,
+    sessionId: string,
+    parentSessionId?: string,
+  ) => Effect.Effect<void>;
   readonly revoke: (token: string) => Effect.Effect<void>;
 }
 

@@ -154,10 +154,10 @@ export const listSessionsPage = Effect.fn('listSessionsPage')(
 );
 
 export const createSession = Effect.fn('createSession')(
-  function* (launchTarget: AgentLaunchTarget, cwd: string) {
+  function* (launchTarget: AgentLaunchTarget, cwd: string, parentSessionId?: string) {
     const { agent, mcpHttp, onConfigIndexEvent } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Creating ACP session', { cwd: Redacted.make(cwd) });
-    const mcp = yield* beginMcp(launchTarget, mcpHttp);
+    const mcp = yield* beginMcp(launchTarget, mcpHttp, parentSessionId);
     const result = yield* agent['session/new']({ cwd, ...mcp.params }).pipe(Effect.onError(() => mcp.abandon));
     yield* mcp.bind(result.sessionId);
     yield* Effect.logInfo('Created ACP session', { sessionId: result.sessionId });

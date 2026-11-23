@@ -6,7 +6,7 @@ import { Schema } from 'effect';
 
 export const HUB_APP_ID = 'agent-orchestrator-hub';
 /** Bumped on any incompatible change to `/clients` messages or tool schemas; a mismatch is refused, never half-working. */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 export const DEFAULT_HUB_PORT = 47821;
 export const HUB_HOST = '127.0.0.1';
 /** Distinctive on purpose: Codex skips injected servers whose name already exists in the user's own config. */
@@ -33,6 +33,12 @@ export type Discovery = typeof Discovery.Type;
 /** Which kind of Harness a `/clients` connection is (handshake `clientKind`); lets later tools pick a target client. */
 export const ClientKind = Schema.Literals(['desktop', 'vscode', 'test']);
 export type ClientKind = typeof ClientKind.Type;
+
+/**
+ * The connecting app instance's id (handshake `appSessionId`; not an ACP session id). Validated to a UUID-like shape
+ * because it lands on hub telemetry, which must never carry free text (root ADR 0002).
+ */
+export const AppSessionId = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9-]{1,64}$/));
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Tools. The hub advertises these to agents and forwards calls verbatim; the Harness decodes `args` with the same schema.
@@ -117,6 +123,8 @@ export const ClientMessage = Schema.Union([
   Schema.Struct({ token: Schema.String, type: Schema.Literal('register') }),
   Schema.Struct({
     launchTarget: Schema.String,
+    /** The parent's ACP `sessionId` when this session is a Spawned subagent session; lets hub spans link child to parent. */
+    parentSessionId: Schema.optionalKey(Schema.String),
     sessionId: Schema.String,
     token: Schema.String,
     type: Schema.Literal('bind'),
@@ -155,8 +163,13 @@ export const HubMessage = Schema.Union([ToolCallMessage, RegisteredMessage]);
 export type HubMessage = typeof HubMessage.Type;
 
 /** `/clients` handshake query. The secret travels in the query because browser WebSockets cannot set headers. */
-export const clientsQuery = (options: { readonly clientKind: ClientKind; readonly secret: string }): string =>
+export const clientsQuery = (options: {
+  readonly appSessionId: string;
+  readonly clientKind: ClientKind;
+  readonly secret: string;
+}): string =>
   new URLSearchParams({
+    appSessionId: options.appSessionId,
     clientKind: options.clientKind,
     protocolVersion: String(PROTOCOL_VERSION),
     secret: options.secret,

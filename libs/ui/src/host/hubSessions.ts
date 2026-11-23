@@ -23,6 +23,8 @@ const SETTLE_TIMEOUT = Duration.seconds(5);
 
 type Credential = {
   readonly launchTarget: AgentLaunchTarget;
+  /** The parent's ACP `sessionId` when this credential belongs to a Spawned subagent session. */
+  readonly parentSessionId?: string;
   /** Undefined until the session RPC responds (`session/new` has no id before that). */
   sessionId: string | undefined;
 };
@@ -93,6 +95,7 @@ export const currentHubUnavailableReason = (launchTarget: AgentLaunchTarget, ses
 /** Every credential this Harness owns, for re-registering after a hub restart. */
 export const registeredTokens = (): readonly {
   readonly launchTarget: AgentLaunchTarget;
+  readonly parentSessionId?: string;
   readonly sessionId: string | undefined;
   readonly token: string;
 }[] => [...credentials].map(([token, credential]) => ({ ...credential, token }));
@@ -171,6 +174,7 @@ const noMcp = (launchTarget: AgentLaunchTarget, reason: string): McpInjection =>
 export const beginMcp = Effect.fnUntraced(function* (
   launchTarget: AgentLaunchTarget,
   agentSupportsHttpMcp: boolean,
+  parentSessionId?: string,
 ): Effect.fn.Return<McpInjection> {
   if (!agentSupportsHttpMcp) {
     return noMcp(
@@ -186,7 +190,11 @@ export const beginMcp = Effect.fnUntraced(function* (
   }
   const token = mintToken();
   const preapproval = mcpToolPreapprovalMeta(launchTarget, MCP_SERVER_NAME, HUB_TOOL_NAMES);
-  credentials.set(token, { launchTarget, sessionId: undefined });
+  credentials.set(token, {
+    launchTarget,
+    ...(parentSessionId === undefined ? {} : { parentSessionId }),
+    sessionId: undefined,
+  });
   // The agent may dial the hub the moment its session starts, so the hub must already know the token.
   if (!(yield* hub.register(token))) {
     credentials.delete(token);
@@ -209,7 +217,7 @@ export const beginMcp = Effect.fnUntraced(function* (
         const credential = credentials.get(token);
         if (credential !== undefined) {
           credential.sessionId = sessionId;
-          yield* hub.bind(token, launchTarget, sessionId);
+          yield* hub.bind(token, launchTarget, sessionId, parentSessionId);
           setStatus(launchTarget, sessionId, { _tag: 'bound' });
         }
       }),

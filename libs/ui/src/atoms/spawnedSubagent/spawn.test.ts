@@ -5,11 +5,12 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Notifier } from '@lib/context-services';
 import type { HostServices } from '@lib/context-services';
-import { Deferred, Effect, Fiber, Layer } from 'effect';
+import { Deferred, Effect, Fiber, Layer, Logger, References, Tracer } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../../host/acpSessionBootstrap.ts';
+import { withTurnCorrelatedSpan } from '../../host/clientHandlers.ts';
 import { configOptionIndexFromProbeResponses } from '../../host/configOptionIndexFixtures.ts';
 import { getSubagent, subagentTranscriptItems } from '../../host/subagent.ts';
 import { anyPromptTurnWorking } from '../../host/turnActivity.ts';
@@ -67,13 +68,65 @@ const hostLayer = Layer.mergeAll(
   }),
 );
 
+/** Spans and log lines the Harness emitted, captured in memory (no exporter). */
+const captureTelemetry = () => {
+  const spans: Tracer.NativeSpan[] = [];
+  const logs: { readonly annotations: Record<string, unknown> }[] = [];
+  const layer = Layer.mergeAll(
+    Layer.succeed(References.MinimumLogLevel, 'All'),
+    Layer.succeed(
+      Tracer.Tracer,
+      Tracer.make({
+        span: options => {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      }),
+    ),
+    Logger.layer([
+      Logger.make(options => {
+        logs.push({ annotations: options.fiber.getRef(References.CurrentLogAnnotations) });
+      }),
+    ]),
+  );
+  return { layer, logs, spans };
+};
+
+/** Telemetry links a Spawned subagent session to its parent by ids alone, whatever launch targets they run on. */
+const assertLinkedToParent = (
+  telemetry: ReturnType<typeof captureTelemetry>,
+  ids: { readonly child: string; readonly parent: string },
+) => {
+  const attribute = (span: Tracer.NativeSpan, key: string) => span.attributes.get(key);
+  const spawn = telemetry.spans.find(span => span.name === 'startSpawnedSubagent');
+  assert.isDefined(spawn);
+  assert.strictEqual(attribute(spawn, 'acp.sessionId'), ids.parent);
+  assert.strictEqual(attribute(spawn, 'acp.childSessionId'), ids.child);
+  const childTurn = telemetry.spans.find(
+    span => span.name === 'sendPromptTurn' && attribute(span, 'acp.sessionId') === ids.child,
+  );
+  assert.isDefined(childTurn);
+  assert.strictEqual(attribute(childTurn, 'acp.parentSessionId'), ids.parent);
+  // The child's turn runs in the spawn's trace; the attribute is what a query filters on.
+  assert.strictEqual(childTurn.traceId, spawn.traceId);
+  assert.isTrue(telemetry.logs.some(log => log.annotations['acp.parentSessionId'] === ids.parent));
+  // The link points one way: spans carrying the parent's own `acp.sessionId` never name a parent of their own.
+  assert.isFalse(
+    telemetry.spans.some(
+      span => attribute(span, 'acp.sessionId') === ids.parent && attribute(span, 'acp.parentSessionId') !== undefined,
+    ),
+  );
+};
+
 /** Poll (yielding, no clock) until `condition` holds. */
 const until = (condition: () => boolean) =>
   Effect.yieldNow.pipe(Effect.repeat({ times: 200, until: () => condition() }), Effect.asVoid);
 
 const setup = Effect.fnUntraced(function* (childOpts: FakeAgentOpts = {}) {
   notified.length = 0;
-  yield* installFakeHub([]);
+  const hubCalls: string[] = [];
+  yield* installFakeHub(hubCalls);
   const registry = yield* freshRegistry;
   advertise(registry, CODEX, {});
   advertise(registry, CLAUDE, {});
@@ -113,7 +166,7 @@ const setup = Effect.fnUntraced(function* (childOpts: FakeAgentOpts = {}) {
     const { sessions } = registry.get(backendHarnessSnapshotAtom(CLAUDE));
     return CHILD in sessions ? sessions[CHILD] : undefined;
   };
-  return { childCalls, childFold, mirror, prompts, registry, root, start };
+  return { childCalls, childFold, hubCalls, mirror, prompts, registry, root, start };
 });
 
 const registryHistory = (registry: AtomRegistry.AtomRegistry) => [
@@ -159,6 +212,44 @@ describe('startSpawnedSubagent', () => {
         parent.transcript.items.map(item => item.kind),
         ['subagent'],
       );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('links the spawn and the child turn to the parent session in telemetry', () =>
+    Effect.gen(function* () {
+      const telemetry = captureTelemetry();
+      yield* Effect.gen(function* () {
+        // A span the child's turn correlates (an update or request from the Agent) is linked to the parent too.
+        const h = yield* setup({
+          duringPrompt: withTurnCorrelatedSpan('session/update', CLAUDE, CHILD, Effect.logInfo('correlated')),
+        });
+        yield* Deferred.await((yield* h.start()).outcome);
+      }).pipe(Effect.provide(telemetry.layer));
+      assertLinkedToParent(telemetry, { child: CHILD, parent: PARENT });
+      const correlated = telemetry.spans.find(span => span.name === 'session/update');
+      assert.strictEqual(correlated?.attributes.get('acp.parentSessionId'), PARENT);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('binds the child hub credential with the parent session, so hub spans link child to parent', () =>
+    Effect.gen(function* () {
+      const h = yield* setup({ mcp: { received: [] } });
+      yield* Deferred.await((yield* h.start()).outcome);
+      assert.deepStrictEqual(h.hubCalls, ['register', `bind:${CLAUDE}:${CHILD}:parent=${PARENT}`]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a spawn that fails after the child exists still names the child on the spawn span', () =>
+    Effect.gen(function* () {
+      const telemetry = captureTelemetry();
+      yield* Effect.gen(function* () {
+        const h = yield* setup({ failSetConfig: true });
+        const error = yield* Effect.flip(h.start());
+        assert.include(error.message, 'config options');
+      }).pipe(Effect.provide(telemetry.layer));
+      const spawn = telemetry.spans.find(span => span.name === 'startSpawnedSubagent');
+      assert.strictEqual(spawn?.attributes.get('acp.sessionId'), PARENT);
+      assert.strictEqual(spawn?.attributes.get('acp.childSessionId'), CHILD);
     }).pipe(Effect.scoped),
   );
 
@@ -389,14 +480,17 @@ describe('startSpawnedSubagent on the parent own launch target (#456)', () => {
           ),
         );
 
+        const telemetry = captureTelemetry();
         const started = yield* startSpawnedSubagent(registry, {
           configOptions: { model: 'o1' },
           description: 'Same',
           launchTarget: CODEX,
           parent: { launchTarget: CODEX, sessionId: SAME_PARENT },
           task: 'task',
-        }).pipe(Effect.provide(hostLayer));
+        }).pipe(Effect.provide(hostLayer), Effect.provide(telemetry.layer));
         const outcome = yield* Deferred.await(started.outcome);
+        // Same launch target, so `acp.agent` cannot tell them apart: the session ids link them.
+        assertLinkedToParent(telemetry, { child: SAME_CHILD, parent: SAME_PARENT });
 
         assert.strictEqual(started.childSessionId, SAME_CHILD);
         assert.deepStrictEqual(outcome, { status: 'completed', text: 'Same provider.' });

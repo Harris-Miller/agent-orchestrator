@@ -163,7 +163,14 @@ const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>
   /** token → the hub's answer to its `register`. */
   const answers = new Map<string, Deferred.Deferred<boolean>>();
   const hub: HubConnection = {
-    bind: (token, launchTarget, sessionId) => send({ launchTarget, sessionId, token, type: 'bind' }),
+    bind: (token, launchTarget, sessionId, parentSessionId) =>
+      send({
+        launchTarget,
+        ...(parentSessionId === undefined ? {} : { parentSessionId }),
+        sessionId,
+        token,
+        type: 'bind',
+      }),
     mcpUrl: `http://${HUB_HOST}:${options.port}/mcp`,
     register: token =>
       Effect.gen(function* () {
@@ -206,7 +213,7 @@ const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>
     if (accepted) {
       restoring.delete(token);
       if (credential.sessionId !== undefined) {
-        yield* hub.bind(token, credential.launchTarget, credential.sessionId);
+        yield* hub.bind(token, credential.launchTarget, credential.sessionId, credential.parentSessionId);
       }
       return;
     }

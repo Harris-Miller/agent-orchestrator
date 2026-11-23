@@ -99,7 +99,7 @@ export const startHub = Effect.fnUntraced(function* (
       }
       case 'bind': {
         return Effect.sync(() => {
-          state.bind(clientId, message.token, message.launchTarget, message.sessionId);
+          state.bind(clientId, message.token, message.launchTarget, message.sessionId, message.parentSessionId);
         });
       }
       case 'revoke': {

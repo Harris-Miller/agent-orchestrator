@@ -56,7 +56,14 @@ const capture = () => {
   return { layer, logs, spans };
 };
 
-const TOOL_CALL_ATTRIBUTE_ALLOWLIST = ['acp.agent', 'acp.sessionId', 'app_session.id', 'hub.client.kind', 'hub.tool'];
+const TOOL_CALL_ATTRIBUTE_ALLOWLIST = [
+  'acp.agent',
+  'acp.parentSessionId',
+  'acp.sessionId',
+  'app_session.id',
+  'hub.client.kind',
+  'hub.tool',
+];
 
 /** Every span the hub emits and its allowed attribute keys: the hub's own, plus Effect's MCP protocol spans. No HTTP server spans. */
 const MCP_SPAN_ATTRIBUTE_ALLOWLIST = [
@@ -152,6 +159,28 @@ describe('hub', () => {
         'hub.client.kind': 'test',
         'hub.tool': 'submit_handoff',
       });
+    }).pipe(Effect.scoped, Effect.provide(layer));
+  });
+
+  it.live('a Spawned subagent session names its parent session on the tool-call span, and a rebind keeps it', () => {
+    const { layer, spans } = capture();
+    return Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port, testClientQuery('app-run-1'));
+      yield* registerToken(owner, 'tok-child');
+      owner.send({
+        launchTarget: 'claude-agent-acp',
+        parentSessionId: 'acp-parent',
+        sessionId: 'acp-child',
+        token: 'tok-child',
+        type: 'bind',
+      });
+      yield* registerToken(owner, 'tok-sync');
+      yield* callHandoff(port, owner, 'tok-child', 'doc', 'ok');
+
+      const [span] = toolCallSpans(spans);
+      assert.strictEqual(span?.attributes.get('acp.sessionId'), 'acp-child');
+      assert.strictEqual(span?.attributes.get('acp.parentSessionId'), 'acp-parent');
     }).pipe(Effect.scoped, Effect.provide(layer));
   });
 

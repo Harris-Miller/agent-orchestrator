@@ -239,7 +239,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
       `You already have ${MAX_LIVE_CHILDREN} subagents running. Wait for one to finish (wait_subagent) before starting another.`,
     );
   }
-  const created = yield* createSession(input.launchTarget, cwd).pipe(
+  const created = yield* createSession(input.launchTarget, cwd, parent.sessionId).pipe(
     Effect.onError(() => Effect.sync(slot.release)),
     Effect.mapError(error => {
       const label = agentLaunchTargetLabel(input.launchTarget);

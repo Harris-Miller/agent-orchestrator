@@ -21,7 +21,7 @@ type Client = {
 type Credential = {
   readonly clientId: number;
   /** Undefined while pending: `session/new` has no id until it responds. */
-  binding: { readonly launchTarget: string; readonly sessionId: string } | undefined;
+  binding: { readonly launchTarget: string; readonly parentSessionId?: string; readonly sessionId: string } | undefined;
 };
 
 type InFlight = { readonly clientId: number; readonly reply: Deferred.Deferred<CallResult> };
@@ -76,10 +76,16 @@ export const makeHubState = () => {
       return true;
     },
 
-    bind: (clientId: number, token: string, launchTarget: string, sessionId: string): void => {
+    bind: (
+      clientId: number,
+      token: string,
+      launchTarget: string,
+      sessionId: string,
+      parentSessionId?: string,
+    ): void => {
       const credential = credentials.get(token);
       if (credential?.clientId === clientId) {
-        credential.binding = { launchTarget, sessionId };
+        credential.binding = { launchTarget, sessionId, ...(parentSessionId === undefined ? {} : { parentSessionId }) };
       }
     },
 
@@ -104,7 +110,13 @@ export const makeHubState = () => {
           ...(client === undefined ? {} : { 'app_session.id': client.appSessionId, 'hub.client.kind': client.kind }),
           ...(credential?.binding === undefined
             ? {}
-            : { 'acp.agent': credential.binding.launchTarget, 'acp.sessionId': credential.binding.sessionId }),
+            : {
+                'acp.agent': credential.binding.launchTarget,
+                'acp.sessionId': credential.binding.sessionId,
+                ...(credential.binding.parentSessionId === undefined
+                  ? {}
+                  : { 'acp.parentSessionId': credential.binding.parentSessionId }),
+              }),
         };
         const call =
           credential === undefined || client === undefined

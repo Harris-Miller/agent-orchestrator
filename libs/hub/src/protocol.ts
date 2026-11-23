@@ -123,6 +123,8 @@ export const ClientMessage = Schema.Union([
   Schema.Struct({ token: Schema.String, type: Schema.Literal('register') }),
   Schema.Struct({
     launchTarget: Schema.String,
+    /** The parent's ACP `sessionId` when this session is a Spawned subagent session; lets hub spans link child to parent. */
+    parentSessionId: Schema.optionalKey(Schema.String),
     sessionId: Schema.String,
     token: Schema.String,
     type: Schema.Literal('bind'),

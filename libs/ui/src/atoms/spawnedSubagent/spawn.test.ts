@@ -125,7 +125,8 @@ const until = (condition: () => boolean) =>
 
 const setup = Effect.fnUntraced(function* (childOpts: FakeAgentOpts = {}) {
   notified.length = 0;
-  yield* installFakeHub([]);
+  const hubCalls: string[] = [];
+  yield* installFakeHub(hubCalls);
   const registry = yield* freshRegistry;
   advertise(registry, CODEX, {});
   advertise(registry, CLAUDE, {});
@@ -165,7 +166,7 @@ const setup = Effect.fnUntraced(function* (childOpts: FakeAgentOpts = {}) {
     const { sessions } = registry.get(backendHarnessSnapshotAtom(CLAUDE));
     return CHILD in sessions ? sessions[CHILD] : undefined;
   };
-  return { childCalls, childFold, mirror, prompts, registry, root, start };
+  return { childCalls, childFold, hubCalls, mirror, prompts, registry, root, start };
 });
 
 const registryHistory = (registry: AtomRegistry.AtomRegistry) => [
@@ -227,6 +228,14 @@ describe('startSpawnedSubagent', () => {
       assertLinkedToParent(telemetry, { child: CHILD, parent: PARENT });
       const correlated = telemetry.spans.find(span => span.name === 'session/update');
       assert.strictEqual(correlated?.attributes.get('acp.parentSessionId'), PARENT);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('binds the child hub credential with the parent session, so hub spans link child to parent', () =>
+    Effect.gen(function* () {
+      const h = yield* setup({ mcp: { received: [] } });
+      yield* Deferred.await((yield* h.start()).outcome);
+      assert.deepStrictEqual(h.hubCalls, ['register', `bind:${CLAUDE}:${CHILD}:parent=${PARENT}`]);
     }).pipe(Effect.scoped),
   );
 

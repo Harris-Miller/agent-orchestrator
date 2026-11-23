@@ -6,6 +6,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Schedule, Schema } from 'effect';
 import { execFileSync } from 'node:child_process';
+import type { Server } from 'node:http';
 import { createServer } from 'node:http';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -96,30 +97,45 @@ describe('hub bundles', () => {
   it.live('a prod-target hub exports nothing, even with an OTLP endpoint in its environment', () =>
     Effect.gen(function* () {
       const requests: string[] = [];
-      const collector = createServer((request, response) => {
-        requests.push(request.url ?? '');
-        response.end();
-      });
-      yield* Effect.promise(
-        () =>
-          new Promise<void>(done => {
-            collector.listen(0, '127.0.0.1', done);
-          }),
+      const collector = yield* Effect.acquireRelease(
+        Effect.promise(
+          () =>
+            new Promise<Server>(done => {
+              const server = createServer((request, response) => {
+                requests.push(request.url ?? '');
+                response.end();
+              });
+              server.listen(0, '127.0.0.1', () => {
+                done(server);
+              });
+            }),
+        ),
+        server =>
+          Effect.promise(
+            () =>
+              new Promise<void>(done => {
+                server.close(() => {
+                  done();
+                });
+                server.closeAllConnections();
+              }),
+          ),
       );
       const address = collector.address();
-      const collectorPort = typeof address === 'object' && address !== null ? address.port : 0;
+      if (typeof address !== 'object' || address === null) {
+        return yield* Effect.die(new Error('fake collector has no port'));
+      }
       const home = mkdtempSync(join(tmpdir(), 'hoa-hub-bundle-'));
       yield* launch(home, ['--build-target', 'prod'], {
-        OTEL_EXPORTER_OTLP_ENDPOINT: `http://127.0.0.1:${collectorPort}`,
+        OTEL_EXPORTER_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
       });
       const discovery = yield* readDiscovery(home);
       yield* Effect.promise(() => fetch(`http://127.0.0.1:${discovery.port}/health`));
+      // An exiting hub flushes any pending export, so once it is gone the collector has seen everything it will.
       yield* eventually(() => {
         assert.isFalse(isAlive(discovery.pid));
       });
-      yield* Effect.sleep('300 millis');
-      collector.close();
       assert.deepStrictEqual(requests, []);
-    }),
+    }).pipe(Effect.scoped),
   );
 });

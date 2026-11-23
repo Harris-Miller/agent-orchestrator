@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { startHub } from './hub.ts';
+import { makeHubState } from './state.ts';
 import { runHubProcess } from './hubProcess.ts';
 import { clientsQuery, HUB_APP_ID, HUB_TOOL_NAMES, MAX_HANDOFF_DOCUMENT_CHARS, PROTOCOL_VERSION } from './protocol.ts';
 import type { TestClient } from './testing.ts';
@@ -56,6 +57,25 @@ const capture = () => {
 };
 
 const TOOL_CALL_ATTRIBUTE_ALLOWLIST = ['acp.agent', 'acp.sessionId', 'app_session.id', 'hub.client.kind', 'hub.tool'];
+
+/** Every span the hub emits and its allowed attribute keys: the hub's own, plus Effect's MCP protocol spans. No HTTP server spans. */
+const MCP_SPAN_ATTRIBUTE_ALLOWLIST = [
+  'gen_ai.operation.name',
+  'gen_ai.tool.name',
+  'jsonrpc.request.id',
+  'mcp.method.name',
+  'mcp.protocol.version',
+  'mcp.session.id',
+  'network.transport',
+  'rpc.method',
+  'rpc.system.name',
+];
+const allowedSpanKeys = (name: string): readonly string[] | undefined =>
+  name === 'hub.toolCall'
+    ? TOOL_CALL_ATTRIBUTE_ALLOWLIST
+    : name === 'initialize' || name.startsWith('tools/call ') || name.startsWith('McpServer/Notifications.')
+      ? MCP_SPAN_ATTRIBUTE_ALLOWLIST
+      : undefined;
 
 /** Call `submit_handoff` as `token` through `owner` and answer it with `resultText`. */
 const callHandoff = Effect.fnUntraced(function* (
@@ -149,6 +169,16 @@ describe('hub', () => {
     }).pipe(Effect.scoped, Effect.provide(layer));
   });
 
+  it.live('a call for a token whose owner is gone still produces a hub.toolCall span with the tool', () => {
+    const { layer, spans } = capture();
+    return Effect.gen(function* () {
+      const result = yield* makeHubState().route('no-such-token', 'submit_handoff', {});
+      assert.isTrue(result.isError);
+      const [span] = toolCallSpans(spans);
+      assert.deepStrictEqual(Object.fromEntries(span?.attributes ?? []), { 'hub.tool': 'submit_handoff' });
+    }).pipe(Effect.provide(layer));
+  });
+
   it.live('each call span carries its own owner’s app session id', () => {
     const { layer, spans } = capture();
     return Effect.gen(function* () {
@@ -184,11 +214,12 @@ describe('hub', () => {
       owner.close();
       yield* Effect.sleep('100 millis');
 
-      const calls = toolCallSpans(spans);
-      assert.isAbove(calls.length, 0);
-      for (const span of calls) {
+      assert.isAbove(toolCallSpans(spans).length, 0);
+      for (const span of spans) {
+        const allowed = allowedSpanKeys(span.name);
+        assert.isDefined(allowed, `unexpected span ${span.name}`);
         for (const key of span.attributes.keys()) {
-          assert.include(TOOL_CALL_ATTRIBUTE_ALLOWLIST, key);
+          assert.include(allowed, key);
         }
       }
       const everything = JSON.stringify({

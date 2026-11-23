@@ -208,12 +208,11 @@ export const startHub = Effect.fnUntraced(function* (
   const served = HttpRouter.serve(app, {
     middleware: Effect.provideService(HttpServerRequest.MaxBodySize, ByteSize.bytes(MAX_MESSAGE_BYTES)),
   });
-  // The `/clients` handshake carries the hub secret in its query, which the server's request span would export as
-  // `url.full` (root ADR 0002), so that route is not traced.
-  const noClientsTracing = Layer.succeed(HttpMiddleware.TracerDisabledWhen)(request =>
-    request.url.startsWith('/clients'),
-  );
-  const context = yield* Layer.build(served.pipe(Layer.provide(noClientsTracing), Layer.provideMerge(serverLayer)));
+  // No automatic HTTP server span on any route (root ADR 0002 allows allowlisted attributes only): `/clients` has the hub
+  // secret in its URL, and the other routes' spans record the URL, user agent, headers and client address. The
+  // `hub.toolCall` span is the hub's tool-call trace.
+  const noHttpTracing = Layer.succeed(HttpMiddleware.TracerDisabledWhen)(() => true);
+  const context = yield* Layer.build(served.pipe(Layer.provide(noHttpTracing), Layer.provideMerge(serverLayer)));
   // Added after the server, so it runs before the server's own shutdown (finalizers run in reverse).
   yield* Effect.addFinalizer(() => state.closeAll);
   const { address } = Context.get(context, HttpServer.HttpServer);

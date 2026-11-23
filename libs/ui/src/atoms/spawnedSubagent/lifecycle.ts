@@ -10,6 +10,7 @@ import { Clock, DateTime, Deferred, Effect, Exit, Schema, Stream } from 'effect'
 import { AtomRegistry } from 'effect/reactivity';
 
 import { resolveSessionCwd } from '../../host/acpSessionBootstrap.ts';
+import { PARENT_SESSION_ATTRIBUTE } from '../../host/acpTelemetry.ts';
 import type { AgentLaunchTarget, SessionRef } from '../../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { closeOnAgent } from '../../host/closeOnAgent.ts';
@@ -160,9 +161,6 @@ const outcomeOfTurn = (registry: Registry, link: SpawnedLink, result: PromptTurn
   };
 };
 
-/** Span attribute and log annotation naming a Spawned subagent session's parent (its ACP `sessionId`). */
-const PARENT_SESSION_ATTRIBUTE = 'acp.parentSessionId';
-
 /** The child's one Prompt turn, to its outcome. Never fails: a turn that cannot run is a `failed` outcome. */
 const runChildTurn = Effect.fnUntraced(function* (registry: Registry, link: SpawnedLink, task: string) {
   const exit = yield* Effect.exit(
@@ -291,8 +289,8 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
       return yield* refuse('Could not apply the requested config options to the new subagent.');
     }
 
-    // The child's turn is its own trace; this attribute is what ties it back to the parent session (ids only), also
-    // when both run on one launch target and `acp.agent` is the same.
+    // The turn runs in the spawn's trace, but an attribute is what a query can filter on: it ties the child's turn
+    // back to the parent session (ids only), also when both run on one launch target and `acp.agent` is the same.
     yield* Effect.forkDetach(
       runChildTurn(registry, { ...link, projection }, task).pipe(
         Effect.annotateSpans(PARENT_SESSION_ATTRIBUTE, parent.sessionId),

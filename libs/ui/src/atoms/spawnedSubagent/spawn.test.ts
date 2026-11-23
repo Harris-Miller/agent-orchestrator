@@ -10,6 +10,7 @@ import type { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../../host/acpSessionBootstrap.ts';
+import { withTurnCorrelatedSpan } from '../../host/clientHandlers.ts';
 import { configOptionIndexFromProbeResponses } from '../../host/configOptionIndexFixtures.ts';
 import { getSubagent, subagentTranscriptItems } from '../../host/subagent.ts';
 import { anyPromptTurnWorking } from '../../host/turnActivity.ts';
@@ -107,8 +108,10 @@ const assertLinkedToParent = (
   );
   assert.isDefined(childTurn);
   assert.strictEqual(attribute(childTurn, 'acp.parentSessionId'), ids.parent);
+  // The child's turn runs in the spawn's trace; the attribute is what a query filters on.
+  assert.strictEqual(childTurn.traceId, spawn.traceId);
   assert.isTrue(telemetry.logs.some(log => log.annotations['acp.parentSessionId'] === ids.parent));
-  // Only the child's work carries the link: no span names the child as its own parent.
+  // The link points one way: spans carrying the parent's own `acp.sessionId` never name a parent of their own.
   assert.isFalse(
     telemetry.spans.some(
       span => attribute(span, 'acp.sessionId') === ids.parent && attribute(span, 'acp.parentSessionId') !== undefined,
@@ -215,10 +218,15 @@ describe('startSpawnedSubagent', () => {
     Effect.gen(function* () {
       const telemetry = captureTelemetry();
       yield* Effect.gen(function* () {
-        const h = yield* setup();
+        // A span the child's turn correlates (an update or request from the Agent) is linked to the parent too.
+        const h = yield* setup({
+          duringPrompt: withTurnCorrelatedSpan('session/update', CLAUDE, CHILD, Effect.logInfo('correlated')),
+        });
         yield* Deferred.await((yield* h.start()).outcome);
       }).pipe(Effect.provide(telemetry.layer));
       assertLinkedToParent(telemetry, { child: CHILD, parent: PARENT });
+      const correlated = telemetry.spans.find(span => span.name === 'session/update');
+      assert.strictEqual(correlated?.attributes.get('acp.parentSessionId'), PARENT);
     }).pipe(Effect.scoped),
   );
 

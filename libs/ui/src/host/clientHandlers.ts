@@ -9,10 +9,11 @@ import type {
   RequestPermissionRequest,
   RequestPermissionResponse,
 } from '@libs/effect-acp';
-import { Clock, Effect } from 'effect';
+import { Clock, Effect, identity } from 'effect';
 
 import {
   elicitationTelemetry,
+  PARENT_SESSION_ATTRIBUTE,
   permissionTelemetry,
   sessionUpdateTelemetry,
   summarizeSessionUpdate,
@@ -35,17 +36,29 @@ export type ClientHandlerCallbacks = {
   ) => void;
 };
 
-const withTurnCorrelatedSpan = <A, E, R>(
+export const withTurnCorrelatedSpan = <A, E, R>(
   name: string,
   launchTarget: AgentLaunchTarget,
   sessionId: string | undefined,
   effect: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R> => {
   const parent = sessionId !== undefined ? getPromptTurn(launchTarget, sessionId)?.span : undefined;
+  // A Spawned subagent session's turn names its parent session; the spans and logs it correlates carry it too.
+  const parentSessionId =
+    parent !== undefined && 'attributes' in parent ? parent.attributes.get(PARENT_SESSION_ATTRIBUTE) : undefined;
   return effect.pipe(
+    parentSessionId === undefined ? identity : Effect.annotateLogs(PARENT_SESSION_ATTRIBUTE, parentSessionId),
     Effect.withSpan(name, {
       ...(parent !== undefined ? { parent } : { root: true }),
-      ...(sessionId !== undefined ? { attributes: { 'acp.agent': launchTarget, 'acp.sessionId': sessionId } } : {}),
+      ...(sessionId !== undefined
+        ? {
+            attributes: {
+              'acp.agent': launchTarget,
+              'acp.sessionId': sessionId,
+              ...(parentSessionId === undefined ? {} : { [PARENT_SESSION_ATTRIBUTE]: parentSessionId }),
+            },
+          }
+        : {}),
     }),
   );
 };

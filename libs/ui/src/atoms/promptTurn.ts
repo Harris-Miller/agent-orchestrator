@@ -310,7 +310,7 @@ export const cancelPromptTurn = Effect.fnUntraced(function* (
   const session = sessionIn(registry, launchTarget, sessionId);
   const inTurn = session?.pendingClientRequest === 'prompt';
   if (session === undefined || !sessionHasLiveWork(snapshotOf(registry, launchTarget), session)) {
-    return;
+    return false;
   }
 
   // Every Pending interaction shown or waiting now; the writer cancels them on the agent. One raised meanwhile stays answerable.
@@ -322,4 +322,5 @@ export const cancelPromptTurn = Effect.fnUntraced(function* (
   );
 
   yield* cancelSession(launchTarget, sessionId);
+  return true;
 });

@@ -46,7 +46,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) => {
       const parent = getPromptSpan(arg.launchTarget, arg.sessionId);
       return cancelPrompt(get.registry, arg).pipe(
-        trackEvent(promptCancelled(arg.launchTarget)),
+        trackEvent(promptCancelled(arg.launchTarget), Boolean),
         Effect.withSpan('cancelPromptAtomFn', parent !== undefined ? { parent } : { root: true }),
       );
     })

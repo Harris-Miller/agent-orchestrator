@@ -57,7 +57,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, restartBack
   const forkSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget & { readonly cwd: string }, get: Atom.FnContext) =>
       forkSession(get.registry, arg).pipe(
-        trackEvent(sessionForked(arg.launchTarget)),
+        trackEvent(sessionForked(arg.launchTarget), Boolean),
         rootSpan('forkSessionAtomFn', arg),
       ),
     )
@@ -118,7 +118,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, restartBack
   const renameSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget & { readonly title: string }, get: Atom.FnContext) =>
       renameSession(get.registry, arg).pipe(
-        trackEvent(sessionRenamed(arg.launchTarget)),
+        trackEvent(sessionRenamed(arg.launchTarget), Boolean),
         rootSpan('renameSessionAtomFn', arg),
       ),
     )

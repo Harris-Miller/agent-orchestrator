@@ -10,12 +10,13 @@ export const captureEvent = (event: AnalyticsEvent): Effect.Effect<void, never, 
 
 /**
  * One extra `pipe` stage at an action root: captures the event only once the action succeeded (failures stay in
- * logs and spans).
+ * logs and spans). A verb that can succeed without acting (skip paths) returns whether it did and passes
+ * `didAct`, so a no-op captures nothing.
  */
 export const trackEvent =
-  (event: AnalyticsEvent) =>
-  <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R | Analytics> =>
-    Effect.tap(self, () => captureEvent(event));
+  <A = unknown>(event: AnalyticsEvent, didAct?: (result: A) => boolean) =>
+  <E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R | Analytics> =>
+    Effect.tap(self, result => (didAct === undefined || didAct(result) ? captureEvent(event) : Effect.void));
 
 /** Fired once per Host bootstrap. */
 export const captureAppOpened: Effect.Effect<void, never, Analytics> = captureEvent(appOpened());

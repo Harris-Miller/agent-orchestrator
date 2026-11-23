@@ -103,9 +103,32 @@ describe('action triggers', () => {
   it.effect('cancelling a prompt captures prompt_cancelled with the launch target only', () =>
     Effect.gen(function* () {
       const s = yield* setup();
+      updateHarnessSnapshot(s.registry, CODEX, current => ({
+        ...current,
+        sessions: { s1: { ...current.sessions.s1, pendingClientRequest: 'prompt' } },
+      }));
       yield* runAtomFn(s.registry, s.chat.cancelPromptAtomFn, target);
       assert.deepStrictEqual(summarize(s.events), [{ name: 'prompt_cancelled', properties: { launch_target: CODEX } }]);
     }).pipe(Effect.scoped),
+  );
+
+  it.effect('skipped actions (nothing to cancel, unusable backend) capture nothing', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      yield* runAtomFn(s.registry, s.chat.cancelPromptAtomFn, target);
+      updateHarnessSnapshot(s.registry, CODEX, current => ({ ...current, phase: 'connecting' }));
+      yield* runAtomFn(s.registry, s.lifecycle.forkSessionAtomFn, { ...target, cwd: '/w' });
+      yield* runAtomFn(s.registry, s.lifecycle.renameSessionAtomFn, { ...target, title: 't' });
+      assert.deepStrictEqual(s.events, []);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('didAct false captures nothing', () =>
+    Effect.gen(function* () {
+      const recording = makeRecordingAnalytics();
+      yield* Effect.succeed(false).pipe(trackEvent(sessionArchived(CODEX), Boolean), Effect.provide(recording.layer));
+      assert.deepStrictEqual(recording.events, []);
+    }),
   );
 
   it.effect('permission and elicitation replies carry only the option kind / mode and action', () =>

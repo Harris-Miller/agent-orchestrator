@@ -4,11 +4,11 @@ import { Deferred, Effect, Fiber } from 'effect';
 import { TestClock } from 'effect/testing';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
-import { answer, CHILD, PARENT, setup, until } from '../../host/spawnSubagent.testing.ts';
+import { answer, CHILD, childIndex, PARENT, setup, until } from '../../host/spawnSubagent.testing.ts';
 import { getSubagent } from '../../host/subagent.ts';
 import { parseSubagentResults } from '../../host/subagentResult.ts';
 
-import { backendHarnessSnapshotAtom } from '../backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, configOptionIndexAtom } from '../backendState.atoms.ts';
 import { createChatAtoms } from '../chat.atoms.ts';
 import { CODEX } from '../fakeAgent.testing.ts';
 import { makeHarnessEventFold } from '../harnessEventFold.ts';
@@ -176,6 +176,38 @@ describe('a Subagent report the parent refuses', () => {
       yield* TestClock.adjust('250 millis');
       yield* until(() => parentPrompts.length > 0);
       assert.include(parentPrompts[0], 'done');
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe('a child on its parent own launch target', () => {
+  it.effect('connection lost settles it failed, ends it cleanly and removes the link', () =>
+    Effect.gen(function* () {
+      const release = Deferred.makeUnsafe<null>();
+      const h = yield* setup({}, { duringPrompt: Deferred.await(release) });
+      h.registry.set(configOptionIndexAtom(CODEX), childIndex);
+      h.setParent({ pendingClientRequest: 'prompt' });
+      const foreground = yield* Effect.forkChild(h.spawn({ launchTarget: CODEX }));
+      yield* until(() => h.parentCalls.includes('prompt:bound-2'));
+      const fold = makeHarnessEventFold({
+        setModelPickerPrefs: () => undefined,
+        launchTarget: CODEX,
+        registry: h.registry,
+        runFork: effect => {
+          Effect.runFork(Effect.provide(effect, mockHostLayer));
+        },
+      });
+
+      fold.onConnectionLost();
+      yield* until(() => allLinks(h.registry).length === 0);
+
+      const result = yield* Fiber.join(foreground);
+      assert.isTrue(result.isError);
+      assert.include(result.text, 'was lost');
+      const snapshot = h.registry.get(backendHarnessSnapshotAtom(CODEX));
+      assert.strictEqual(getSubagent(snapshot.subagents, 'bound-2')?.state?.state, 'failed');
+      assert.include(h.parentCalls, 'close:bound-2');
+      yield* Deferred.succeed(release, null);
     }).pipe(Effect.scoped),
   );
 });

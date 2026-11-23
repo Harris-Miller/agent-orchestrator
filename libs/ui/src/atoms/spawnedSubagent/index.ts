@@ -1,5 +1,5 @@
 /**
- * Spawned subagent sessions (libs/ui ADR 0011): a child the Harness starts on another launch target for a parent, from
+ * Spawned subagent sessions (libs/ui ADR 0011): a child the Harness starts on any usable launch target (including the parent's own) for a parent, from
  * spawn to its outcome reaching the parent's agent (a tool result, or a Subagent report) and its end with the parent.
  * The interface: the agent-facing verbs, ending a parent's children, Connection lost, and read-only link queries.
  */

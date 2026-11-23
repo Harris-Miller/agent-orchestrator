@@ -1,13 +1,12 @@
 import { useAtomMount, useAtomValue } from '@effect/atom-react';
-import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
-import Snackbar from '@mui/material/Snackbar';
 import { useState } from 'react';
 import type { FC } from 'react';
 
 import { hubAtom } from '../atoms/boundHarnessAtoms.ts';
 import { hubAvailabilityAtom } from '../atoms/hub.atoms.ts';
 import { appOrchestratedAgentsEnabledAtom } from '../atoms/userSettings/userSettingsDocument.atoms.ts';
+import { Toast } from './Toast.tsx';
 
 /**
  * Connects to the MCP hub for the app's lifetime (while Experimental: App Orchestrated Agents is on); shows the
@@ -20,20 +19,15 @@ export const HubMount: FC = () => {
   const [dismissed, setDismissed] = useState<string | undefined>(undefined);
   const reason = enabled && availability._tag === 'unavailable' ? availability.reason : undefined;
   return (
-    <Snackbar
-      anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+    <Toast
+      onClose={() => {
+        setDismissed(reason);
+      }}
       open={reason !== undefined && reason !== dismissed}
+      severity="info"
     >
-      <Alert
-        onClose={() => {
-          setDismissed(reason);
-        }}
-        severity="info"
-        variant="filled"
-      >
-        <AlertTitle>Not all features are available</AlertTitle>
-        Handoff is unavailable. {reason}
-      </Alert>
-    </Snackbar>
+      <AlertTitle>Not all features are available</AlertTitle>
+      Handoff is unavailable. {reason}
+    </Toast>
   );
 };

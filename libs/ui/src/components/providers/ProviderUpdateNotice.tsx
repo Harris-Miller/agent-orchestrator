@@ -3,15 +3,14 @@
  * notify (once per Provider version) with a link to Settings > Providers. Never downloads or installs.
  */
 import { RegistryContext, useAtomSet, useAtomValue } from '@effect/atom-react';
-import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import Snackbar from '@mui/material/Snackbar';
 import { useContext, useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { checkLatestAtomFn, providerViewsAtom, refreshProviderAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import { PROVIDER_META, providersToCheckForUpdates, providerUpdates } from '../../host/providerView.ts';
 import type { ProviderUpdate } from '../../host/providerView.ts';
+import { Toast } from '../Toast.tsx';
 
 export const PROVIDER_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
@@ -68,9 +67,22 @@ export const ProviderUpdateNotice: FC<{ readonly onOpenProviders: () => void }> 
   };
 
   return (
-    <Snackbar
-      anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
+    <Toast
+      action={
+        <Button
+          color="inherit"
+          onClick={() => {
+            close();
+            onOpenProviders();
+          }}
+          size="small"
+        >
+          View Providers
+        </Button>
+      }
+      onClose={close}
       open={open}
+      severity="info"
       slotProps={{
         transition: {
           onExited: () => {
@@ -79,25 +91,8 @@ export const ProviderUpdateNotice: FC<{ readonly onOpenProviders: () => void }> 
         },
       }}
     >
-      <Alert
-        action={
-          <Button
-            color="inherit"
-            onClick={() => {
-              close();
-              onOpenProviders();
-            }}
-            size="small"
-          >
-            View Providers
-          </Button>
-        }
-        onClose={close}
-        severity="info"
-      >
-        Provider updates available:{' '}
-        {shown.map(update => `${PROVIDER_META[update.id].label} v${update.version}`).join(', ')}
-      </Alert>
-    </Snackbar>
+      Provider updates available:{' '}
+      {shown.map(update => `${PROVIDER_META[update.id].label} v${update.version}`).join(', ')}
+    </Toast>
   );
 };

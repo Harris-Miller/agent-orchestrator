@@ -1,11 +1,10 @@
 import { useAtomValue } from '@effect/atom-react';
-import Alert from '@mui/material/Alert';
-import Snackbar from '@mui/material/Snackbar';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import type { FC } from 'react';
 
 import { persistUserSettingsAtomFn } from '../atoms/boundHarnessAtoms.ts';
+import { Toast } from './Toast.tsx';
 
 const PERSIST_FAILURE_MESSAGE = 'Failed to save User Settings to disk.';
 
@@ -22,15 +21,8 @@ export const PersistUserSettingsToast: FC = () => {
   };
 
   return (
-    <Snackbar
-      anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
-      autoHideDuration={6000}
-      onClose={handleClose}
-      open={open}
-    >
-      <Alert onClose={handleClose} severity="error" sx={{ width: '100%' }} variant="filled">
-        {PERSIST_FAILURE_MESSAGE}
-      </Alert>
-    </Snackbar>
+    <Toast autoHideDuration={6000} onClose={handleClose} open={open} severity="error">
+      {PERSIST_FAILURE_MESSAGE}
+    </Toast>
   );
 };

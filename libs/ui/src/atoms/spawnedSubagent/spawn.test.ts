@@ -28,7 +28,7 @@ import { makeHarnessEventFold } from '../harnessEventFold.ts';
 import { updateHarnessSnapshot } from '../harnessSnapshot.ts';
 import { mockHostLayer } from '../mockHostLayer.testing.ts';
 import { runAtomFn } from '../runAtomFn.testing.ts';
-import { endLink, SpawnSubagentError, startSpawnedSubagent } from './lifecycle.ts';
+import { endLink, startSpawnedSubagent } from './lifecycle.ts';
 import { allLinks, slotsInUse } from './links.ts';
 
 const CHILD = 'claude-1';
@@ -348,6 +348,80 @@ describe('Session History of a Spawned subagent session', () => {
   );
 });
 
+describe('startSpawnedSubagent on the parent own launch target (#456)', () => {
+  const SAME_PARENT = 'parent-x';
+  const SAME_CHILD = 'bound-1';
+
+  it.effect(
+    'starts a child beside its parent: root entry, mirror and link are distinct, and the child cannot spawn',
+    () =>
+      Effect.gen(function* () {
+        yield* installFakeHub([]);
+        const registry = yield* freshRegistry;
+        advertise(registry, CODEX, {});
+        registry.set(configOptionIndexAtom(CODEX), childIndex);
+        updateHarnessSnapshot(registry, CODEX, current => ({
+          ...current,
+          sessions: { [SAME_PARENT]: { ...initialSessionSnapshot(SAME_PARENT, 'active'), cwd: '/w' } },
+        }));
+        const fold = makeHarnessEventFold({
+          setModelPickerPrefs: () => undefined,
+          launchTarget: CODEX,
+          registry,
+          runFork: effect => {
+            Effect.runFork(Effect.provide(effect, hostLayer));
+          },
+        });
+        const calls: string[] = [];
+        yield* installFakeAgent(
+          calls,
+          {
+            duringPrompt: Effect.sync(() => {
+              fold.onSessionUpdate(SAME_CHILD, text('Same provider.'));
+            }),
+            reports: fold,
+          },
+          CODEX,
+        );
+        yield* Effect.addFinalizer(() =>
+          Effect.forEach(allLinks(registry), link =>
+            endLink(registry, { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId }),
+          ),
+        );
+
+        const started = yield* startSpawnedSubagent(registry, {
+          configOptions: { model: 'o1' },
+          description: 'Same',
+          launchTarget: CODEX,
+          parent: { launchTarget: CODEX, sessionId: SAME_PARENT },
+          task: 'task',
+        }).pipe(Effect.provide(hostLayer));
+        const outcome = yield* Deferred.await(started.outcome);
+
+        assert.strictEqual(started.childSessionId, SAME_CHILD);
+        assert.deepStrictEqual(outcome, { status: 'completed', text: 'Same provider.' });
+        const snapshot = registry.get(backendHarnessSnapshotAtom(CODEX));
+        assert.deepStrictEqual(Object.keys(snapshot.sessions).sort(), [SAME_CHILD, SAME_PARENT]);
+        assert.deepStrictEqual(Object.keys(snapshot.subagents), [SAME_CHILD]);
+        assert.deepStrictEqual(
+          allLinks(registry).map(link => [link.parentSessionId, link.childSessionId]),
+          [[SAME_PARENT, SAME_CHILD]],
+        );
+
+        const error = yield* Effect.flip(
+          startSpawnedSubagent(registry, {
+            configOptions: { model: 'o1' },
+            description: 'Nested',
+            launchTarget: CODEX,
+            parent: { launchTarget: CODEX, sessionId: SAME_CHILD },
+            task: 'task',
+          }).pipe(Effect.provide(hostLayer)),
+        );
+        assert.include(error.message, 'cannot start subagents of its own');
+      }).pipe(Effect.scoped),
+  );
+});
+
 describe('startSpawnedSubagent refusals', () => {
   const left = (h: Effect.Success<ReturnType<typeof setup>>) => ({
     link: allLinks(h.registry).length,
@@ -355,24 +429,6 @@ describe('startSpawnedSubagent refusals', () => {
     root: h.root(),
     history: registryHistory(h.registry),
   });
-
-  it.effect('refuses the parent own launch target', () =>
-    Effect.gen(function* () {
-      const h = yield* setup();
-      const error = yield* Effect.flip(
-        startSpawnedSubagent(h.registry, {
-          configOptions: {},
-          description: 'x',
-          launchTarget: CODEX,
-          parent: { launchTarget: CODEX, sessionId: PARENT },
-          task: 'task',
-        }).pipe(Effect.provide(hostLayer)),
-      );
-      assert.instanceOf(error, SpawnSubagentError);
-      assert.include(error.message, 'different launch target');
-      assert.deepStrictEqual(h.childCalls, []);
-    }).pipe(Effect.scoped),
-  );
 
   it.effect('refuses an invalid config option before creating any session', () =>
     Effect.gen(function* () {

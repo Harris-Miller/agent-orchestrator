@@ -890,7 +890,9 @@ const routeSubagentUpdate = (
   }
 
   const child = getSubagent(snapshot.subagents, sessionId);
-  if (child === undefined) return undefined;
+  // A Spawned subagent's mirror is projected from its root entry (ADR 0011): its updates are root updates, even when
+  // the child shares the parent's launch target and so this snapshot.
+  if (child === undefined || child.kind === 'spawned') return undefined;
   const next = reduceSubagentTranscriptUpdate(child, update);
   return {
     snapshot: next === child ? snapshot : { ...snapshot, subagents: { ...snapshot.subagents, [sessionId]: next } },

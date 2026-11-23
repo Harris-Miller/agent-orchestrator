@@ -50,7 +50,7 @@ export type SpawnSubagentInput = {
   readonly configOptions: ConfigOptionValues;
   /** The mirror's name. */
   readonly description: string;
-  /** The child's launch target; never the parent's own. */
+  /** The child's launch target; may be the parent's own. */
   readonly launchTarget: AgentLaunchTarget;
   readonly parent: SessionRef;
   readonly task: string;
@@ -204,11 +204,6 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   yield* Effect.annotateCurrentSpan({ 'acp.agent': input.launchTarget, 'acp.sessionId': parent.sessionId });
   const refuse = (message: string) => new SpawnSubagentError({ message });
 
-  if (input.launchTarget === parent.launchTarget) {
-    return yield* refuse(
-      'spawn_subagent starts a subagent on a different launch target than your own. Use your own subagent tool for work on your own provider.',
-    );
-  }
   if (task === '') {
     return yield* refuse('The task must not be empty.');
   }

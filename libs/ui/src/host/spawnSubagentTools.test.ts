@@ -67,18 +67,16 @@ describe('spawn_subagent (foreground)', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('refuses an unknown, same-target or unusable launch target without creating a session', () =>
+  it.effect('refuses an unknown or unusable launch target without creating a session', () =>
     Effect.gen(function* () {
       const h = yield* setup();
       const unknown = yield* h.spawn({ launchTarget: 'toaster' });
       assert.include(unknown.text, 'list_subagent_targets');
-      const same = yield* h.spawn({ launchTarget: CODEX });
-      assert.include(same.text, 'different launch target');
       enableProviders(h.registry, [CODEX]);
       const disabled = yield* h.spawn();
       assert.include(disabled.text, 'disabled');
       assert.deepStrictEqual(h.childCalls, []);
-      assert.isTrue(unknown.isError && same.isError && disabled.isError);
+      assert.isTrue(unknown.isError && disabled.isError);
     }).pipe(Effect.scoped),
   );
 

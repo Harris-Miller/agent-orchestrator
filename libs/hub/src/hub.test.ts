@@ -4,7 +4,7 @@
  */
 import { NodeFileSystem, NodePath } from '@effect/platform-node';
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Exit, Fiber, Layer, Logger, References, Scope, Tracer } from 'effect';
+import { Effect, Exit, Fiber, Layer, Logger, References, Schedule, Scope, Tracer } from 'effect';
 import type { Duration } from 'effect';
 import { existsSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -202,17 +202,21 @@ describe('hub', () => {
     return Effect.gen(function* () {
       const { port } = yield* hubUp();
       const owner = yield* connectTestClient(port);
-      yield* registerToken(owner, `tok-bearer-9d2c`);
+      yield* registerToken(owner, 'tok-bearer-9d2c');
       owner.send({
         launchTarget: 'claude-agent-acp',
         sessionId: 'acp-canary',
-        token: `tok-bearer-9d2c`,
+        token: 'tok-bearer-9d2c',
         type: 'bind',
       });
       yield* registerToken(owner, 'tok-sync');
-      yield* callHandoff(port, owner, `tok-bearer-9d2c`, `plan ${CANARY}`, `result ${CANARY}`);
+      yield* callHandoff(port, owner, 'tok-bearer-9d2c', `plan ${CANARY}`, `result ${CANARY}`);
       owner.close();
-      yield* Effect.sleep('100 millis');
+      yield* Effect.suspend(() =>
+        logs.some(log => JSON.stringify(log.message).includes('Hub client disconnected'))
+          ? Effect.void
+          : Effect.fail('no disconnect log yet'),
+      ).pipe(Effect.retry({ schedule: Schedule.spaced('20 millis'), times: 250 }));
 
       assert.isAbove(toolCallSpans(spans).length, 0);
       for (const span of spans) {

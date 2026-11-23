@@ -7,28 +7,29 @@ import { Effect, Layer, ManagedRuntime } from 'effect';
 import { afterEach, describe, expect, vi } from 'vitest';
 
 import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
-import { themes } from '../theme/themes.ts';
+import { theme } from '../theme/themes.ts';
 import { AboutSettingsPane, GITHUB_REPO_URL } from './AboutSettingsPane.tsx';
 
 const open = vi.hoisted(() => vi.fn());
-const runtime = vi.hoisted(() => ({ current: undefined as unknown }));
-
-vi.mock('../hostRuntime.ts', () => ({
-  hostRuntime: {
-    runPromiseExit: (effect: Effect.Effect<unknown, unknown>) =>
-      (runtime.current as ManagedRuntime.ManagedRuntime<never, never>).runPromiseExit(effect),
-  },
+const runtime = vi.hoisted(() => ({
+  current: undefined as { runPromiseExit: (e: never) => unknown; dispose: () => Promise<void> } | undefined,
 }));
 
-afterEach(() => {
+vi.mock('../hostRuntime.ts', () => ({
+  hostRuntime: { runPromiseExit: (effect: never) => runtime.current?.runPromiseExit(effect) },
+}));
+
+afterEach(async () => {
   cleanup();
   open.mockReset();
+  await runtime.current?.dispose();
+  runtime.current = undefined;
 });
 
 const renderPane = () => {
   runtime.current = ManagedRuntime.make(Layer.merge(mockHostLayer, Layer.succeed(OpenUrl, { open })));
   render(
-    <ThemeProvider theme={Object.values(themes)[0]}>
+    <ThemeProvider theme={theme}>
       <AboutSettingsPane />
     </ThemeProvider>,
   );

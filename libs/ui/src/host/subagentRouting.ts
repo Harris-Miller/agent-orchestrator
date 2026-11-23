@@ -5,6 +5,16 @@ import { upsertSubagentChatItem } from './sessionUpdateReducer.ts';
 import type { SessionTranscript } from './sessionUpdateReducer.ts';
 import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import { getSubagent, resetSubagentLiveState, rootAncestorId } from './subagent.ts';
+import type { SubagentSnapshot } from './subagent.ts';
+
+/**
+ * A Native subagent only: a Spawned subagent's mirror is projected from its root entry (ADR 0011), so its requests and
+ * answers address the root entry, even when the child shares the parent's launch target and so this snapshot.
+ */
+const nativeSubagent = (snapshot: BackendHarnessSnapshot, sessionId: string): SubagentSnapshot | undefined => {
+  const child = getSubagent(snapshot.subagents, sessionId);
+  return child?.kind === 'spawned' && sessionId in snapshot.sessions ? undefined : child;
+};
 
 export const withParentChatItem = (
   snapshot: BackendHarnessSnapshot,
@@ -34,7 +44,7 @@ export const patchSessionOrSubagent = (
   sessionId: string,
   patch: <T extends SessionOrSubagent>(current: T) => T,
 ): BackendHarnessSnapshot => {
-  const child = getSubagent(snapshot.subagents, sessionId);
+  const child = nativeSubagent(snapshot, sessionId);
   if (child !== undefined) {
     return { ...snapshot, subagents: { ...snapshot.subagents, [sessionId]: patch(child) } };
   }
@@ -46,8 +56,7 @@ export const sessionOrSubagentOf = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
 ): SessionOrSubagent | undefined =>
-  getSubagent(snapshot.subagents, sessionId) ??
-  (sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined);
+  nativeSubagent(snapshot, sessionId) ?? (sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined);
 
 /** Reset live child state for every descendant of a root session being (re)loaded or resumed. */
 export const resetSubagentsOfRoot = (snapshot: BackendHarnessSnapshot, rootId: string): BackendHarnessSnapshot => ({

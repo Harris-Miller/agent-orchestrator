@@ -28,14 +28,14 @@ export const SubmitHandoff = Tool.make('submit_handoff', {
 export const ListSubagentTargets = Tool.make('list_subagent_targets', {
   ...forwarded,
   description:
-    "List the other agent launch targets (providers) you can start a subagent on, with each one's models and their selectable config options (effort, mode, ...) and values. Call this before choosing a launch target or config options. Your own provider is not listed: use your own subagent tool for work on your own provider.",
+    "List the agent launch targets (providers) you can start a subagent on, your own included, with each one's models and their selectable config options (effort, mode, ...) and values. Call this before choosing a launch target or config options.",
   parameters: Tool.EmptyParams,
 });
 
 export const SpawnSubagent = Tool.make('spawn_subagent', {
   ...forwarded,
   description:
-    'Start a subagent on a different agent launch target (provider) and wait for it. Use your own subagent tool for work on your own provider; use this only to run a task on a different launch target (see list_subagent_targets). The subagent starts in your working directory with only the task you give it, and its final message is the result. If it is still running after a few minutes this returns a <subagent> element with its id and status running: then call wait_subagent.',
+    'Start a subagent on any listed agent launch target (provider), including your own, and wait for it. Pick its model and config options from list_subagent_targets. The subagent starts in your working directory with only the task you give it, and its final message is the result. If it is still running after a few minutes this returns a <subagent> element with its id and status running: then call wait_subagent.',
   parameters: SpawnSubagentArgs,
 });
 

@@ -1,5 +1,5 @@
 /**
- * Spawned subagent session core (libs/ui ADR 0011): a child the Harness starts on another launch target for a parent.
+ * Spawned subagent session core (libs/ui ADR 0011): a child the Harness starts on any usable launch target (including the parent's own) for a parent.
  * It is a root Session on its own target (so the Prompt turn machinery works) and a mirror in the parent's target's
  * `subagents`, kept equal to the root entry by a projection fiber for the link's lifetime. Work state is written by the
  * Harness at turn end.
@@ -50,7 +50,7 @@ export type SpawnSubagentInput = {
   readonly configOptions: ConfigOptionValues;
   /** The mirror's name. */
   readonly description: string;
-  /** The child's launch target; never the parent's own. */
+  /** The child's launch target; may be the parent's own. */
   readonly launchTarget: AgentLaunchTarget;
   readonly parent: SessionRef;
   readonly task: string;
@@ -204,11 +204,6 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   yield* Effect.annotateCurrentSpan({ 'acp.agent': input.launchTarget, 'acp.sessionId': parent.sessionId });
   const refuse = (message: string) => new SpawnSubagentError({ message });
 
-  if (input.launchTarget === parent.launchTarget) {
-    return yield* refuse(
-      'spawn_subagent starts a subagent on a different launch target than your own. Use your own subagent tool for work on your own provider.',
-    );
-  }
   if (task === '') {
     return yield* refuse('The task must not be empty.');
   }
@@ -221,7 +216,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   }
   const usable = usableSubagentTarget(registry, input.launchTarget);
   if (usable._tag === 'Unusable') {
-    return yield* refuse(`${usable.reason}. Choose another launch target (see list_subagent_targets).`);
+    return yield* refuse(`${usable.reason}. Choose a listed launch target (see list_subagent_targets).`);
   }
   const invalid = validateSubagentConfig(usable.index, input.configOptions);
   if (invalid !== undefined) {

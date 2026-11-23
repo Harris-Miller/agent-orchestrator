@@ -11,13 +11,13 @@ import { hubToolHandler, toolError } from './hubToolHandler.ts';
 import type { SubagentTargetInput } from './subagentTargets.ts';
 import { describeSubagentTargets } from './subagentTargets.ts';
 
-/** Other launch targets the Harness could start a subagent on right now. */
-export const listSubagentTargetsHandler = hubToolHandler(ListSubagentTargetsArgs, (_args, caller, { registry }) =>
+/** Launch targets (the caller's own included) the Harness could start a subagent on right now. */
+export const listSubagentTargetsHandler = hubToolHandler(ListSubagentTargetsArgs, (_args, _caller, { registry }) =>
   Effect.sync(() => {
     const targets: SubagentTargetInput[] = [];
     for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
       const usable = usableSubagentTarget(registry, launchTarget);
-      if (launchTarget !== caller.launchTarget && usable._tag === 'Usable') {
+      if (usable._tag === 'Usable') {
         targets.push({
           canSpawn: supportsMcpHttp(usable.snapshot.initializeResult),
           index: usable.index,

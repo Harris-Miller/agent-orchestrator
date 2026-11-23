@@ -3,13 +3,13 @@ import { assert, describe, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber } from 'effect';
 import { TestClock } from 'effect/testing';
 
-import { backendHarnessSnapshotAtom } from '../atoms/backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, configOptionIndexAtom } from '../atoms/backendState.atoms.ts';
 import { CODEX, enableProviders } from '../atoms/fakeAgent.testing.ts';
 import { allLinks } from '../atoms/spawnedSubagent/links.ts';
 
 import { getSubagent } from './subagent.ts';
 import { parseSubagentResults } from './subagentResult.ts';
-import { answer, CHILD, setup, until } from './spawnSubagent.testing.ts';
+import { answer, CHILD, childIndex, setup, until } from './spawnSubagent.testing.ts';
 
 /** The one Subagent result in a tool result's text. */
 const resultOf = (text: string) => parseSubagentResults(text)[0];
@@ -67,18 +67,38 @@ describe('spawn_subagent (foreground)', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('refuses an unknown, same-target or unusable launch target without creating a session', () =>
+  it.effect('refuses an unknown or unusable launch target without creating a session', () =>
     Effect.gen(function* () {
       const h = yield* setup();
       const unknown = yield* h.spawn({ launchTarget: 'toaster' });
       assert.include(unknown.text, 'list_subagent_targets');
-      const same = yield* h.spawn({ launchTarget: CODEX });
-      assert.include(same.text, 'different launch target');
       enableProviders(h.registry, [CODEX]);
       const disabled = yield* h.spawn();
       assert.include(disabled.text, 'disabled');
       assert.deepStrictEqual(h.childCalls, []);
-      assert.isTrue(unknown.isError && same.isError && disabled.isError);
+      assert.isTrue(unknown.isError && disabled.isError);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('spawns a child on the caller own launch target, and lists that target', () =>
+    Effect.gen(function* () {
+      const h = yield* setup({}, {});
+      h.registry.set(configOptionIndexAtom(CODEX), childIndex);
+      const listed = JSON.parse((yield* h.call('list_subagent_targets', {})).text) as {
+        targets: { launchTarget: string }[];
+      };
+      assert.include(
+        listed.targets.map(target => target.launchTarget),
+        CODEX,
+      );
+      const result = yield* h.spawn({ launchTarget: CODEX });
+      assert.notInclude(result.text, 'Choose');
+      assert.isTrue(h.parentCalls.some(call => call.startsWith('new')));
+      assert.strictEqual(resultOf(result.text).id, 'bound-2');
+      assert.deepStrictEqual(
+        allLinks(h.registry).map(link => [link.childLaunchTarget, link.parentLaunchTarget]),
+        [[CODEX, CODEX]],
+      );
     }).pipe(Effect.scoped),
   );
 

@@ -681,7 +681,7 @@ export const answerPermission = (
 // ---------------------------------------------------------------------------------------------------------------------
 // Spawned subagent session mirror (libs/ui ADR 0011): the child is a root Session on its own launch target; its parent's
 // launch target holds a Subagent session that projects it, so the Subagent view, Work state and Attention read it
-// like a native child. Mirror and root always live in different snapshots.
+// like a native child. Mirror and root share a snapshot when the child is on the parent's own launch target (#456).
 // ---------------------------------------------------------------------------------------------------------------------
 
 /** The mirror in the parent's snapshot, running, with its row in the parent's transcript; before the child's first prompt. */
@@ -890,7 +890,9 @@ const routeSubagentUpdate = (
   }
 
   const child = getSubagent(snapshot.subagents, sessionId);
-  if (child === undefined) return undefined;
+  // A Spawned subagent's mirror is projected from its root entry (ADR 0011): its updates are root updates, even when
+  // the child shares the parent's launch target and so this snapshot.
+  if (child === undefined || child.kind === 'spawned') return undefined;
   const next = reduceSubagentTranscriptUpdate(child, update);
   return {
     snapshot: next === child ? snapshot : { ...snapshot, subagents: { ...snapshot.subagents, [sessionId]: next } },

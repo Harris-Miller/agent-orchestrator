@@ -38,7 +38,7 @@ const model = (id: string) => ({
   type: 'select',
 });
 
-const childIndex = configOptionIndexFromProbeResponses('gpt', {
+export const childIndex = configOptionIndexFromProbeResponses('gpt', {
   gpt: { configOptions: [model('gpt')] },
   o1: { configOptions: [model('o1')] },
 });

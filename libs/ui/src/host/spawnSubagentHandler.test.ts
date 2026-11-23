@@ -87,26 +87,28 @@ const parse = (text: string) =>
   };
 
 describe('list_subagent_targets', () => {
-  it.effect('lists other usable targets with per-model options, never the caller own target', () =>
+  it.effect('lists usable targets, the caller own included, with per-model options', () =>
     Effect.gen(function* () {
-      const { list } = yield* setup({ http: true });
+      const { list, registry } = yield* setup({ http: true });
+      registry.set(configOptionIndexAtom(CODEX), claudeIndex);
       const result = yield* list;
 
       assert.isFalse(result.isError);
       const { targets } = parse(result.text);
       assert.deepStrictEqual(
         targets.map(target => target.launchTarget),
-        [CLAUDE],
+        [CODEX, CLAUDE],
       );
-      assert.isTrue(targets[0].canSpawn);
+      const claude = targets.find(target => target.launchTarget === CLAUDE);
+      assert.isTrue(claude?.canSpawn);
       assert.deepStrictEqual(
-        targets[0].models.map(model => [model.id, model.default, model.options.map(option => option.id)]),
+        claude?.models.map(model => [model.id, model.default, model.options.map(option => option.id)]),
         [
           ['sonnet', true, []],
           ['opus', false, ['effort']],
         ],
       );
-      assert.deepStrictEqual(targets[0].models[1].options[0].values, ['low', 'high']);
+      assert.deepStrictEqual(claude?.models[1].options[0].values, ['low', 'high']);
     }),
   );
 

@@ -735,6 +735,29 @@ describe('prompt turn and interaction folds', () => {
     assert.strictEqual(projectChildOnto(projected, 'child', root), projected);
   });
 
+  it('a same-target spawned child raises and answers its requests on its root entry, not its mirror', () => {
+    const permission = pendingPermission('child');
+    const elicitation = pendingElicitation('e1', 'child');
+    const snapshot = {
+      ...readySnapshot({ child: activeSession('child') }),
+      subagents: { child: initialSpawnedSubagentSnapshot('child', 'p1', 'claude-agent-acp') },
+    };
+    const raised = raiseElicitation(raisePermission(snapshot, permission), elicitation);
+    assert.strictEqual(raised.sessions.child.pendingPermission, permission);
+    assert.strictEqual(raised.sessions.child.pendingElicitation, elicitation);
+    assert.strictEqual(raised.subagents.child?.pendingPermission, undefined);
+    const projected = projectChildOnto(raised, 'child', raised.sessions.child);
+    assert.strictEqual(projected.subagents.child?.pendingPermission, permission);
+    const answered = answerElicitation(
+      answerPermission(projected, 'child', permission),
+      'child',
+      elicitation,
+      undefined,
+    );
+    assert.strictEqual(answered.sessions.child.pendingPermission, undefined);
+    assert.strictEqual(answered.sessions.child.pendingElicitation, undefined);
+  });
+
   it('markSessionInactive drops the shown and the waiting requests', () => {
     const snapshot = [pendingPermission('s1'), pendingPermission('s1')].reduce(
       (next, pending) => raisePermission(next, pending),

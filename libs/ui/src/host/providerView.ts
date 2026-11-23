@@ -246,6 +246,30 @@ export const activeVersionLabel = (p: ProviderView): string | undefined =>
 /** An update that is downloaded and waiting for Install (sessions keep running meanwhile). */
 export const readyToInstallVersion = (p: ProviderView): string | undefined => p.runtime?.downloaded.at(-1);
 
+export type ProviderUpdate = { readonly id: AgentLaunchTarget; readonly version: string };
+
+/** Enabled managed providers with an Active runtime that the background update check may query right now. */
+export const providersToCheckForUpdates = (views: readonly ProviderView[]): AgentLaunchTarget[] =>
+  views
+    .filter(
+      p =>
+        p.enabled &&
+        p.runtime?.active !== undefined &&
+        (p.runtime.job._tag === 'Idle' || p.runtime.job._tag === 'Failed') &&
+        p.runtime.latest._tag !== 'Checking',
+    )
+    .map(p => p.id);
+
+/** Enabled providers with an Active runtime and a newer version known (found by a check, or downloaded awaiting Install). */
+export const providerUpdates = (views: readonly ProviderView[]): ProviderUpdate[] =>
+  views.flatMap((p): ProviderUpdate[] => {
+    if (!p.enabled || p.runtime?.active === undefined) {
+      return [];
+    }
+    const version = p.runtime.latest._tag === 'Available' ? p.runtime.latest.version : readyToInstallVersion(p);
+    return version === undefined ? [] : [{ id: p.id, version }];
+  });
+
 /**
  * Map harness phase + published failure to the sign-in axis. Classification comes from the failure tag, not its text.
  */

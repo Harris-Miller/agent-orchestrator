@@ -76,7 +76,11 @@ const WorkspaceFoldersGate: FC = () => {
 
   return (
     <OnClientErrorContext.Provider value={onClientError}>
-      <HarnessMounts />
+      <HarnessMounts
+        onOpenProviders={() => {
+          router.navigate({ params: { category: 'providers' }, to: '/settings/$category' }).catch(() => undefined);
+        }}
+      />
       <Box
         sx={{
           flex: 1,

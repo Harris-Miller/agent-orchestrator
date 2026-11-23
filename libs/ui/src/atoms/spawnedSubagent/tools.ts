@@ -11,6 +11,7 @@ import { AtomRegistry } from 'effect/reactivity';
 import type { AgentLaunchTarget, SessionRef } from '../../host/agentLaunchTarget.ts';
 import type { ConfigOptionValues } from '../../host/configProbe.ts';
 import { toolError } from '../../host/hubToolHandler.ts';
+import { describeError } from '../../host/requestError.ts';
 import type { HubToolResult } from '../../host/hubToolHandler.ts';
 import { getPromptSpan } from '../../host/sessionRpc.ts';
 import { backendHarnessSnapshotAtom } from '../backendState.atoms.ts';
@@ -82,7 +83,7 @@ export const spawnSubagent = Effect.fnUntraced(function* (
     Effect.catchTag('SpawnSubagentError', error => Effect.succeed(error)),
   );
   if (started instanceof SpawnSubagentError) {
-    return toolError(started.message);
+    return toolError(describeError(started));
   }
   const spawned: ChildMeta = {
     childLaunchTarget: request.launchTarget,

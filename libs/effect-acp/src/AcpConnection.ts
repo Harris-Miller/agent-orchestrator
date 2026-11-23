@@ -1,5 +1,5 @@
 import type { Layer } from 'effect';
-import { Context, Effect, Option, Queue, Schema, Tracer } from 'effect';
+import { Clock, Context, Effect, Option, Predicate, Queue, Schema, Tracer } from 'effect';
 import type { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import type { Rpc, RpcGroup } from 'effect/rpc';
 import { RpcClient, RpcSerialization, RpcServer } from 'effect/rpc';
@@ -24,14 +24,15 @@ import {
 } from './AcpSchema.ts';
 import { makeParentStdioTransport, makeStdioTransport } from './AcpTransport.ts';
 import type { TransportError } from './AcpTransport.ts';
-import { AcpError } from './schema/common.ts';
+import { AcpErrorEncoded } from './schema/common.ts';
 
 export type DemuxTargets = {
   readonly toClient: (message: FromServerEncoded) => void;
   readonly toServer: (message: FromClientEncoded) => void;
 };
 
-const decodeAcpError = Schema.decodeUnknownOption(AcpError);
+/** Checked on the wire shape: the frame stays encoded, RpcClient decodes it (and wraps its text) afterwards. */
+const decodeAcpError = Schema.decodeUnknownOption(AcpErrorEncoded);
 
 /** ndJsonRpc maps JSON-RPC errors to Exit Die; rewrite AcpError-shaped Dies to Fail for RpcClient. */
 const remapExitAcpErrorDies = (message: FromServerEncoded): FromServerEncoded => {
@@ -128,11 +129,16 @@ type StdioDemuxWrites = {
   /** Each RpcClient has its own clientId; an Exit/Chunk must return to the client that sent the request. */
   readonly clientIdByRequest: Map<number | string, number>;
   serverWriteRequest: ((clientId: number, message: FromClientEncoded) => Effect.Effect<void>) | undefined;
+  /** Requests this side sent and still awaits, for request/response pairing in telemetry. */
+  readonly pendingRequests: Map<number | string, PendingRequest>;
 };
+
+type PendingRequest = { readonly method: string; readonly sentAtMs: number };
 
 const makeStdioDemuxWrites = (): StdioDemuxWrites => ({
   clientWriteResponse: undefined,
   clientIdByRequest: new Map(),
+  pendingRequests: new Map(),
   rpcClientId: 0,
   serverWriteRequest: undefined,
 });
@@ -143,12 +149,47 @@ const trackClientSend = (
   pendingClientRequestIds: Set<number | string>,
   clientId: number,
   message: FromClientEncoded,
+  nowMs: number,
 ) => {
   writes.rpcClientId = clientId;
   if (message._tag === 'Request' && message.isNotification !== true) {
     pendingClientRequestIds.add(message.id);
     writes.clientIdByRequest.set(message.id, clientId);
+    writes.pendingRequests.set(message.id, { method: message.tag, sentAtMs: nowMs });
   }
+};
+
+/** A JSON-RPC method name, or `unrecognized`: the Agent chooses it, so free text never rides along. */
+const methodName = (tag: unknown): string =>
+  Predicate.isString(tag) && /^[\w./-]{1,64}$/.test(tag) ? tag : 'unrecognized';
+
+/**
+ * Log one inbound frame by what it is, never what it carries: a request's ACP method, a response's method and latency,
+ * or the requests left unanswered when the connection fails.
+ */
+const logInbound = (
+  message: { readonly _tag: string } & Readonly<Record<string, unknown>>,
+  pendingRequests: Map<number | string, PendingRequest>,
+  nowMs: number,
+): Effect.Effect<void> => {
+  if (message._tag === 'Request') {
+    return Effect.logDebug('ACP inbound request', methodName(message.tag));
+  }
+  const { requestId } = message;
+  if (message._tag === 'Exit' && (Predicate.isString(requestId) || Predicate.isNumber(requestId))) {
+    const pending = pendingRequests.get(requestId);
+    pendingRequests.delete(requestId);
+    const outcome = Predicate.isObject(message.exit) ? message.exit._tag : undefined;
+    return pending === undefined
+      ? Effect.logDebug('ACP inbound response', { outcome })
+      : Effect.logDebug('ACP inbound response', pending.method, { durationMs: nowMs - pending.sentAtMs, outcome });
+  }
+  if ((message._tag === 'ClientProtocolError' || message._tag === 'Defect') && pendingRequests.size > 0) {
+    const pending = [...pendingRequests.values()].map(({ method, sentAtMs }) => ({ ageMs: nowMs - sentAtMs, method }));
+    pendingRequests.clear();
+    return Effect.logWarning('ACP connection failed with requests pending', message._tag, { pending });
+  }
+  return Effect.logDebug('ACP inbound', message._tag);
 };
 
 /**
@@ -169,7 +210,11 @@ export const makeStdioDemuxRoute =
       }
 
       const tag = (message as { _tag: string })._tag;
-      yield* Effect.logDebug('ACP demux inbound', tag);
+      yield* logInbound(
+        message as { readonly _tag: string } & Readonly<Record<string, unknown>>,
+        writes.pendingRequests,
+        yield* Clock.currentTimeMillis,
+      );
       wireTap?.onMessage('in', message);
 
       let next: Effect.Effect<void> = Effect.void;
@@ -287,10 +332,11 @@ export const connectAcpAgent = Effect.fnUntraced(
 
         return {
           codecFor: transport.codecFor,
-          send: (clientId: number, message: FromClientEncoded) => {
-            trackClientSend(writes, pendingClientRequestIds, clientId, message);
-            return transport.send(message).pipe(Effect.mapError(toRpcClientError));
-          },
+          send: (clientId: number, message: FromClientEncoded) =>
+            Effect.flatMap(Clock.currentTimeMillis, nowMs => {
+              trackClientSend(writes, pendingClientRequestIds, clientId, message, nowMs);
+              return transport.send(message).pipe(Effect.mapError(toRpcClientError));
+            }),
           supportsAck: false,
           supportsTransferables: false,
         };
@@ -406,10 +452,11 @@ export const serveAcpAgent = Effect.fnUntraced(
 
         return {
           codecFor: transport.codecFor,
-          send: (clientId: number, message: FromClientEncoded) => {
-            trackClientSend(writes, pendingClientRequestIds, clientId, message);
-            return transport.send(message).pipe(Effect.mapError(toRpcClientError));
-          },
+          send: (clientId: number, message: FromClientEncoded) =>
+            Effect.flatMap(Clock.currentTimeMillis, nowMs => {
+              trackClientSend(writes, pendingClientRequestIds, clientId, message, nowMs);
+              return transport.send(message).pipe(Effect.mapError(toRpcClientError));
+            }),
           supportsAck: false,
           supportsTransferables: false,
         };

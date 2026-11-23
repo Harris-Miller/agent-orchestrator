@@ -1,13 +1,17 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Schema } from 'effect';
+import { Cause, Schema } from 'effect';
 
 import {
+  AcpError,
+  acpErrorData,
+  acpErrorMessage,
   AgentNotificationRpcs,
   AgentRequestRpcs,
   ClientNotificationRpcs,
   ClientRequestRpcs,
   ContentBlock,
   isAuthRequiredError,
+  makeAcpError,
   ProtocolNotificationRpcs,
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
@@ -211,7 +215,29 @@ describe('ListSessionsRequest metadata', () => {
 
 describe('isAuthRequiredError', () => {
   it('accepts the auth_required code only', () => {
-    assert.isTrue(isAuthRequiredError({ code: -32000, message: 'x' }));
-    assert.isFalse(isAuthRequiredError({ code: -32603, message: 'Please sign in' }));
+    assert.isTrue(isAuthRequiredError(makeAcpError(-32000, 'x')));
+    assert.isFalse(isAuthRequiredError(makeAcpError(-32603, 'Please sign in')));
+  });
+});
+
+describe('AcpError', () => {
+  const CANARY = 'CANARY_7f3a';
+  const wire = { code: -32603, data: { details: CANARY }, message: `Rejected: ${CANARY}` };
+
+  it('keeps the Agent text out of every rendering of a failure, span exception events included', () => {
+    const error = Schema.decodeUnknownSync(AcpError)(wire);
+    for (const pretty of Cause.prettyErrors(Cause.fail(error))) {
+      assert.notInclude(pretty.message, CANARY);
+      assert.notInclude(pretty.stack ?? '', CANARY);
+    }
+    assert.notInclude(Cause.pretty(Cause.fail(error)), CANARY);
+    assert.notInclude(JSON.stringify(error), CANARY);
+  });
+
+  it('still gives the user the text and round-trips to the wire unchanged', () => {
+    const error = Schema.decodeUnknownSync(AcpError)(wire);
+    assert.strictEqual(acpErrorMessage(error), wire.message);
+    assert.deepStrictEqual(acpErrorData(error), wire.data);
+    assert.deepStrictEqual(Schema.encodeSync(AcpError)(error), wire);
   });
 });

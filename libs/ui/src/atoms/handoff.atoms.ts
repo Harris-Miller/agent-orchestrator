@@ -11,7 +11,7 @@ import { buildTargetHandoffSeedPrompt, SOURCE_HANDOFF_PROMPT } from '../host/han
 import { expectHandoff } from '../host/handoffSubmission.ts';
 import { addCreatedSession } from '../host/harnessStateTransitions.ts';
 import { currentHubUnavailableReason } from '../host/hubSessions.ts';
-import { describeError } from '../host/requestError.ts';
+import { RequestErrorDetail, requestErrorDetail } from '../host/requestError.ts';
 import { createSession } from '../host/sessionRpc.ts';
 
 import {
@@ -28,6 +28,7 @@ import { select } from './virtualSession.atoms.ts';
 export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);
 
 export class HandoffError extends Schema.TaggedError<HandoffError>()('HandoffError', {
+  detail: RequestErrorDetail,
   message: Schema.String,
 }) {}
 
@@ -42,7 +43,10 @@ export const handoffPrompt = Effect.fn('handoffPrompt')(
       Effect.catchTag('ComposerActionUnavailable', error => Effect.fail(new HandoffError({ message: error.message }))),
     );
     if (result._tag === 'Rejected') {
-      return yield* new HandoffError({ message: describeError(result.error) });
+      return yield* new HandoffError({
+        detail: requestErrorDetail(result.error),
+        message: `The agent rejected the prompt (code ${result.error.code})`,
+      });
     }
     if (result.stopReason === 'cancelled') {
       return yield* new HandoffError({ message: `Session ${sessionId} prompt was cancelled` });

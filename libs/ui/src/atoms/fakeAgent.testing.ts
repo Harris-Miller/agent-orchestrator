@@ -2,6 +2,7 @@
  * Test-only stand-ins: a fake ACP agent registered as the Backend connection (through the real
  * `registerBackendConnection`, released with the test's scope), a disposable registry, and a phase flip.
  */
+import { makeAcpError } from '@libs/effect-acp';
 import type { SessionSteeringResponse, StopReason } from '@libs/effect-acp';
 import { Deferred, Effect } from 'effect';
 import type { Scope } from 'effect';
@@ -30,6 +31,9 @@ export const REJECTION = {
   data: { details: 'Prompt is 120000 characters; the limit is 100000' },
   message: 'Exceeds max character length',
 } as const;
+
+/** {@link REJECTION} as the Client decodes it off the wire (its text `Redacted`). */
+const REJECTED = makeAcpError(REJECTION.code, REJECTION.message, REJECTION.data);
 
 export const selectableConfig = {
   configOptions: [
@@ -189,7 +193,7 @@ export const installFakeAgent = (
           opts.promptTexts?.push(prompt.map(block => block.text ?? '').join(''));
           const during = opts.duringPrompt ?? Effect.void;
           if (opts.prompt === 'reject') {
-            return Effect.andThen(during, Effect.fail(REJECTION));
+            return Effect.andThen(during, Effect.fail(REJECTED));
           }
           return opts.prompt === 'fail'
             ? Effect.andThen(during, Effect.fail('prompt-fail'))
@@ -220,7 +224,7 @@ export const installFakeAgent = (
             return Effect.fail('set-fail');
           }
           if (opts.rejectSetConfig === true) {
-            return Effect.fail(REJECTION);
+            return Effect.fail(REJECTED);
           }
           return Effect.as(opts.duringSetConfig ?? Effect.void, {
             configOptions: [{ ...selectableConfig.configOptions[0], currentValue: value, id: configId }],
@@ -249,7 +253,7 @@ export const installFakeAgent = (
         calls.push(`fork:${sessionId}`);
         opts.mcp?.received.push({ meta: _meta, rpc: 'fork', servers: mcpServers });
         return opts.rejectFork === true
-          ? Effect.fail(REJECTION)
+          ? Effect.fail(REJECTED)
           : Effect.succeed({ ...selectableConfig, sessionId: 'fork-1' });
       },
       sessionRename: ({ sessionId }: { sessionId: string }) => {
@@ -260,7 +264,7 @@ export const installFakeAgent = (
         calls.push(`steer:${sessionId}`);
         const during = opts.duringSteering ?? Effect.void;
         if (opts.steering === 'reject') {
-          return Effect.andThen(during, Effect.fail(REJECTION));
+          return Effect.andThen(during, Effect.fail(REJECTED));
         }
         return opts.steering === 'fail'
           ? Effect.andThen(during, Effect.fail('steer-fail'))

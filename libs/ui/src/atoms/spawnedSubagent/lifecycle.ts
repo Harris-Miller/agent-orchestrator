@@ -24,7 +24,7 @@ import {
   setMirrorWorkState,
   withHistoryEntryIfAbsent,
 } from '../../host/harnessStateTransitions.ts';
-import { describeError } from '../../host/requestError.ts';
+import { describeError, isAcpError, RequestErrorDetail, requestErrorDetail } from '../../host/requestError.ts';
 import { createSession } from '../../host/sessionRpc.ts';
 import { lastAgentMessage } from '../../host/sessionUpdateReducer.ts';
 import { validateSubagentConfig } from '../../host/subagentTargets.ts';
@@ -42,6 +42,7 @@ type Registry = AtomRegistry.AtomRegistry;
 
 /** The tool's refusal of a spawn, naming the cause for the agent. */
 export class SpawnSubagentError extends Schema.TaggedError<SpawnSubagentError>()('SpawnSubagentError', {
+  detail: RequestErrorDetail,
   message: Schema.String,
 }) {}
 
@@ -244,9 +245,16 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   }
   const created = yield* createSession(input.launchTarget, cwd).pipe(
     Effect.onError(() => Effect.sync(slot.release)),
-    Effect.mapError(error =>
-      refuse(`Could not start a session on ${agentLaunchTargetLabel(input.launchTarget)}: ${describeError(error)}`),
-    ),
+    Effect.mapError(error => {
+      const label = agentLaunchTargetLabel(input.launchTarget);
+      // An Agent's rejection is its own text: it rides along redacted, never in the message.
+      return isAcpError(error)
+        ? new SpawnSubagentError({
+            detail: requestErrorDetail(error),
+            message: `Could not start a session on ${label}: the agent rejected it (code ${error.code})`,
+          })
+        : refuse(`Could not start a session on ${label}: ${describeError(error)}`);
+    }),
   );
   const child = { launchTarget: input.launchTarget, sessionId: created.result.sessionId } as const;
   const link = slot.register({ child, description: input.description, task });

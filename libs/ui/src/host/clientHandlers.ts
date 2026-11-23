@@ -9,12 +9,18 @@ import type {
   RequestPermissionRequest,
   RequestPermissionResponse,
 } from '@libs/effect-acp';
-import { Effect } from 'effect';
-import type { Tracer } from 'effect';
+import { Clock, Effect } from 'effect';
 
+import {
+  elicitationTelemetry,
+  permissionTelemetry,
+  sessionUpdateTelemetry,
+  summarizeSessionUpdate,
+} from './acpTelemetry.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { sessionIdFromElicitationRequest } from './pendingInteractions.ts';
-import { getPromptSpan } from './sessionRpc.ts';
+import { recordAwaitingUser, recordSessionUpdate, recordToolCall } from './promptTurnTelemetry.ts';
+import { getPromptTurn } from './sessionRpc.ts';
 
 export type ClientHandlerCallbacks = {
   readonly onElicitationCreate: (
@@ -35,10 +41,36 @@ const withTurnCorrelatedSpan = <A, E, R>(
   sessionId: string | undefined,
   effect: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R> => {
-  const parent: Tracer.AnySpan | undefined =
-    sessionId !== undefined ? getPromptSpan(launchTarget, sessionId) : undefined;
-  return effect.pipe(Effect.withSpan(name, parent !== undefined ? { parent } : { root: true }));
+  const parent = sessionId !== undefined ? getPromptTurn(launchTarget, sessionId)?.span : undefined;
+  return effect.pipe(
+    Effect.withSpan(name, {
+      ...(parent !== undefined ? { parent } : { root: true }),
+      ...(sessionId !== undefined ? { attributes: { 'acp.agent': launchTarget, 'acp.sessionId': sessionId } } : {}),
+    }),
+  );
 };
+
+/** Run `wait` (a request waiting on the user) with the turn's silence clock paused. */
+const awaitingUser = Effect.fnUntraced(function* <A>(
+  launchTarget: AgentLaunchTarget,
+  sessionId: string,
+  wait: Effect.Effect<A>,
+) {
+  const turn = getPromptTurn(launchTarget, sessionId);
+  if (turn === undefined) {
+    return yield* wait;
+  }
+  recordAwaitingUser(turn, 1, yield* Clock.currentTimeMillis);
+  return yield* wait.pipe(
+    Effect.ensuring(
+      Effect.flatMap(Clock.currentTimeMillis, nowMs =>
+        Effect.sync(() => {
+          recordAwaitingUser(turn, -1, nowMs);
+        }),
+      ),
+    ),
+  );
+});
 
 export const makeClientHandlers = (
   launchTarget: AgentLaunchTarget,
@@ -60,13 +92,22 @@ export const makeClientHandlers = (
               yield* Effect.logWarning('elicitation/create missing session id; cancelling');
               return { action: 'cancel' as const };
             }
-            yield* Effect.logInfo('elicitation/create awaiting UI', sessionId);
-            return yield* Effect.promise(
-              () =>
-                new Promise<CreateElicitationResponseBody>(resolve => {
-                  onElicitationCreate(sessionId, request, resolve);
-                }),
+            yield* Effect.annotateCurrentSpan(elicitationTelemetry(request));
+            yield* Effect.logInfo('elicitation/create awaiting UI', sessionId, elicitationTelemetry(request));
+            const response = yield* awaitingUser(
+              launchTarget,
+              sessionId,
+              Effect.promise(
+                () =>
+                  new Promise<CreateElicitationResponseBody>(resolve => {
+                    onElicitationCreate(sessionId, request, resolve);
+                  }),
+              ),
             );
+            const outcome = elicitationTelemetry(request, response);
+            yield* Effect.annotateCurrentSpan(outcome);
+            yield* Effect.logInfo('elicitation/create answered', sessionId, outcome);
+            return response;
           }),
         );
       },
@@ -78,13 +119,26 @@ export const makeClientHandlers = (
           launchTarget,
           request.sessionId,
           Effect.gen(function* () {
-            yield* Effect.logInfo('session/request_permission awaiting UI', request.sessionId);
-            return yield* Effect.promise(
-              () =>
-                new Promise<RequestPermissionResponse>(resolve => {
-                  onPermissionRequest(request.sessionId, request, resolve);
-                }),
+            yield* Effect.annotateCurrentSpan(permissionTelemetry(request));
+            yield* Effect.logInfo(
+              'session/request_permission awaiting UI',
+              request.sessionId,
+              permissionTelemetry(request),
             );
+            const response = yield* awaitingUser(
+              launchTarget,
+              request.sessionId,
+              Effect.promise(
+                () =>
+                  new Promise<RequestPermissionResponse>(resolve => {
+                    onPermissionRequest(request.sessionId, request, resolve);
+                  }),
+              ),
+            );
+            const outcome = permissionTelemetry(request, response);
+            yield* Effect.annotateCurrentSpan(outcome);
+            yield* Effect.logInfo('session/request_permission answered', request.sessionId, outcome);
+            return response;
           }),
         ),
       'session/update': payload =>
@@ -92,7 +146,14 @@ export const makeClientHandlers = (
           'session/update',
           launchTarget,
           payload.sessionId,
-          Effect.sync(() => {
+          Effect.gen(function* () {
+            const summary = summarizeSessionUpdate(payload.update);
+            yield* Effect.annotateCurrentSpan(sessionUpdateTelemetry(summary));
+            const turn = getPromptTurn(launchTarget, payload.sessionId);
+            if (turn !== undefined) {
+              recordSessionUpdate(turn, summary, yield* Clock.currentTimeMillis);
+              yield* recordToolCall(turn, payload.sessionId, summary);
+            }
             onSessionUpdate(payload.sessionId, payload.update);
           }),
         ),

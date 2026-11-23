@@ -2,17 +2,26 @@ import { assert, describe, it } from '@effect/vitest';
 import { addProject, removeTrackedSession, trackedSessionsPath, upsertTrackedSessions } from '@lib/hoa-home';
 import { mapFsTestServices } from '@lib/hoa-home/testing';
 import type { MapFsEntry } from '@lib/hoa-home/testing';
-import { Effect, Layer } from 'effect';
+import { Effect, FileSystem, Layer } from 'effect';
+import * as PlatformError from 'effect/PlatformError';
 import { TestClock } from 'effect/testing';
 
 import type { HistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { setSessionArchived } from '../host/harnessStateTransitions.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
+import { listedSessionHistoryAtom, visibleListedSessionHistoryAtom } from './listedCwds.atoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { CODEX, freshRegistry, installFakeAgent } from './fakeAgent.testing.ts';
 import { hydrateHarnessCaches } from './harnessHydration.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { reconcileExternalTracked, settleTrackedSessionWrites, TRACKED_SESSIONS_POLL_MS } from './trackedSessions.ts';
+import { settleTrackedSessionWrites } from './trackedSessions.ts';
+import {
+  applyExternalTrackedSessions,
+  reconcileExternalTracked,
+  TRACKED_SESSIONS_POLL_MS,
+} from './trackedSessionsWatch.ts';
 
 const codex = toLaunchTarget(CODEX);
 const row = (sessionId: string, extra: Partial<HistoryEntry> = {}): HistoryEntry => ({
@@ -20,7 +29,7 @@ const row = (sessionId: string, extra: Partial<HistoryEntry> = {}): HistoryEntry
   sessionId,
   ...extra,
 });
-const json = (r: HistoryEntry) =>
+const json = (r: HistoryEntry): string =>
   JSON.stringify({ cwd: r.cwd, sessionId: r.sessionId, ...(r.title === undefined ? {} : { title: r.title }) });
 
 describe('reconcileExternalTracked', () => {
@@ -40,7 +49,16 @@ describe('reconcileExternalTracked', () => {
   it('skips a record equal to lastWritten (pending local edit is not reverted)', () => {
     const file = row('s1', { title: 'old' });
     const out = reconcileExternalTracked([file], [row('s1', { title: 'local' })], new Map([['s1', json(file)]]), scope);
-    assert.deepStrictEqual(out, { removals: [], upserts: [] });
+    assert.deepStrictEqual(out, { removals: [], synced: [], upserts: [] });
+  });
+  it('records a file row equal to memory but unknown to lastWritten, so a later Delete is seen', () => {
+    const file = row('s1', { title: 't' });
+    const out = reconcileExternalTracked([file], [file], new Map(), scope);
+    assert.deepStrictEqual(out.upserts, []);
+    assert.deepStrictEqual(
+      out.synced.map(r => r.sessionId),
+      ['s1'],
+    );
   });
   it('removes an in-scope row known to lastWritten but absent from the file', () => {
     const out = reconcileExternalTracked([], [row('s1')], new Map([['s1', json(row('s1'))]]), scope);
@@ -58,7 +76,32 @@ describe('reconcileExternalTracked', () => {
 
 const setup = Effect.fnUntraced(function* () {
   const store = new Map<string, MapFsEntry>();
-  const layer = Layer.mergeAll(mockHostLayer, mapFsTestServices(store));
+  const base = Layer.mergeAll(mockHostLayer, mapFsTestServices(store));
+  // `failReads.count` upcoming `readFileString` calls fail with an IO error (a transient failure).
+  const failReads = { count: 0 };
+  const flaky = Layer.effect(
+    FileSystem.FileSystem,
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      return {
+        ...fs,
+        readFileString: (path: string, encoding?: string) => {
+          if (failReads.count <= 0) return fs.readFileString(path, encoding);
+          failReads.count -= 1;
+          return Effect.fail(
+            PlatformError.systemError({
+              _tag: 'PermissionDenied',
+              description: 'transient',
+              method: 'readFileString',
+              module: 'FileSystem',
+              pathOrDescriptor: path,
+            }),
+          );
+        },
+      };
+    }),
+  ).pipe(Layer.provide(base));
+  const layer = Layer.merge(base, flaky);
   const registry = yield* freshRegistry;
   const calls: string[] = [];
   yield* installFakeAgent(calls);
@@ -78,7 +121,7 @@ const setup = Effect.fnUntraced(function* () {
     yield* flush;
   });
   const file = trackedSessionsPath(codex).pipe(Effect.provide(layer));
-  return { calls, external, file, ids, layer, registry, store, tick, unsubscribe };
+  return { calls, external, failReads, file, ids, layer, registry, store, tick, unsubscribe };
 });
 
 describe('startTrackedSessionsWatch', () => {
@@ -88,11 +131,21 @@ describe('startTrackedSessionsWatch', () => {
       yield* s.external([{ cwd: '/a', sessionId: 'x1', title: 'one' }]);
       yield* s.tick;
       assert.deepStrictEqual(s.ids(), ['x1']);
-      yield* s.external([{ _meta: { archived: true }, cwd: '/a', sessionId: 'x1', title: 'two' }]);
+      assert.deepStrictEqual(s.calls, []);
+      yield* s.external([
+        { _meta: { jetbrains: { air: { archived: true } } }, cwd: '/a', sessionId: 'x1', title: 'two' },
+      ]);
       yield* s.tick;
       const rows = s.registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory;
       assert.strictEqual(rows[0]?.title, 'two');
+      assert.strictEqual(rows[0]?.archived, true);
       assert.strictEqual(rows.length, 1);
+      assert.deepStrictEqual(s.registry.get(visibleListedSessionHistoryAtom), []);
+      assert.deepStrictEqual(
+        s.registry.get(listedSessionHistoryAtom).map(r => r.sessionId),
+        ['x1'],
+      );
+      assert.deepStrictEqual(s.calls, []);
       s.unsubscribe();
     }),
   );
@@ -156,6 +209,65 @@ describe('startTrackedSessionsWatch', () => {
       yield* s.tick;
       yield* s.tick;
       assert.deepStrictEqual(s.store.get(path), written);
+      assert.deepStrictEqual(s.ids(), ['x1']);
+      s.unsubscribe();
+    }),
+  );
+
+  it.effect('a local create, title change and archive go persister -> poll -> no-op', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      const path = yield* s.file;
+      const edit = (change: (history: readonly HistoryEntry[]) => readonly HistoryEntry[]) => {
+        updateHarnessSnapshot(s.registry, CODEX, current => ({
+          ...current,
+          sessionHistory: change(current.sessionHistory),
+        }));
+      };
+      edit(history => [...history, row('l1', { title: 'one' })]);
+      yield* s.tick;
+      edit(history => history.map(r => ({ ...r, title: 'two' })));
+      yield* s.tick;
+      updateHarnessSnapshot(s.registry, CODEX, current => setSessionArchived(current, 'l1', true));
+      yield* s.tick;
+      const written = s.store.get(path);
+      yield* s.tick;
+      yield* s.tick;
+      const rows = s.registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory;
+      assert.deepStrictEqual(
+        rows.map(r => [r.sessionId, r.title, r.archived]),
+        [['l1', 'two', true]],
+      );
+      assert.deepStrictEqual(s.store.get(path), written);
+      assert.deepStrictEqual(s.calls, []);
+      s.unsubscribe();
+    }),
+  );
+
+  it.effect('retries after a transient read failure instead of remembering its signature', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      s.failReads.count = 1;
+      yield* s.external([{ cwd: '/a', sessionId: 'x1' }]);
+      yield* s.tick;
+      // The failed read was consumed (not just skipped) and the same signature was retried to success.
+      assert.strictEqual(s.failReads.count, 0);
+      assert.deepStrictEqual(s.ids(), ['x1']);
+      s.unsubscribe();
+    }),
+  );
+
+  it.effect('a file missing at read time is no change: rows stay', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      yield* s.external([{ cwd: '/a', sessionId: 'x1' }]);
+      yield* s.tick;
+      assert.deepStrictEqual(s.ids(), ['x1']);
+      s.store.delete(yield* s.file);
+      const settled = yield* applyExternalTrackedSessions(s.registry, CODEX, ['/a']).pipe(Effect.provide(s.layer));
+      assert.isFalse(settled);
+      assert.deepStrictEqual(s.ids(), ['x1']);
+      yield* s.tick;
       assert.deepStrictEqual(s.ids(), ['x1']);
       s.unsubscribe();
     }),

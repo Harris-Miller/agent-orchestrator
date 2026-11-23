@@ -15,8 +15,8 @@ import {
   hydrateTrackedSessions,
   resetTrackedSessionWrites,
   startTrackedSessionsPersistence,
-  startTrackedSessionsWatch,
 } from './trackedSessions.ts';
+import { startTrackedSessionsWatch } from './trackedSessionsWatch.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { workstreamsAtom, workstreamsLoadedAtom } from './workstreams.atoms.ts';
 

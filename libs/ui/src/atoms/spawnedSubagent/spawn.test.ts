@@ -230,6 +230,20 @@ describe('startSpawnedSubagent', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('a spawn that fails after the child exists still names the child on the spawn span', () =>
+    Effect.gen(function* () {
+      const telemetry = captureTelemetry();
+      yield* Effect.gen(function* () {
+        const h = yield* setup({ failSetConfig: true });
+        const error = yield* Effect.flip(h.start());
+        assert.include(error.message, 'config options');
+      }).pipe(Effect.provide(telemetry.layer));
+      const spawn = telemetry.spans.find(span => span.name === 'startSpawnedSubagent');
+      assert.strictEqual(spawn?.attributes.get('acp.sessionId'), PARENT);
+      assert.strictEqual(spawn?.attributes.get('acp.childSessionId'), CHILD);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('streams updates into the mirror and reports only the last message after the task', () =>
     Effect.gen(function* () {
       const h = yield* setup({

@@ -283,7 +283,10 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     );
     attach(registry, child, { projection });
 
-    const configured = yield* applySessionConfigValues(registry, child, input.configOptions);
+    const configured = yield* applySessionConfigValues(registry, child, input.configOptions).pipe(
+      Effect.annotateSpans(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
+      Effect.annotateLogs(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
+    );
     if (configured.stoppedEarly) {
       yield* abandonSpawn(registry, child);
       return yield* refuse('Could not apply the requested config options to the new subagent.');
@@ -306,7 +309,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
 });
 
 /** A child ends with its parent: cancelled, its turn cancelled and its session closed (never deleted), the link removed. */
-const endChild = Effect.fnUntraced(function* (registry: Registry, link: SpawnedLink, why: string) {
+const endChildWork = Effect.fnUntraced(function* (registry: Registry, link: SpawnedLink, why: string) {
   const child = { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId };
   // Settled first, so the mirror reads cancelled rather than whatever the cancelled turn reports; a finished child keeps its state.
   settleLink(registry, link, { status: 'cancelled', text: why }, 'cancelled');
@@ -316,6 +319,12 @@ const endChild = Effect.fnUntraced(function* (registry: Registry, link: SpawnedL
   updateHarnessSnapshot(registry, child.launchTarget, current => markSessionInactive(current, child.sessionId));
   yield* endLink(registry, child);
 });
+
+const endChild = (registry: Registry, link: SpawnedLink, why: string) =>
+  endChildWork(registry, link, why).pipe(
+    Effect.annotateSpans(PARENT_SESSION_ATTRIBUTE, link.parentSessionId),
+    Effect.annotateLogs(PARENT_SESSION_ATTRIBUTE, link.parentSessionId),
+  );
 
 /** The parent session was closed or deleted: every child it started ends with it. */
 export const endSpawnedChildren = Effect.fnUntraced(function* (registry: Registry, parent: SessionRef) {

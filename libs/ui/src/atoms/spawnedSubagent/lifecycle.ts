@@ -160,6 +160,9 @@ const outcomeOfTurn = (registry: Registry, link: SpawnedLink, result: PromptTurn
   };
 };
 
+/** Span attribute and log annotation naming a Spawned subagent session's parent (its ACP `sessionId`). */
+const PARENT_SESSION_ATTRIBUTE = 'acp.parentSessionId';
+
 /** The child's one Prompt turn, to its outcome. Never fails: a turn that cannot run is a `failed` outcome. */
 const runChildTurn = Effect.fnUntraced(function* (registry: Registry, link: SpawnedLink, task: string) {
   const exit = yield* Effect.exit(
@@ -252,6 +255,8 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     }),
   );
   const child = { launchTarget: input.launchTarget, sessionId: created.result.sessionId } as const;
+  // The span's `acp.sessionId` is the parent's: this id completes the link, so the children of a parent are findable.
+  yield* Effect.annotateCurrentSpan('acp.childSessionId', child.sessionId);
   const link = slot.register({ child, description: input.description, task });
   // The hub connection can drop mid-setup (interrupting this handler): whatever was written is torn down then too.
   return yield* Effect.gen(function* () {
@@ -286,7 +291,14 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
       return yield* refuse('Could not apply the requested config options to the new subagent.');
     }
 
-    yield* Effect.forkDetach(runChildTurn(registry, { ...link, projection }, task));
+    // The child's turn is its own trace; this attribute is what ties it back to the parent session (ids only), also
+    // when both run on one launch target and `acp.agent` is the same.
+    yield* Effect.forkDetach(
+      runChildTurn(registry, { ...link, projection }, task).pipe(
+        Effect.annotateSpans(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
+        Effect.annotateLogs(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
+      ),
+    );
     return { childSessionId: child.sessionId, outcome: link.outcome };
   }).pipe(
     Effect.onExit(exit =>

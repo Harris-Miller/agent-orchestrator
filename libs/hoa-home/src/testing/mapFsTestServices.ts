@@ -1,5 +1,5 @@
 import { AtomicFile, OS } from '@lib/context-services';
-import { Effect, Layer, Sink, Stream } from 'effect';
+import { ByteSize, Effect, Layer, Option, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import type { File, FileSystem } from 'effect/FileSystem';
 import type { Path } from 'effect/Path';
@@ -85,6 +85,20 @@ const mapFsLayer = (store: Map<string, MapFsEntry>, fsOptions: MapFsOptions = {}
       }
       return notFound('readFileString', path);
     },
+    // mtime is derived from a hash of the content, so any content change changes the stat signature.
+    stat: path =>
+      Effect.suspend(() => {
+        const entry = store.get(path);
+        if (entry === undefined) return notFound('stat', path);
+        const content = entry.kind === 'file' ? entry.content : '';
+        let hash = 0;
+        for (let i = 0; i < content.length; i += 1) hash = (hash * 31 + content.charCodeAt(i)) % 2_147_483_647;
+        return Effect.succeed({
+          mtime: Option.some(new Date(Math.abs(hash))),
+          size: ByteSize.bytes(content.length),
+          type: entry.kind === 'file' ? 'File' : 'Directory',
+        } as File.Info);
+      }),
     remove: (path, options) =>
       Effect.suspend(() => {
         if (blockedRemoval.some(prefix => path.startsWith(prefix))) {

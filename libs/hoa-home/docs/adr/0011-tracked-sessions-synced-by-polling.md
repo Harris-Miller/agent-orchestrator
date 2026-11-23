@@ -1,0 +1,10 @@
+# Tracked sessions are synced across app instances by polling the file
+
+Every running instance (desktop, VS Code, several windows) shares `tracked-sessions.json` per launch target, and each keeps Session History in sync with changes other instances make. Builds on [ADR 0008](0008-tracked-sessions-store-replaces-session-index.md).
+
+- **Poll `stat`, not `FileSystem.watch`.** Neither Host supports watch (Tauri's `FileSystemLive.watch` is not supported; the VS Code webview's dies), but both support `stat`. Each launch target polls every second; the signature is `mtime:size`, and the file is read and decoded only when it changed. A missing file or failed `stat` means "no change", never "everything was deleted".
+- **`lastWritten` is what we know is in the file.** It already drives the upsert-only persister. A file record equal to it is no external change (so a pending local edit is not reverted by a stale file); a differing or unknown record is applied; an in-scope row in memory that is in `lastWritten` but absent from the file was Deleted elsewhere and is dropped. A row not in `lastWritten` is a pending local create and stays. This is how Delete elsewhere is told apart from a record that is only dormant after Stop tracking here: dormant records are out of scope, so they are never applied or removed.
+- **No echo.** Before updating the snapshot, `lastWritten` is set to what the persister would write for each applied row (and cleared for removed ones), so the persister writes nothing, and our own writes re-read as equal. Reconcile runs on the same per-target queue as writes and untracks.
+- **Session History only.** Applying never calls ACP (`session/load`, `session/resume`, `session/list`) and never activates or selects. A removed row is dropped like a local Delete (Selected is cleared); an Active session removed elsewhere is dropped locally while its agent-side session stays open. Only cwds the instance lists (Projects on desktop, the Workspace cwd in VS Code) are applied.
+- **A malformed or partial file is ignored.** The previous rows stay and the next changed signature is read again.
+- Pins, Projects and Workstreams are not synced.

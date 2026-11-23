@@ -6,6 +6,10 @@
  * Every write for a launch target runs through that target's one queue, so an upsert computed before an untrack can never
  * resurrect the removed record.
  *
+ * Other app instances share the file; `trackedSessionsWatch.ts` polls it and reconciles Session History with it.
+ * `lastWritten` is "what we know is in the file": it tells an external Delete (known, now absent) from a pending local
+ * create (unknown) and keeps our own writes from echoing.
+ *
  * A malformed file is never overwritten (pins and Projects behave the same). Persistence has no start-guard for it: the
  * upsert fails and is logged, and the file is left as it was.
  */
@@ -28,11 +32,15 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 export const trackedRecordOf = ({ unavailable: _unavailable, ...row }: HistoryEntry): TrackedSessionRecord =>
   encodeHistoryEntry(row);
 
-type TargetTracked = { writes: Promise<void>; lastWritten: Map<string, string> };
+/** What the store knows per launch target: its write queue and `lastWritten` (sessionId -> {@link fingerprint}). */
+export type TargetTracked = { writes: Promise<void>; lastWritten: Map<string, string> };
+
+/** What the persister compares against `lastWritten` for a row: its stored encoding as JSON. */
+export const fingerprint = (row: HistoryEntry): string => JSON.stringify(trackedRecordOf(row));
 
 const caches = new Map<AgentLaunchTarget, TargetTracked>();
 
-const cacheOf = (launchTarget: AgentLaunchTarget): TargetTracked => {
+export const cacheOf = (launchTarget: AgentLaunchTarget): TargetTracked => {
   let cache = caches.get(launchTarget);
   if (cache === undefined) {
     cache = { lastWritten: new Map(), writes: Promise.resolve() };
@@ -45,7 +53,10 @@ const cacheOf = (launchTarget: AgentLaunchTarget): TargetTracked => {
  * Queues `work` behind every earlier write of the launch target; resolves when it has run. Never rejects: a work item that
  * throws is logged as a warning and the queue carries on.
  */
-const enqueue = (launchTarget: AgentLaunchTarget, work: (cache: TargetTracked) => Promise<void>): Promise<void> => {
+export const enqueue = (
+  launchTarget: AgentLaunchTarget,
+  work: (cache: TargetTracked) => Promise<void>,
+): Promise<void> => {
   const cache = cacheOf(launchTarget);
   const next = cache.writes
     .then(() => work(cache))
@@ -82,7 +93,7 @@ export const hydrateTrackedSessions = (
       const stored = trackedSessionRows(document, new Set(cwds)).map(decodeHistoryEntry);
       const { lastWritten } = cacheOf(launchTarget);
       // Compared against what the persister would write for the row, so a row unchanged since hydrate is not rewritten.
-      for (const row of stored) lastWritten.set(row.sessionId, JSON.stringify(trackedRecordOf(row)));
+      for (const row of stored) lastWritten.set(row.sessionId, fingerprint(row));
       updateHarnessSnapshot(registry, launchTarget, current => {
         const present = new Set(current.sessionHistory.map(entry => entry.sessionId));
         return replaceSessionHistory(current, [
@@ -111,8 +122,7 @@ export const startTrackedSessionsPersistence = Effect.fn('startTrackedSessionsPe
     enqueue(launchTarget, cache => {
       const changed = registry
         .get(backendHarnessSnapshotAtom(launchTarget))
-        .sessionHistory.map(trackedRecordOf)
-        .map(record => ({ json: JSON.stringify(record), record }))
+        .sessionHistory.map(row => ({ json: fingerprint(row), record: trackedRecordOf(row) }))
         .filter(({ json, record }) => cache.lastWritten.get(record.sessionId) !== json);
       if (changed.length === 0) return Promise.resolve();
       return run(

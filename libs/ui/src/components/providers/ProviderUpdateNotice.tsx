@@ -23,12 +23,16 @@ export const ProviderUpdateNotice: FC<{ readonly onOpenProviders: () => void }> 
   const registry = useContext(RegistryContext);
   const notified = useRef(new Set<string>());
   const [shown, setShown] = useState<readonly ProviderUpdate[]>([]);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const check = () => {
       // Read fresh runtime info first: Check for latest compares against the on-disk Active and downloaded versions.
+      // refreshProviderAtomFn is shared: a concurrent caller supersedes this run, so the promise may settle with
+      // the other run's result or reject. Either way the on-disk info is as fresh as it will get; always check.
       refresh(undefined)
+        .catch(() => undefined)
         .then(() => {
           if (cancelled) {
             return;
@@ -36,8 +40,7 @@ export const ProviderUpdateNotice: FC<{ readonly onOpenProviders: () => void }> 
           for (const id of providersToCheckForUpdates(registry.get(providerViewsAtom))) {
             registry.set(checkLatestAtomFn(id), id);
           }
-        })
-        .catch(() => undefined);
+        });
     };
     check();
     const timer = setInterval(check, PROVIDER_UPDATE_CHECK_INTERVAL_MS);
@@ -57,14 +60,25 @@ export const ProviderUpdateNotice: FC<{ readonly onOpenProviders: () => void }> 
     }
     // Keep still-open notices for other Providers; replace a Provider's older version.
     setShown(prev => [...prev.filter(old => !fresh.some(update => update.id === old.id)), ...fresh]);
+    setOpen(true);
   }, [providers]);
 
   const close = () => {
-    setShown([]);
+    setOpen(false);
   };
 
   return (
-    <Snackbar anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }} open={shown.length > 0}>
+    <Snackbar
+      anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
+      open={open}
+      slotProps={{
+        transition: {
+          onExited: () => {
+            setShown([]);
+          },
+        },
+      }}
+    >
       <Alert
         action={
           <Button

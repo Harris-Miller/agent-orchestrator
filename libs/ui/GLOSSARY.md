@@ -130,7 +130,7 @@ The downloaded program backing a Provider (see hoa-home _Provider runtime docume
 _Avoid_: adapter resource tree, bundled adapter
 
 **Provider update check**:
-A background Check for latest run after Provider bootstrap and every 6 hours for enabled managed Providers with an Active runtime. Notifies once per Provider version, linking to Settings > Providers; never downloads or installs.
+A background Check for latest run after Provider bootstrap and every 6 hours for enabled managed Providers with an Active runtime. Notifies at most once per Provider version per launch, linking to Settings > Providers; never downloads or installs.
 _Avoid_: auto-update
 
 **Managed provider**:

@@ -1,5 +1,4 @@
 /** Blocking bootstrap gate: require a global Node >= 22 and npm. Cannot be dismissed; Retry re-runs the check. */
-import { OpenUrl } from '@lib/context-services';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -8,7 +7,6 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Effect } from 'effect';
 import { useCallback, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 
@@ -21,6 +19,7 @@ import {
 import type { NodePrerequisite } from '../host/nodePrerequisite.ts';
 import { hostRuntime } from '../hostRuntime.ts';
 import { GateProgress, useStartupTask } from './startupGateParts.tsx';
+import { useOpenExternalUrl } from './useOpenExternalUrl.ts';
 
 export const NODE_DOWNLOAD_URL = 'https://nodejs.org/en/download';
 
@@ -31,7 +30,6 @@ type GatePhase =
 
 export const NodePrerequisiteGate: FC<{ readonly children: ReactNode }> = ({ children }) => {
   const [phase, setPhase] = useState<GatePhase>({ _tag: 'checking' });
-  const [openError, setOpenError] = useState<string | undefined>(undefined);
 
   const probe = useCallback(async () => {
     setPhase({ _tag: 'checking' });
@@ -41,18 +39,7 @@ export const NodePrerequisiteGate: FC<{ readonly children: ReactNode }> = ({ chi
 
   useStartupTask(probe, [probe]);
 
-  const openDownload = useCallback(async () => {
-    setOpenError(undefined);
-    const exit = await hostRuntime.runPromiseExit(
-      Effect.gen(function* () {
-        const openUrl = yield* OpenUrl;
-        yield* openUrl.open(NODE_DOWNLOAD_URL);
-      }),
-    );
-    if (exit._tag === 'Failure') {
-      setOpenError(`Could not open the browser. Visit ${NODE_DOWNLOAD_URL}`);
-    }
-  }, []);
+  const { error: openError, open: openDownload } = useOpenExternalUrl(NODE_DOWNLOAD_URL);
 
   if (phase._tag === 'ready') {
     return children;

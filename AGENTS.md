@@ -39,6 +39,14 @@ makeHostServicesLive(options: { readonly client: IpcClient }): Layer.Layer<HostS
 
 - **Never use `<TextField>`'s `label` prop.** The theme compacts inputs (fixed heights, no notched outline) but not MUI's floating `InputLabel`, so the label renders misaligned. Always wrap the field in the app's `<FieldLabel>` (`@lib/ui`, `htmlFor` + matching `id`), or use `placeholder` + `aria-label` for search/filter inputs.
 
+## Telemetry
+
+- **New user-facing actions get an Analytics event** from the closed catalog in `libs/ui/src/analytics/catalog.ts`, via `trackEvent` as one extra `pipe` stage next to the action's root span (captures on success only). Add a builder to the catalog; never call `makeAnalyticsEvent` elsewhere or add a free-form event. See `docs/adr/0004-analytics-events-separate-from-otlp.md`.
+- **Event properties are allowlisted only** (root ADR 0002): launch target, counts, closed unions. Never prompt text, titles, paths, URLs, ids, option names or agent text.
+- **New Effects follow the existing span and log conventions**: user action roots get a root span, private data in logs is wrapped in `Redacted`.
+- **Unit tests never provide a real analytics or OTLP layer.** Use a recording `Analytics` layer (`libs/ui/src/analytics/recordingAnalytics.testing.ts`).
+- To see events from a dev build, run a local PostHog: `docs/local-posthog.md`.
+
 ## ACP (Agent Client Protocol)
 
 This repo communicates with ACP Servers that implement the V1 Spec. When needing to review that spec, refer to here: https://agentclientprotocol.com/llms.txt

@@ -162,7 +162,7 @@ describe('hub', () => {
     }).pipe(Effect.scoped, Effect.provide(layer));
   });
 
-  it.live('a Spawned subagent session names its parent session on the tool-call span, and a rebind keeps it', () => {
+  it.live('a Spawned subagent session names its parent session on the tool-call span', () => {
     const { layer, spans } = capture();
     return Effect.gen(function* () {
       const { port } = yield* hubUp();
@@ -181,6 +181,9 @@ describe('hub', () => {
       const [span] = toolCallSpans(spans);
       assert.strictEqual(span?.attributes.get('acp.sessionId'), 'acp-child');
       assert.strictEqual(span?.attributes.get('acp.parentSessionId'), 'acp-parent');
+      for (const key of span?.attributes.keys() ?? []) {
+        assert.include(TOOL_CALL_ATTRIBUTE_ALLOWLIST, key);
+      }
     }).pipe(Effect.scoped, Effect.provide(layer));
   });
 
@@ -234,6 +237,7 @@ describe('hub', () => {
       yield* registerToken(owner, 'tok-bearer-9d2c');
       owner.send({
         launchTarget: 'claude-agent-acp',
+        parentSessionId: 'acp-canary-parent',
         sessionId: 'acp-canary',
         token: 'tok-bearer-9d2c',
         type: 'bind',

@@ -76,6 +76,7 @@ export const applyExternalTrackedSessions = Effect.fn('applyExternalTrackedSessi
   registry: AtomRegistry.AtomRegistry,
   launchTarget: AgentLaunchTarget,
   cwds: readonly string[],
+  isStopped: () => boolean = () => false,
 ) {
   const context = yield* Effect.context<HostServices>();
   const run = Effect.runPromiseWith(context);
@@ -90,6 +91,8 @@ export const applyExternalTrackedSessions = Effect.fn('applyExternalTrackedSessi
           // `readTrackedSessions` reads a missing file as empty; here that would look like "everything Deleted".
           if (!(yield* fs.exists(yield* trackedSessionsPath(target)))) return;
           const document = yield* readTrackedSessions(target);
+          // The watch was unsubscribed while this work was queued or reading: apply nothing.
+          if (isStopped()) return;
           const fileRows = trackedSessionRows(document, scope).map(decodeHistoryEntry);
           const memory = registry.get(backendHarnessSnapshotAtom(launchTarget)).sessionHistory;
           const { removals, synced, upserts } = reconcileExternalTracked(fileRows, memory, cache.lastWritten, scope);
@@ -153,18 +156,22 @@ export const startTrackedSessionsWatch = Effect.fn('startTrackedSessionsWatch')(
   const fs = yield* FileSystem.FileSystem;
   const filePath = yield* trackedSessionsPath(toLaunchTarget(launchTarget));
   let seen: string | undefined;
+  let stopped = false;
   const poll = Effect.gen(function* () {
     const info = yield* Effect.option(fs.stat(filePath));
     if (Option.isNone(info)) return;
     const signature = signatureOf(info.value);
     if (signature === seen) return;
-    if (yield* applyExternalTrackedSessions(registry, launchTarget, registry.get(listedCwdsAtom))) seen = signature;
+    if (yield* applyExternalTrackedSessions(registry, launchTarget, registry.get(listedCwdsAtom), () => stopped)) {
+      seen = signature;
+    }
   }).pipe(Effect.catchCause(cause => Effect.logWarning('tracked sessions poll failed', launchTarget, cause)));
   // Forked from this fiber so it inherits the clock; detached so it outlives the hydrating fiber.
   const fiber = yield* Effect.forkDetach(
     poll.pipe(Effect.repeat(Schedule.spaced(Duration.millis(TRACKED_SESSIONS_POLL_MS)))),
   );
   return () => {
+    stopped = true;
     fiber.interruptUnsafe();
   };
 });

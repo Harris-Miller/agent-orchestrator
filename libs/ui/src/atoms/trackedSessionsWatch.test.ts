@@ -107,6 +107,7 @@ const setup = Effect.fnUntraced(function* () {
   yield* installFakeAgent(calls);
   yield* addProject('/a').pipe(Effect.provide(layer));
   const unsubscribe = yield* hydrateHarnessCaches(registry).pipe(Effect.provide(layer));
+  yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
   const ids = () => registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory.map(r => r.sessionId);
   const external = (records: readonly { cwd: string; sessionId: string; title?: string; _meta?: object }[]) =>
     upsertTrackedSessions(codex, records).pipe(Effect.provide(layer));
@@ -146,7 +147,6 @@ describe('startTrackedSessionsWatch', () => {
         ['x1'],
       );
       assert.deepStrictEqual(s.calls, []);
-      s.unsubscribe();
     }),
   );
 
@@ -156,7 +156,6 @@ describe('startTrackedSessionsWatch', () => {
       yield* s.external([{ cwd: '/zzz', sessionId: 'z1' }]);
       yield* s.tick;
       assert.deepStrictEqual(s.ids(), []);
-      s.unsubscribe();
     }),
   );
 
@@ -177,7 +176,6 @@ describe('startTrackedSessionsWatch', () => {
       assert.notDeepEqual(after, before);
       yield* s.tick;
       assert.deepStrictEqual(s.store.get(yield* s.file), after);
-      s.unsubscribe();
     }),
   );
 
@@ -196,7 +194,6 @@ describe('startTrackedSessionsWatch', () => {
       });
       yield* s.tick;
       assert.sameMembers(s.ids(), ['x1', 'x2']);
-      s.unsubscribe();
     }),
   );
 
@@ -210,7 +207,6 @@ describe('startTrackedSessionsWatch', () => {
       yield* s.tick;
       assert.deepStrictEqual(s.store.get(path), written);
       assert.deepStrictEqual(s.ids(), ['x1']);
-      s.unsubscribe();
     }),
   );
 
@@ -240,7 +236,6 @@ describe('startTrackedSessionsWatch', () => {
       );
       assert.deepStrictEqual(s.store.get(path), written);
       assert.deepStrictEqual(s.calls, []);
-      s.unsubscribe();
     }),
   );
 
@@ -253,7 +248,6 @@ describe('startTrackedSessionsWatch', () => {
       // The failed read was consumed (not just skipped) and the same signature was retried to success.
       assert.strictEqual(s.failReads.count, 0);
       assert.deepStrictEqual(s.ids(), ['x1']);
-      s.unsubscribe();
     }),
   );
 
@@ -269,7 +263,16 @@ describe('startTrackedSessionsWatch', () => {
       assert.deepStrictEqual(s.ids(), ['x1']);
       yield* s.tick;
       assert.deepStrictEqual(s.ids(), ['x1']);
+    }),
+  );
+
+  it.effect('stops applying changes after unsubscribe', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
       s.unsubscribe();
+      yield* s.external([{ cwd: '/a', sessionId: 'x1' }]);
+      yield* s.tick;
+      assert.deepStrictEqual(s.ids(), []);
     }),
   );
 });

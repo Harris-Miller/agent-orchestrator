@@ -6,3 +6,5 @@ The app records the sessions it tracks in `~/.hoa/providers/<launchTarget>/track
 - **Authoritative, so never rebuilt.** A record carries the row snapshot plus the app-owned `archived` flag (stored as the AIR `archived` meta). Nothing refreshes it from a list; title and Last prompt time change only from live signals. An undecodable file is never overwritten (like pins), unlike the old cache.
 - **Per-record merge-on-write.** Each change re-reads the file and applies one record's upsert or removal, so desktop and VS Code can share it and neither discards the other's records. Persistence is upsert-only: dropping rows from memory (Stop tracking) leaves their records dormant in the file; only Delete removes a record.
 - **No migration**, per root ADR 0001: existing cached rows must not silently become tracked, so the old file is ignored.
+
+See also [ADR 0011](./0011-tracked-sessions-synced-by-polling.md): other instances' changes are polled and applied.

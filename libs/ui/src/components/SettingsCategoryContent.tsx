@@ -3,12 +3,16 @@ import type { FC } from 'react';
 
 import type { SettingsCategoryId } from '../settings/settingsCategories.ts';
 
+import { AboutSettingsPane } from './AboutSettingsPane.tsx';
 import { AppearanceSettingsPane } from './AppearanceSettingsPane.tsx';
 import { GeneralSettingsPane } from './GeneralSettingsPane.tsx';
 import { ProvidersSettingsPane } from './providers/ProvidersSettingsPane.tsx';
 
 /** Shared Settings category pane body (host shells supply chrome). */
 export const SettingsCategoryContent: FC<{ readonly category: SettingsCategoryId }> = ({ category }) => {
+  if (category === 'about') {
+    return <AboutSettingsPane />;
+  }
   if (category === 'appearance') {
     return <AppearanceSettingsPane />;
   }

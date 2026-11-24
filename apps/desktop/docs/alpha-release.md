@@ -38,7 +38,7 @@ If you regenerate keys, replace `pubkey` in `tauri.conf.json` and update the pri
 
 ## Ship a build
 
-1. Merge a release PR from `develop` into `main` (merge commit).
+1. Merge a release PR from `develop` into `main` (merge commit). Its title still has to pass the title check, e.g. `Chore: Release`; it doesn't affect the version.
 2. Release CI computes the version, fails if a tag **or** a release (draft included) with that name already exists, then builds every platform into a draft release and checks that `latest.json` lists `darwin-aarch64`, `darwin-x86_64` and `windows-x86_64`.
 3. Open the draft (`HOA vX.Y.Z`), confirm the assets (installers, `.app.tar.gz` + `.sig`, `-setup.exe` + `.sig`, `latest.json`, `.vsix`), edit the notes if you want, then publish it as a **normal** release (not a pre-release). GitHub's `/releases/latest`, which the updater reads, ignores drafts and pre-releases. Publishing creates the `vX.Y.Z` tag.
 

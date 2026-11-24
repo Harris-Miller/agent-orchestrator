@@ -32,7 +32,7 @@ During Alpha every releasable tag is a patch (`0.1.x`).
 
 ## Cut a release
 
-1. Open a PR from `develop` **into `main`** (the release PR).
+1. Open a PR from `develop` **into `main`** (the release PR). Its title still has to pass the title check, e.g. `Chore: Release`; it doesn't affect the version.
 2. Merge it with a **merge commit** (the `main` ruleset allows only that), so `main` keeps `develop`'s commits.
 3. The push to `main` runs release CI: semantic-release computes the version from the commits since the last `v*` tag and CI builds a draft GitHub Release. See [`apps/desktop/docs/alpha-release.md`](../apps/desktop/docs/alpha-release.md).
 

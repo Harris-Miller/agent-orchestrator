@@ -103,7 +103,7 @@ The repo uses gitflow ([`docs/gitflow.md`](./docs/gitflow.md)):
 - **`develop`** is the default branch. Branch from it and open your PR **into `develop`**.
 - **`main`** is the release branch. Only release PRs from `develop` merge into it.
 
-Name your branch after what it does, with the issue number if there is one (for example `fix-subagent-tracking-459`). Keep your branch up to date by rebasing onto `develop`.
+Name your branch after what it does, with the issue number if there is one (for example `fix-subagent-tracking-459`).
 
 ### Issues
 

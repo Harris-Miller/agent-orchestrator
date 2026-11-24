@@ -30,7 +30,9 @@ if (result === false || result.nextRelease === undefined) {
 } else {
   const { lastRelease, nextRelease } = result;
   const version = lastRelease.version ? nextRelease.version : FIRST_VERSION;
-  const notes = (nextRelease.notes ?? '').replaceAll(nextRelease.version, version);
+  // Only the header line carries the version; entries may mention other versions.
+  const [header = '', ...rest] = (nextRelease.notes ?? '').split('\n');
+  const notes = [header.replaceAll(nextRelease.version, version), ...rest].join('\n');
   writeFileSync(notesFile, notes);
   output({ released: 'true', tag: `v${version}`, version });
 }

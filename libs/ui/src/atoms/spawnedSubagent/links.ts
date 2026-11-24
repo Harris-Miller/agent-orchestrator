@@ -56,25 +56,23 @@ const linksAtom = Atom.make<LinkMap>(new Map()).pipe(Atom.withLabel('spawnedLink
 
 /**
  * Every Spawned subagent session ever linked this app run, never pruned (ending a link does not remove it): the hide key
- * for Session History, so a child never becomes a top-level Session. Memory only.
+ * for Session History and Import, so a child never becomes a top-level Session. Memory only.
  */
-const spawnedChildrenAtom = Atom.make<{ readonly keys: ReadonlySet<string> }>({ keys: new Set<string>() }).pipe(
+export interface SpawnedChildren {
+  readonly keys: ReadonlySet<string>;
+}
+
+const spawnedChildrenAtom = Atom.make<SpawnedChildren>({ keys: new Set<string>() }).pipe(
   Atom.withLabel('spawnedChildren'),
   Atom.keepAlive,
 );
 
-declare const childrenBrand: unique symbol;
-/** Opaque snapshot of every child ever linked: readable only through `wasSpawnedChildIn`. */
-export interface SpawnedChildren {
-  readonly [childrenBrand]: never;
-}
-
-export const spawnedChildrenSnapshotAtom: Atom.Atom<SpawnedChildren> =
-  spawnedChildrenAtom as unknown as Atom.Atom<SpawnedChildren>;
+/** Read-only view of {@link spawnedChildrenAtom}; the only writer is `reserveSlot`'s `register`. */
+export const spawnedChildrenSnapshotAtom: Atom.Atom<SpawnedChildren> = spawnedChildrenAtom;
 
 /** True for a session that was ever a Spawned subagent session this app run, whether or not its link is still live. */
 export const wasSpawnedChildIn = (children: SpawnedChildren, session: SessionRef): boolean =>
-  (children as unknown as { readonly keys: ReadonlySet<string> }).keys.has(linkKey(session));
+  children.keys.has(linkKey(session));
 
 /** Spawns past their cap check but without a link yet, per parent: they count toward the live-children cap. */
 const pendingSpawnsAtom = Atom.make<ReadonlyMap<string, number>>(new Map()).pipe(

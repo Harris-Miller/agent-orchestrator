@@ -43,6 +43,7 @@ import type { FC } from 'react';
 
 import { AppTitle } from './AppTitle.tsx';
 import { PageTitle } from './PageTitle.tsx';
+import { UpdatesIndicator } from '../updatesPrototype/UpdatesIndicator.tsx'; // PROTOTYPE #457
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
 import { ProjectGroup } from './ProjectGroup.tsx';
 
@@ -261,7 +262,7 @@ export const WorkbenchNavRail: FC<{
         {workstreamsEnabled ? null : (
           <>
             <Divider />
-            <Box sx={{ flexShrink: 0, p: 1 }}>
+            <Box sx={{ alignItems: 'center', display: 'flex', flexShrink: 0, gap: 0.5, p: 1 }}>
               <IconTooltipButton
                 icon={Settings}
                 label="Settings"
@@ -269,6 +270,7 @@ export const WorkbenchNavRail: FC<{
                   navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
                 }}
               />
+              <UpdatesIndicator compact={false} />
             </Box>
           </>
         )}

@@ -4,6 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
 import type { FC } from 'react';
 
+import { PrototypeSwitcher } from '../components/updatesPrototype/PrototypeSwitcher.tsx'; // PROTOTYPE #457
 import { checkForAppUpdate } from '../checkForAppUpdate.ts';
 
 const RootComponent: FC = () => {
@@ -28,6 +29,7 @@ const RootComponent: FC = () => {
       >
         <VscodeExtensionUpdateDialog />
         <Outlet />
+        <PrototypeSwitcher />
       </HarnessMounts>
     </HarnessPrerequisites>
   );

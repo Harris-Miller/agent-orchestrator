@@ -45,6 +45,7 @@ import {
 } from './harnessStateTransitions.ts';
 import { appendUserChatMessage } from './sessionUpdateReducer.ts';
 import { initialSpawnedSubagentSnapshot } from './subagent.ts';
+import { buildSubagentResult } from './subagentResult.ts';
 
 describe('markHistoryUnavailable', () => {
   const current = [
@@ -879,5 +880,13 @@ describe('restoreSubagentFromResult', () => {
     const thrice = restoreSubagentFromResult(again, 's1', { ...result, status: 'running' });
     assert.strictEqual(thrice.sessions.s1.transcript.items.filter(item => item.kind === 'subagent').length, 1);
     assert.deepStrictEqual(thrice.subagents.c1.state, { state: 'completed' });
+  });
+
+  it('rebuilds only the child its result is for: a nested Subagent result in its body adds no grandchild (#277)', () => {
+    const inner = buildSubagentResult({ ...result, body: 'inner', id: 'g1' });
+    const snapshot = readySnapshot({ s1: initialSessionSnapshot('s1') });
+    const restored = restoreSubagentFromResult(snapshot, 's1', { ...result, body: inner });
+    assert.deepStrictEqual(Object.keys(restored.subagents), ['c1']);
+    assert.strictEqual(restored.sessions.s1.transcript.items.filter(item => item.kind === 'subagent').length, 1);
   });
 });

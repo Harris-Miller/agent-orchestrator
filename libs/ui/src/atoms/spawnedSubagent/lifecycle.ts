@@ -16,11 +16,12 @@ import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { closeOnAgent } from '../../host/closeOnAgent.ts';
 import type { ConfigOptionValues } from '../../host/configProbe.ts';
 import {
+  addChildMirror,
+  addChildRowToRootEntry,
   bindSession,
   dropMirror,
   dropSession,
   markSessionInactive,
-  mirrorChildIntoParent,
   projectChildOnto,
   setMirrorWorkState,
 } from '../../host/harnessStateTransitions.ts';
@@ -34,7 +35,19 @@ import { updateHarnessSnapshot } from '../harnessSnapshot.ts';
 import { cancelPromptTurn, sendPromptTurn, sessionIn } from '../promptTurn.ts';
 import type { PromptTurnResult } from '../promptTurn.ts';
 import { applySessionConfigValues } from '../sessionConfigChange.ts';
-import { allLinks, atMaxSpawnDepth, attach, childrenOf, end, linkOf, MAX_LIVE_CHILDREN, reserveSlot } from './links.ts';
+import {
+  allLinks,
+  atMaxSpawnDepth,
+  attach,
+  capReached,
+  childrenOf,
+  end,
+  linkOf,
+  MAX_LIVE_CHILDREN,
+  MAX_LIVE_DESCENDANTS,
+  MAX_SPAWN_DEPTH,
+  reserveSlot,
+} from './links.ts';
 import type { SpawnedLink, SubagentOutcome } from './links.ts';
 import { usableSubagentTarget } from '../subagentTargets.atoms.ts';
 
@@ -77,7 +90,7 @@ const projectOnce = (registry: Registry, link: SpawnedLink): void => {
   if (root === undefined) {
     return;
   }
-  updateHarnessSnapshot(registry, link.parentLaunchTarget, current =>
+  updateHarnessSnapshot(registry, link.mirrorLaunchTarget, current =>
     projectChildOnto(current, link.childSessionId, root),
   );
 };
@@ -96,7 +109,7 @@ export const endLink = Effect.fnUntraced(function* (
     return;
   }
   if (options.dropMirror === true) {
-    updateHarnessSnapshot(registry, link.parentLaunchTarget, current => dropMirror(current, link.childSessionId));
+    updateHarnessSnapshot(registry, link.mirrorLaunchTarget, current => dropMirror(current, link.childSessionId));
   }
 });
 
@@ -111,7 +124,7 @@ export const settleLink = (registry: Registry, link: SpawnedLink, outcome: Subag
     return;
   }
   // Work state first: whoever awaits the outcome then reads a finished mirror.
-  updateHarnessSnapshot(registry, link.parentLaunchTarget, current =>
+  updateHarnessSnapshot(registry, link.mirrorLaunchTarget, current =>
     setMirrorWorkState(
       current,
       link.childSessionId,
@@ -188,7 +201,9 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     return yield* refuse('The task must not be empty.');
   }
   if (atMaxSpawnDepth(registry, parent)) {
-    return yield* refuse('A subagent cannot start subagents of its own.');
+    return yield* refuse(
+      `Subagents may nest at most ${MAX_SPAWN_DEPTH} levels deep; you cannot start another subagent from here.`,
+    );
   }
   const parentSnapshot = registry.get(backendHarnessSnapshotAtom(parent.launchTarget));
   if (!parentIsActive(registry, parent)) {
@@ -215,7 +230,9 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   const slot = reserveSlot(registry, parent);
   if (slot === undefined) {
     return yield* refuse(
-      `You already have ${MAX_LIVE_CHILDREN} subagents running. Wait for one to finish (wait_subagent) before starting another.`,
+      capReached(registry, parent) === 'descendants'
+        ? `Your session tree already has ${MAX_LIVE_DESCENDANTS} subagents running. Wait for some to finish before starting another.`
+        : `You already have ${MAX_LIVE_CHILDREN} subagents running. Wait for one to finish (wait_subagent) before starting another.`,
     );
   }
   const created = yield* createSession(input.launchTarget, cwd, parent.sessionId).pipe(
@@ -243,14 +260,19 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     }
 
     updateHarnessSnapshot(registry, child.launchTarget, current => bindSession(current, created));
-    updateHarnessSnapshot(registry, parent.launchTarget, current =>
-      mirrorChildIntoParent(current, {
+    // The mirror sits in the Selected session's snapshot (where its Subagent view reads); the row goes into the direct
+    // parent's own root entry, which the parent's projection carries onto its mirror (ADR 0015).
+    updateHarnessSnapshot(registry, link.mirrorLaunchTarget, current =>
+      addChildMirror(current, {
         childId: child.sessionId,
         launchTarget: child.launchTarget,
         name: input.description,
         parentId: parent.sessionId,
         task,
       }),
+    );
+    updateHarnessSnapshot(registry, parent.launchTarget, current =>
+      addChildRowToRootEntry(current, parent.sessionId, child.sessionId),
     );
     const projection = yield* AtomRegistry.toStream(registry, backendHarnessSnapshotAtom(child.launchTarget)).pipe(
       Stream.runForEach(() =>

@@ -30,10 +30,17 @@ export type SpawnedLink = {
   /** The mirror's name; it labels the Subagent report. */
   readonly description: string;
   readonly handleState: SpawnedHandleState;
+  /**
+   * The launch target whose snapshot holds this child's mirror: the launch target of the link's root ancestor (the
+   * Selected session; ADR 0015). For a direct child of the Selected session it equals `parentLaunchTarget`.
+   */
+  readonly mirrorLaunchTarget: AgentLaunchTarget;
   /** First write wins: the one outcome of the child's turn. */
   readonly outcome: Deferred.Deferred<SubagentOutcome>;
   readonly parentLaunchTarget: AgentLaunchTarget;
   readonly parentSessionId: string;
+  /** The root-most (Selected) session this link descends from; its launch target is `mirrorLaunchTarget`. */
+  readonly rootSessionId: string;
   /** The fiber delivering the Subagent report once the outcome is in; interrupted when the link ends. */
   readonly reporter?: Fiber.Fiber<unknown>;
   /** The trimmed task text, as sent. */
@@ -80,14 +87,23 @@ const pendingSpawnsAtom = Atom.make<ReadonlyMap<string, number>>(new Map()).pipe
   Atom.keepAlive,
 );
 
+/** The same reservations, per root-most (Selected) session: they count toward the live-descendants cap. */
+const pendingByRootAtom = Atom.make<ReadonlyMap<string, number>>(new Map()).pipe(
+  Atom.withLabel('pendingSpawnsByRoot'),
+  Atom.keepAlive,
+);
+
 /** Read-only view for derived atoms (e.g. History). Writers go through the functions below. */
 export const subagentLinksAtom: Atom.Atom<SubagentLinks> = linksAtom as unknown as Atom.Atom<SubagentLinks>;
 
-/** How deep Spawned subagent sessions may nest. A grandchild's mirror would sit in a snapshot the root's Subagent view never reads; raising this is #277's job. */
-const MAX_SPAWN_DEPTH = 1;
+/** How deep Spawned subagent sessions may nest: links up to the Selected session (its direct children are depth 1). */
+export const MAX_SPAWN_DEPTH = 3;
 
 /** Live children one parent may have at once (a fork-bomb guard: a child session is much heavier than a request). */
 export const MAX_LIVE_CHILDREN = 8;
+
+/** Live descendants (children, their children, ...) one Selected session may have at once. */
+export const MAX_LIVE_DESCENDANTS = 24;
 
 const allIn = (registry: Registry): readonly SpawnedLink[] => [...registry.get(linksAtom).values()];
 
@@ -108,9 +124,49 @@ export const isChild = (registry: Registry, session: SessionRef): boolean =>
 export const isChildIn = (links: SubagentLinks, session: SessionRef): boolean =>
   (links as unknown as LinkMap).has(linkKey(session));
 
-/** True when `parent` is itself a Spawned subagent session (it may not start subagents of its own). */
+/** Links between `session` and its root-most (Selected) session: 0 for a session that is not a child. */
+export const depthOf = (registry: Registry, session: SessionRef): number => {
+  let depth = 0;
+  let link = linkOf(registry, session);
+  while (link !== undefined && depth <= MAX_SPAWN_DEPTH + 1) {
+    depth += 1;
+    link = linkOf(registry, { launchTarget: link.parentLaunchTarget, sessionId: link.parentSessionId });
+  }
+  return depth;
+};
+
+/** True when a child of `parent` would be deeper than {@link MAX_SPAWN_DEPTH}. */
 export const atMaxSpawnDepth = (registry: Registry, parent: SessionRef): boolean =>
-  (isChild(registry, parent) ? 1 : 0) >= MAX_SPAWN_DEPTH;
+  depthOf(registry, parent) + 1 > MAX_SPAWN_DEPTH;
+
+/** The root-most session `session` descends from through live links (itself when it is not a child). */
+export const rootOf = (registry: Registry, session: SessionRef): SessionRef => {
+  const link = linkOf(registry, session);
+  return link === undefined ? session : { launchTarget: link.mirrorLaunchTarget, sessionId: link.rootSessionId };
+};
+
+const isUnderRoot = (link: SpawnedLink, root: SessionRef): boolean =>
+  link.mirrorLaunchTarget === root.launchTarget && link.rootSessionId === root.sessionId;
+
+/** Links of a root session's descendants whose Prompt turn has not ended, at any depth. */
+const liveDescendantCount = (registry: Registry, root: SessionRef): number =>
+  allIn(registry).filter(link => isUnderRoot(link, root) && !Deferred.isDoneUnsafe(link.outcome)).length;
+
+/** Every live or finished link below `session`, at any depth, children before their parents (deepest first). */
+export const descendantsOf = (registry: Registry, session: SessionRef): readonly SpawnedLink[] => {
+  const out: SpawnedLink[] = [];
+  const visit = (parent: SessionRef, seen: ReadonlySet<string>) => {
+    for (const link of childrenOf(registry, parent)) {
+      const child = { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId };
+      if (!seen.has(linkKey(child))) {
+        visit(child, new Set(seen).add(linkKey(child)));
+        out.push(link);
+      }
+    }
+  };
+  visit(session, new Set([linkKey(session)]));
+  return out;
+};
 
 /** Children of a parent whose Prompt turn has not ended. */
 const liveChildCount = (registry: Registry, parent: SessionRef): number =>
@@ -131,19 +187,35 @@ export interface Slot {
   readonly release: () => void;
 }
 
-/** Atomic cap check + reservation. `undefined` when the parent already has MAX_LIVE_CHILDREN (live + reserved). */
+/** Which cap a spawn under `parent` would exceed, if any (live + reserved, per parent and per root-most session). */
+export const capReached = (registry: Registry, parent: SessionRef): 'children' | 'descendants' | undefined => {
+  const root = rootOf(registry, parent);
+  if (slotsInUse(registry, parent) >= MAX_LIVE_CHILDREN) {
+    return 'children';
+  }
+  return liveDescendantCount(registry, root) + (registry.get(pendingByRootAtom).get(linkKey(root)) ?? 0) >=
+    MAX_LIVE_DESCENDANTS
+    ? 'descendants'
+    : undefined;
+};
+
+/**
+ * Atomic cap check + reservation. `undefined` when the parent already has MAX_LIVE_CHILDREN (live + reserved) or its
+ * root-most session MAX_LIVE_DESCENDANTS; {@link capReached} says which. The check and the reservation are one
+ * synchronous step.
+ */
 export const reserveSlot = (registry: Registry, parent: SessionRef): Slot | undefined => {
-  const key = linkKey(parent);
-  const adjustPending = (delta: 1 | -1) => {
-    registry.update(pendingSpawnsAtom, pending => new Map(pending).set(key, (pending.get(key) ?? 0) + delta));
-  };
-  const taken = registry.modify(pendingSpawnsAtom, pending => {
-    const ok = liveChildCount(registry, parent) + (pending.get(key) ?? 0) < MAX_LIVE_CHILDREN;
-    return [ok, ok ? new Map(pending).set(key, (pending.get(key) ?? 0) + 1) : pending] as const;
-  });
-  if (!taken) {
+  if (capReached(registry, parent) !== undefined) {
     return undefined;
   }
+  const key = linkKey(parent);
+  const root = rootOf(registry, parent);
+  const rootKey = linkKey(root);
+  const adjustPending = (delta: 1 | -1) => {
+    registry.update(pendingSpawnsAtom, pending => new Map(pending).set(key, (pending.get(key) ?? 0) + delta));
+    registry.update(pendingByRootAtom, pending => new Map(pending).set(rootKey, (pending.get(rootKey) ?? 0) + delta));
+  };
+  adjustPending(1);
   let spent = false;
   const spend = () => {
     if (spent) {
@@ -159,9 +231,11 @@ export const reserveSlot = (registry: Registry, parent: SessionRef): Slot | unde
         childSessionId: child.sessionId,
         description,
         handleState: 'open',
+        mirrorLaunchTarget: root.launchTarget,
         outcome: Deferred.makeUnsafe<SubagentOutcome>(),
         parentLaunchTarget: parent.launchTarget,
         parentSessionId: parent.sessionId,
+        rootSessionId: root.sessionId,
         task,
       };
       registry.update(linksAtom, links => new Map(links).set(linkKey(child), link));

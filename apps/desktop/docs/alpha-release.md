@@ -17,25 +17,6 @@ Branching: see [`docs/gitflow.md`](../../../docs/gitflow.md). Release CI runs on
 
 semantic-release builds the notes from the same commits that decided the version, grouped by tag. Each squash commit title ends in `(#123)`, which becomes a link to the PR. CI passes the notes to `gh release create --notes-file`.
 
-## One-time setup
-
-Signing keys were generated with:
-
-```bash
-pnpm --filter @apps/desktop tauri signer generate --ci -w ~/.tauri/agent-orchestrator.key -f
-```
-
-The public key is in `src-tauri/tauri.conf.json` (`plugins.updater.pubkey`).
-
-Add these repository secrets (Settings → Secrets and variables → Actions):
-
-| Secret                               | Value                                                              |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| `TAURI_SIGNING_PRIVATE_KEY`          | Contents of `~/.tauri/agent-orchestrator.key` (or `cat` that file) |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Empty string if the key was generated with `--ci` / no password    |
-
-If you regenerate keys, replace `pubkey` in `tauri.conf.json` and update the private-key secret. Losing the private key breaks updates for existing installs.
-
 ## Ship a build
 
 1. Merge a release PR from `develop` into `main` (merge commit). Its title still has to pass the title check, e.g. `Chore: Release`; it doesn't affect the version.
@@ -51,14 +32,6 @@ A draft has no git tag, so until it is published (or deleted) every re-run compu
 - **macOS:** `.dmg` (installer) and `.app.tar.gz` + `.sig` (update asset). Ad-hoc signed (`bundle.macOS.signingIdentity: "-"`), so Apple Silicon doesn't report the app as "damaged". Users still have to allow it once in **System Settings → Privacy & Security**. Apple signing and notarization are out of scope for Alpha.
 - **Windows:** NSIS `-setup.exe` + `.sig`. The installer is also the update asset. No MSI.
 - No Linux build.
-
-## Local signed build (optional)
-
-```bash
-export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/agent-orchestrator.key"
-# or: export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/agent-orchestrator.key)"
-pnpm run tauri:build
-```
 
 ## Notes
 

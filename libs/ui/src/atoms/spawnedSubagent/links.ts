@@ -2,7 +2,7 @@
  * Spawned subagent links (internal to the Spawned subagent module): which `(launch target, session)` is a child the
  * Harness started for a parent, plus the live-children cap that guards spawning. In memory only (like credentials): after
  * a restart the child is just a session on its own launch target. The read half (`subagentLinksAtom`, `isChild`,
- * `isChildIn`) is public through `index.ts`; `backendState.atoms.ts` imports it from here (the barrel would cycle).
+ * `isChildIn`, `wasSpawnedChildIn`) is public through `index.ts`; `backendState.atoms.ts` imports it from here (the barrel would cycle).
  */
 import { Deferred, Effect, Fiber } from 'effect';
 import { Atom } from 'effect/reactivity';
@@ -53,6 +53,28 @@ type LinkMap = ReadonlyMap<string, SpawnedLink>;
 const linkKey = (session: SessionRef): string => `${session.launchTarget}\u0000${session.sessionId}`;
 
 const linksAtom = Atom.make<LinkMap>(new Map()).pipe(Atom.withLabel('spawnedLinks'), Atom.keepAlive);
+
+/**
+ * Every Spawned subagent session ever linked this app run, never pruned (ending a link does not remove it): the hide key
+ * for Session History, so a child never becomes a top-level Session. Memory only.
+ */
+const spawnedChildrenAtom = Atom.make<ReadonlyMap<string, true>>(new Map()).pipe(
+  Atom.withLabel('spawnedChildren'),
+  Atom.keepAlive,
+);
+
+declare const childrenBrand: unique symbol;
+/** Opaque snapshot of every child ever linked: readable only through `wasSpawnedChildIn`. */
+export interface SpawnedChildren {
+  readonly [childrenBrand]: never;
+}
+
+export const spawnedChildrenSnapshotAtom: Atom.Atom<SpawnedChildren> =
+  spawnedChildrenAtom as unknown as Atom.Atom<SpawnedChildren>;
+
+/** True for a session that was ever a Spawned subagent session this app run, whether or not its link is still live. */
+export const wasSpawnedChildIn = (children: SpawnedChildren, session: SessionRef): boolean =>
+  (children as unknown as ReadonlyMap<string, true>).has(linkKey(session));
 
 /** Spawns past their cap check but without a link yet, per parent: they count toward the live-children cap. */
 const pendingSpawnsAtom = Atom.make<ReadonlyMap<string, number>>(new Map()).pipe(
@@ -145,6 +167,7 @@ export const reserveSlot = (registry: Registry, parent: SessionRef): Slot | unde
         task,
       };
       registry.update(linksAtom, links => new Map(links).set(linkKey(child), link));
+      registry.update(spawnedChildrenAtom, children => new Map(children).set(linkKey(child), true));
       adjustPending(-1);
       return link;
     },

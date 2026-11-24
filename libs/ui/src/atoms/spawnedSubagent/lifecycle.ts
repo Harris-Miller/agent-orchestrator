@@ -6,7 +6,7 @@
  */
 import { MAX_SUBAGENT_TEXT_CHARS } from '@lib/hub/protocol';
 import type { HostServices } from '@lib/context-services';
-import { Clock, DateTime, Deferred, Effect, Exit, Schema, Stream } from 'effect';
+import { Deferred, Effect, Exit, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { resolveSessionCwd } from '../../host/acpSessionBootstrap.ts';
@@ -23,7 +23,6 @@ import {
   mirrorChildIntoParent,
   projectChildOnto,
   setMirrorWorkState,
-  withHistoryEntryIfAbsent,
 } from '../../host/harnessStateTransitions.ts';
 import { describeError, isAcpError, RequestErrorDetail, requestErrorDetail } from '../../host/requestError.ts';
 import { createSession } from '../../host/sessionRpc.ts';
@@ -32,7 +31,7 @@ import { validateSubagentConfig } from '../../host/subagentTargets.ts';
 
 import { backendHarnessSnapshotAtom } from '../backendState.atoms.ts';
 import { updateHarnessSnapshot } from '../harnessSnapshot.ts';
-import { cancelPromptTurn, sendPromptTurn, sessionById, sessionIn } from '../promptTurn.ts';
+import { cancelPromptTurn, sendPromptTurn, sessionIn } from '../promptTurn.ts';
 import type { PromptTurnResult } from '../promptTurn.ts';
 import { applySessionConfigValues } from '../sessionConfigChange.ts';
 import { allLinks, atMaxSpawnDepth, attach, childrenOf, end, linkOf, MAX_LIVE_CHILDREN, reserveSlot } from './links.ts';
@@ -83,12 +82,6 @@ const projectOnce = (registry: Registry, link: SpawnedLink): void => {
   );
 };
 
-/** A Session History title for a child that left its link: the first line of its task. */
-const subagentHistoryTitle = (task: string): string => {
-  const line = (task.split('\n').find(candidate => candidate.trim() !== '') ?? '').trim().replace(/\s+/g, ' ');
-  return line.length <= 80 ? line : `${line.slice(0, 79)}…`;
-};
-
 /**
  * End a link: its projection stops and it leaves the registry. The mirror stays (the transcript stays viewable) unless
  * `dropMirror`, for a child that never ran.
@@ -104,21 +97,7 @@ export const endLink = Effect.fnUntraced(function* (
   }
   if (options.dropMirror === true) {
     updateHarnessSnapshot(registry, link.parentLaunchTarget, current => dropMirror(current, link.childSessionId));
-    return;
   }
-  // Unhidden from Session History: a child bound without a row has none until a `session/list`, so give it one now.
-  const updatedAt = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
-  updateHarnessSnapshot(registry, link.childLaunchTarget, current => {
-    const cwd = sessionById(current.sessions, link.childSessionId)?.cwd;
-    return cwd === undefined
-      ? current
-      : withHistoryEntryIfAbsent(current, {
-          cwd,
-          sessionId: link.childSessionId,
-          title: subagentHistoryTitle(link.task),
-          updatedAt,
-        });
-  });
 });
 
 /**

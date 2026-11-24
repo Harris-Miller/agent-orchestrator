@@ -8,7 +8,7 @@ import { answer, CHILD, childIndex, PARENT, setup, until } from '../../host/spaw
 import { getSubagent } from '../../host/subagent.ts';
 import { parseSubagentResults } from '../../host/subagentResult.ts';
 
-import { backendHarnessSnapshotAtom, configOptionIndexAtom } from '../backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, configOptionIndexAtom, unifiedSessionHistoryAtom } from '../backendState.atoms.ts';
 import { createChatAtoms } from '../chat.atoms.ts';
 import { CODEX } from '../fakeAgent.testing.ts';
 import { makeHarnessEventFold } from '../harnessEventFold.ts';
@@ -56,6 +56,11 @@ describe('ending a parent ends its children', () => {
       assert.deepStrictEqual(h.mirrors(), ['cancelled', 'cancelled']);
       const child = h.registry.get(backendHarnessSnapshotAtom('claude-agent-acp')).sessions[CHILD];
       assert.strictEqual(child.status, 'inactive');
+      // The closed child never becomes a top-level Session.
+      assert.deepStrictEqual(
+        h.registry.get(unifiedSessionHistoryAtom).filter(entry => [CHILD, SECOND].includes(entry.sessionId)),
+        [],
+      );
       assert.isTrue((yield* Fiber.join(h.foreground)).isError);
       yield* Deferred.succeed(h.release, null);
       // Nothing is reported to a parent that is gone.

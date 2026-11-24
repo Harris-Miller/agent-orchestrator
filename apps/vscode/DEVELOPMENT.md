@@ -19,6 +19,8 @@ The extension bundles no ACP adapters. A global **Node >= 22** and **npm** are r
 
 Webview HTML mode is compile-time from the host bundle: `watch:main` injects Vite HMR (`localhost:5173`); `build:main` serves disk `dist/webview` assets. So `vscode:build` + `vscode:open` works without Vite; HMR needs `vscode:dev` (or F5).
 
+To run the head of `develop` without `vscode:dev` running, use `pnpm vscode:build:dev` then `pnpm vscode:open` (or `package` and install the `.vsix`). It is `vscode:build` with the webview built in development mode: unminified, `NODE_ENV` and `HOA_BUILD_TARGET` set to development, PostHog token read from `.env.development`.
+
 - **Renderer** edits hot-reload via Vite (`watch:renderer`) when the host was built with `watch:main`.
 - **Host** (`extension.ts` / host code) edits need **Developer: Reload Window**. After reload, re-run **Run Extension** (or re-attach to port 5870) if breakpoints stop binding — reload can drop the inspect session.
 

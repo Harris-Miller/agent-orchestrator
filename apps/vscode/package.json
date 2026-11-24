@@ -31,8 +31,10 @@
   "scripts": {
     "vscode:prepublish": "pnpm run build",
     "build": "pnpm run build:main && pnpm run build:renderer",
+    "build:dev": "pnpm run build:main && pnpm run build:renderer:dev",
     "build:main": "tsdown",
     "build:renderer": "vite build",
+    "build:renderer:dev": "vite build --mode development",
     "lint": "pnpm run lint:check --fix",
     "lint:check": "oxlint --type-aware --deny-warnings --report-unused-disable-directives",
     "package": "node scripts/package.mjs",

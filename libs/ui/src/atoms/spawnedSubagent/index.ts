@@ -5,6 +5,6 @@
  */
 export { cancelSubagent, spawnSubagent, waitSubagents } from './tools.ts';
 export type { SpawnSubagentRequest } from './tools.ts';
-export { endSpawnedChildren, onLaunchTargetConnectionLost, spawnedParentOf } from './lifecycle.ts';
+export { endSpawnedChildren, onLaunchTargetConnectionLost, spawnedMirrorOf } from './lifecycle.ts';
 export { isChild, isChildIn, spawnedChildrenSnapshotAtom, subagentLinksAtom, wasSpawnedChildIn } from './links.ts';
 export type { SubagentOutcome } from './links.ts';

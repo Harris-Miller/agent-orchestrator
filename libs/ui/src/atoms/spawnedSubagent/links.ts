@@ -27,6 +27,11 @@ export type SpawnedHandleState = 'open' | 'reported' | 'waited';
 export type SpawnedLink = {
   readonly childLaunchTarget: AgentLaunchTarget;
   readonly childSessionId: string;
+  /**
+   * The child's own final state, once its Prompt turn ended. The mirror's Work state is stamped from it only when the
+   * child has no live descendants (`stamped`); the last descendant to settle stamps it for its ancestors.
+   */
+  readonly finish?: { readonly outcome: SubagentOutcome; readonly stamped: boolean; readonly stopReason?: string };
   /** The mirror's name; it labels the Subagent report. */
   readonly description: string;
   readonly handleState: SpawnedHandleState;
@@ -261,6 +266,18 @@ export const claimHandle = (registry: Registry, child: SessionRef, by: Exclude<S
       ? ([true, new Map(links).set(linkKey(child), { ...link, handleState: by })] as const)
       : ([false, links] as const);
   });
+
+/** Record a child's final state on its link (no-op when the link is gone), and whether its mirror is already stamped. */
+export const recordFinish = (
+  registry: Registry,
+  child: SessionRef,
+  finish: NonNullable<SpawnedLink['finish']>,
+): void => {
+  registry.update(linksAtom, links => {
+    const link = links.get(linkKey(child));
+    return link === undefined ? links : new Map(links).set(linkKey(child), { ...link, finish });
+  });
+};
 
 /** Record a fiber on a child's link (no-op when the link is gone). */
 export const attach = (

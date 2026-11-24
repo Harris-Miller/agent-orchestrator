@@ -198,19 +198,28 @@ describe('hasBackgroundActivity', () => {
     );
   });
 
-  it('is false with no Subagents, finished, unconfirmed or spawned Subagents', () => {
+  it('counts a running Spawned subagent, also nested below a native or finished one (#277)', () => {
+    const spawned = (id: string, parent: string, fields: object) => ({
+      ...subagent(id, parent, fields),
+      kind: 'spawned' as const,
+      launchTarget: 'codex-acp' as const,
+    });
+    assert.isTrue(hasBackgroundActivity(harness([session('a')], [spawned('c', 'a', running)]), 'a'));
+    assert.isTrue(
+      hasBackgroundActivity(
+        harness([session('a')], [spawned('c', 'a', { state: { state: 'completed' } }), spawned('g', 'c', running)]),
+        'a',
+      ),
+    );
+  });
+
+  it('is false with no Subagents, finished or unconfirmed Subagents', () => {
     assert.isFalse(hasBackgroundActivity(harness([session('a')]), 'a'));
     assert.isFalse(
       hasBackgroundActivity(harness([session('a')], [subagent('c', 'a', { state: { state: 'idle' } })]), 'a'),
     );
     assert.isFalse(
       hasBackgroundActivity(harness([session('a')], [subagent('c', 'a', { stateUnconfirmed: true })]), 'a'),
-    );
-    assert.isFalse(
-      hasBackgroundActivity(
-        harness([session('a')], [{ ...subagent('c', 'a', running), kind: 'spawned', launchTarget: 'codex-acp' }]),
-        'a',
-      ),
     );
   });
 

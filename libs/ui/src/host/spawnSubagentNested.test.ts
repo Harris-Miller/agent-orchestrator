@@ -3,13 +3,19 @@ import { assert, describe, it } from '@effect/vitest';
 import { Deferred, Effect } from 'effect';
 
 import { backendHarnessSnapshotAtom } from '../atoms/backendState.atoms.ts';
-import { bearerOf, CLAUDE } from '../atoms/fakeAgent.testing.ts';
+import { createHostRuntime } from '../createHostRuntime.ts';
+import { createChatAtoms } from '../atoms/chat.atoms.ts';
+import { runAtomFn } from '../atoms/runAtomFn.testing.ts';
+import type { PendingPermission } from './pendingInteractions.ts';
+import { bearerOf, CLAUDE, CODEX } from '../atoms/fakeAgent.testing.ts';
 import type { McpReceived } from '../atoms/fakeAgent.testing.ts';
 import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
+import { endSpawnedChildren, onLaunchTargetConnectionLost } from '../atoms/spawnedSubagent/index.ts';
 import { allLinks, linkOf } from '../atoms/spawnedSubagent/links.ts';
 
 import { handleHubToolCall } from './hubSessions.ts';
-import { getSubagent } from './subagent.ts';
+import { getSubagent, hasBackgroundActivity } from './subagent.ts';
+import { anyPromptTurnWorking } from './turnActivity.ts';
 import { PARENT, setup, until } from './spawnSubagent.testing.ts';
 
 /** Start the harness with children that stay running until `release` is completed; `received` holds each child's credential. */
@@ -125,6 +131,128 @@ describe('nested spawn', () => {
       const refused = results.find(result => result.isError);
       assert.include(refused?.text ?? '', '24 subagents');
       assert.strictEqual(allLinks(h.registry).length, 24);
+      yield* Deferred.succeed(h.release, null);
+    }).pipe(Effect.scoped),
+  );
+});
+
+type Reg = Effect.Success<ReturnType<typeof nestedSetup>>['registry'];
+const stateOf = (registry: Reg, id: string) =>
+  getSubagent(registry.get(backendHarnessSnapshotAtom(CODEX)).subagents, id)?.state?.state;
+
+/** Three levels: claude-1 under the Selected session, claude-2 under it, claude-3 under that; all still running. */
+const chain = Effect.fnUntraced(function* () {
+  const h = yield* nestedSetup();
+  yield* h.spawn({ runInBackground: true });
+  yield* until(() => h.childCalls.includes('prompt:claude-1'));
+  yield* h.spawnAs(0);
+  yield* until(() => h.childCalls.includes('prompt:claude-2'));
+  yield* h.spawnAs(1);
+  yield* until(() => h.childCalls.includes('prompt:claude-3'));
+  return h;
+});
+
+describe('nested lifecycle', () => {
+  it.effect('closing the Selected session ends every descendant, deepest first', () =>
+    Effect.gen(function* () {
+      const h = yield* chain();
+      yield* endSpawnedChildren(h.registry, { launchTarget: CODEX, sessionId: PARENT });
+
+      assert.deepStrictEqual(allLinks(h.registry), []);
+      assert.deepStrictEqual(
+        ['claude-1', 'claude-2', 'claude-3'].map(id => stateOf(h.registry, id)),
+        ['cancelled', 'cancelled', 'cancelled'],
+      );
+      const closes = h.childCalls.filter(call => call.startsWith('close:'));
+      assert.deepStrictEqual(closes, ['close:claude-3', 'close:claude-2', 'close:claude-1']);
+      yield* Deferred.succeed(h.release, null);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('Connection lost on the Selected session target ends every descendant', () =>
+    Effect.gen(function* () {
+      const h = yield* chain();
+      yield* onLaunchTargetConnectionLost(h.registry, CODEX);
+
+      assert.deepStrictEqual(allLinks(h.registry), []);
+      assert.deepStrictEqual(
+        ['claude-1', 'claude-2', 'claude-3'].map(id => stateOf(h.registry, id)),
+        ['cancelled', 'cancelled', 'cancelled'],
+      );
+      yield* Deferred.succeed(h.release, null);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a finished child stays running while it has a live descendant, and counts as Background follow-up', () =>
+    Effect.gen(function* () {
+      const gates = [Deferred.makeUnsafe<null>(), Deferred.makeUnsafe<null>()];
+      let started = 0;
+      const received: McpReceived[] = [];
+      const h = yield* setup({
+        duringPrompt: Effect.suspend(() => {
+          started += 1;
+          return Deferred.await(gates[Math.min(started - 1, 1)]);
+        }),
+        mcp: { received },
+      });
+      yield* h.spawn({ runInBackground: true });
+      yield* until(() => h.childCalls.includes('prompt:claude-1'));
+      yield* handleHubToolCall(
+        {
+          args: {
+            configOptions: { model: 'o1' },
+            description: 'Nested',
+            launchTarget: CLAUDE,
+            runInBackground: true,
+            task: 'Do more',
+          },
+          token: bearerOf(received[0].servers),
+          tool: 'spawn_subagent',
+        },
+        { registry: h.registry },
+      ).pipe(Effect.provide(mockHostLayer));
+      yield* until(() => h.childCalls.includes('prompt:claude-2'));
+
+      // The child's turn ends; its own outcome resolves, but its mirror keeps running for the grandchild.
+      yield* Deferred.succeed(gates[0], null);
+      yield* until(() => linkOf(h.registry, key('claude-1'))?.finish !== undefined);
+      assert.strictEqual(stateOf(h.registry, 'claude-1'), 'running');
+      const snapshot = h.registry.get(backendHarnessSnapshotAtom(CODEX));
+      assert.isTrue(hasBackgroundActivity(snapshot, PARENT));
+      assert.isTrue(anyPromptTurnWorking([snapshot]));
+
+      // The last descendant to settle stamps the ancestor.
+      yield* Deferred.succeed(gates[1], null);
+      yield* until(() => stateOf(h.registry, 'claude-1') === 'completed');
+      assert.strictEqual(stateOf(h.registry, 'claude-2'), 'completed');
+      assert.isFalse(hasBackgroundActivity(h.registry.get(backendHarnessSnapshotAtom(CODEX)), PARENT));
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe('nested pending interactions', () => {
+  it.effect('a grandchild-of-a-grandchild permission shows on the Selected snapshot and is answerable', () =>
+    Effect.gen(function* () {
+      const h = yield* chain();
+      const { respondPermissionAtomFn } = createChatAtoms(createHostRuntime(mockHostLayer));
+      h.registry.mount(respondPermissionAtomFn);
+      const answers: unknown[] = [];
+      h.childFold.onPermissionRequest('claude-3', { options: [] } as unknown as PendingPermission['request'], r => {
+        answers.push(r);
+      });
+      const pending = () =>
+        getSubagent(h.registry.get(backendHarnessSnapshotAtom(CODEX)).subagents, 'claude-3')?.pendingPermission;
+      yield* until(() => pending() !== undefined);
+      assert.isDefined(pending());
+      assert.isFalse(anyPromptTurnWorking([h.registry.get(backendHarnessSnapshotAtom(CODEX))]));
+
+      yield* runAtomFn(h.registry, respondPermissionAtomFn, {
+        launchTarget: CLAUDE,
+        optionId: 'allow',
+        sessionId: 'claude-3',
+      });
+      yield* until(() => pending() === undefined);
+      assert.deepStrictEqual(answers, [{ outcome: { optionId: 'allow', outcome: 'selected' } }]);
       yield* Deferred.succeed(h.release, null);
     }).pipe(Effect.scoped),
   );

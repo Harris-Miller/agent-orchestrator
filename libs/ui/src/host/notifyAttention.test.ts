@@ -3,7 +3,9 @@ import type { UserSettings } from '@lib/hoa-home';
 import { Notifier, NotifyFailed } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 
-import { attentionBody, isAttentionStopReason, notifyAttention } from './notifyAttention.ts';
+import { initialBackendHarnessSnapshot } from './acpSessionBootstrap.ts';
+import { initialSpawnedSubagentSnapshot } from './subagent.ts';
+import { attentionBody, isAttentionStopReason, notifyAttention, notifySessionAttention } from './notifyAttention.ts';
 
 type Sent = { body: string; sound: boolean; title: string };
 
@@ -159,4 +161,29 @@ describe('attention helpers', () => {
   it('bodies are fixed phrases', () => {
     assert.strictEqual(attentionBody({ kind: 'elicitation' }), 'Needs input');
   });
+});
+
+describe('notifySessionAttention titles (nested subagents)', () => {
+  it.effect('names a child under its direct parent: the chat title, else the parent subagent name', () =>
+    Effect.gen(function* () {
+      const h = harness({ focused: false });
+      const snapshot = {
+        ...initialBackendHarnessSnapshot(),
+        sessionHistory: [{ cwd: '/w', sessionId: 'root', title: 'Root chat' }],
+        subagents: {
+          child: { ...initialSpawnedSubagentSnapshot('child', 'root', 'codex-acp'), name: 'Reviewer' },
+          grandchild: { ...initialSpawnedSubagentSnapshot('grandchild', 'child', 'codex-acp'), name: 'Linter' },
+        },
+      };
+      for (const id of ['child', 'grandchild']) {
+        yield* notifySessionAttention(h.settings, snapshot, 'codex-acp', id, { kind: 'permission' }).pipe(
+          Effect.provide(h.layer),
+        );
+      }
+      assert.deepStrictEqual(
+        h.sent.map(entry => entry.title),
+        ['Root chat · Reviewer', 'Reviewer · Linter'],
+      );
+    }),
+  );
 });

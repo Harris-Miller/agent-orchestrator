@@ -310,6 +310,7 @@ const sendQueued = Effect.fnUntraced(function* (
     launchTarget,
     sessionId,
     text: queued.draft,
+    trackAnalytics: true,
   }).pipe(
     Effect.tapErrorTag('ComposerActionUnavailable', () =>
       Effect.sync(() => {
@@ -389,7 +390,7 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
           if (action._tag === 'Send') {
             // The draft stays on the Virtual session until Materialize succeeds (ui ADR-0007).
             yield* sendVirtual(registry, materialized =>
-              sendPromptTurn(registry, { ...materialized, text: materialized.draft }).pipe(
+              sendPromptTurn(registry, { ...materialized, text: materialized.draft, trackAnalytics: true }).pipe(
                 // Refused before the user message was appended: the Session is Selected now, so the draft goes back.
                 Effect.tapErrorTag('ComposerActionUnavailable', () =>
                   Effect.sync(() => {
@@ -415,7 +416,13 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
           }
           return;
         }
-        const arg = { attachments: taken.attachments, launchTarget, sessionId, text: taken.draft };
+        const arg = {
+          attachments: taken.attachments,
+          launchTarget,
+          sessionId,
+          text: taken.draft,
+          trackAnalytics: true,
+        } as const;
         if (action._tag === 'Send') {
           // Once the Prompt turn has begun, a failed prompt leaves the message in the transcript, so the draft stays
           // taken. The Harness can still refuse a Send the Composer offered (it also checks Bootstrap phase); nothing
@@ -466,7 +473,7 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
         arg: { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string; readonly text: string },
         get: Atom.FnContext,
       ) {
-        yield* sendPromptTurn(get.registry, arg);
+        yield* sendPromptTurn(get.registry, { ...arg, trackAnalytics: true });
       }),
     )
     .pipe(Atom.keepAlive);

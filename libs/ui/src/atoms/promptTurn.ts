@@ -101,6 +101,8 @@ export type PromptTurnInput = {
   readonly notifyTurnEnd?: false;
   readonly sessionId: string;
   readonly text: string;
+  /** `true` only for a prompt the user sent from the Composer: captures `prompt_sent` (never Handoff or subagent prompts). */
+  readonly trackAnalytics?: true;
 };
 
 /** How long the Steer fallback waits for the ended turn's `session/prompt` response. */
@@ -135,7 +137,7 @@ export const sessionIn = (registry: Registry, launchTarget: AgentLaunchTarget, s
 /** Prompt blocks → `session/prompt` → soft-cancel → turn-end Attention event. */
 const runPrompt = Effect.fnUntraced(function* (
   registry: Registry,
-  { attachments, launchTarget, sessionId, text }: Required<Omit<PromptTurnInput, 'notifyTurnEnd'>>,
+  { attachments, launchTarget, sessionId, text }: Required<Omit<PromptTurnInput, 'notifyTurnEnd' | 'trackAnalytics'>>,
   notifyTurnEnd: boolean,
 ) {
   const prompt = yield* promptBlocksFromComposerDraft(text, {
@@ -199,15 +201,13 @@ export const sendPromptTurn = Effect.fn('sendPromptTurn')(function* (registry: R
       if (begun._tag === 'Refused') {
         return yield* refusal('Sending', begun.action);
       }
+      // Captured once the Harness accepted the send, not when the turn ends. Never the text.
+      if (input.trackAnalytics === true) {
+        yield* captureEvent(promptSent({ attachmentCount: attachments.length, launchTarget }));
+      }
       return yield* restore(
         runPrompt(registry, { attachments, launchTarget, sessionId, text }, input.notifyTurnEnd !== false),
       ).pipe(
-        // Counted once the prompt was accepted (a Rejected prompt is not a sent one). Never the text.
-        Effect.tap(result =>
-          result._tag === 'Rejected'
-            ? Effect.void
-            : captureEvent(promptSent({ attachmentCount: attachments.length, launchTarget })),
-        ),
         Effect.onExit(exit =>
           Effect.flatMap(Clock.currentTimeMillis, endedAt =>
             Effect.sync(() => {
@@ -286,6 +286,9 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
     // A steered message joins the in-flight turn: no turn timing, Pending client request untouched (ADR-0018).
     const images = slimImageRefsFromAttachments(attachments);
     updateHarnessSnapshot(registry, launchTarget, current => appendSteeredMessage(current, sessionId, text, images));
+    if (input.trackAnalytics === true) {
+      yield* captureEvent(promptSent({ attachmentCount: attachments.length, launchTarget }));
+    }
     return;
   }
   yield* Effect.logDebug('_session/steering fell back to session/prompt', result.outcome);

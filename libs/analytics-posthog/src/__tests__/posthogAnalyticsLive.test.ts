@@ -53,6 +53,9 @@ const capture = (
     return { calls, sent };
   });
 
+/** Lets any forked send run before the test asserts that none happened. */
+const settle = Effect.repeat(Effect.yieldNow, { times: 50 });
+
 describe('makeAnalyticsLive', () => {
   it.effect('dev with a token posts the PostHog capture body with the common properties', () =>
     Effect.gen(function* () {
@@ -93,7 +96,7 @@ describe('makeAnalyticsLive', () => {
     Effect.gen(function* () {
       const empty = yield* capture('dev', '');
       const unset = yield* capture('dev', '  ');
-      yield* Effect.yieldNow;
+      yield* settle;
       assert.deepStrictEqual(empty.calls, []);
       assert.deepStrictEqual(unset.calls, []);
     }),
@@ -102,7 +105,7 @@ describe('makeAnalyticsLive', () => {
   it.effect('prod sends nothing, even with a token', () =>
     Effect.gen(function* () {
       const { calls } = yield* capture('prod', 'phc_test');
-      yield* Effect.yieldNow;
+      yield* settle;
       assert.deepStrictEqual(calls, []);
     }),
   );

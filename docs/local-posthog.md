@@ -154,7 +154,7 @@ PostHog publishes 8000 plus 8081, 7233, 8333, 9333 and 19000 (the rest bound to 
 
 ## Send events from a dev build
 
-`apps/desktop/.env.development` and `apps/vscode/.env.development` set `POSTHOG_HOST=http://localhost:8000`. The project token is **not** committed: put it in a gitignored `.env` next to each (`apps/desktop/.env` and `apps/vscode/.env`). Vite loads `.env` together with `.env.development` and bakes `POSTHOG_PROJECT_TOKEN` into the bundle at build time, for both dev and build. A shell value wins over the file.
+`apps/desktop/.env.development` and `apps/vscode/.env.development` set `POSTHOG_HOST=http://localhost:8000`. The project token is **not** committed: put it in a gitignored `.env` next to each (`apps/desktop/.env` and `apps/vscode/.env`). Vite loads `.env` together with `.env.development` and bakes `POSTHOG_PROJECT_TOKEN` into the bundle at build time, for dev builds only (a prod build bakes an empty token). A shell value wins over the file.
 
 ```sh
 # apps/desktop/.env and apps/vscode/.env
@@ -169,6 +169,6 @@ pnpm vscode:dev       # VS Code: keep it running, then in another terminal:
 pnpm vscode:open      # open the extension development host
 ```
 
-Open the app: `app_opened` appears in PostHog under Activity. With the token empty or unset, no requests are made and nothing is logged as an error. Only a dev build ever sends: a prod build ignores the token even though it is baked in.
+Open the app: `app_opened` appears in PostHog under Activity. With the token empty or unset, no requests are made and nothing is logged as an error. Only a dev build ever sends: a prod build never contains the token.
 
 The desktop app also needs `http://localhost:8000` in the `http:default` scope of `apps/desktop/src-tauri/capabilities/default.json` (already added), or Tauri blocks the request silently.

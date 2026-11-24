@@ -14,7 +14,7 @@ import {
   sessionRenamed,
   sessionUnarchived,
 } from '../analytics/catalog.ts';
-import { trackEvent } from '../analytics/trackEvent.ts';
+import { captureEvent, trackEvent } from '../analytics/trackEvent.ts';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { SessionTarget } from '../host/projectSessions.ts';
 
@@ -105,13 +105,24 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, restartBack
 
   const archiveSessionsAtomFn = atomRuntime
     .fn((targets: readonly SessionTarget[], get: Atom.FnContext) =>
-      archiveSessions(get.registry, targets).pipe(rootSpan('archiveSessionsAtomFn')),
+      archiveSessions(get.registry, targets).pipe(
+        // One event per Session, same as the single action, so bulk and single counts agree.
+        Effect.tap(() =>
+          Effect.forEach(targets, target => captureEvent(sessionArchived(target.launchTarget)), { discard: true }),
+        ),
+        rootSpan('archiveSessionsAtomFn'),
+      ),
     )
     .pipe(Atom.keepAlive);
 
   const unarchiveSessionsAtomFn = atomRuntime
     .fn((targets: readonly SessionTarget[], get: Atom.FnContext) =>
-      unarchiveSessions(get.registry, targets).pipe(rootSpan('unarchiveSessionsAtomFn')),
+      unarchiveSessions(get.registry, targets).pipe(
+        Effect.tap(() =>
+          Effect.forEach(targets, target => captureEvent(sessionUnarchived(target.launchTarget)), { discard: true }),
+        ),
+        rootSpan('unarchiveSessionsAtomFn'),
+      ),
     )
     .pipe(Atom.keepAlive);
 

@@ -86,6 +86,19 @@ describe('action triggers', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('bulk archive and unarchive capture one event per Session', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      yield* runAtomFn(s.registry, s.lifecycle.archiveSessionsAtomFn, [target, target]);
+      yield* runAtomFn(s.registry, s.lifecycle.unarchiveSessionsAtomFn, [target]);
+      assert.deepStrictEqual(summarize(s.events), [
+        { name: 'session_archived', properties: { launch_target: CODEX } },
+        { name: 'session_archived', properties: { launch_target: CODEX } },
+        { name: 'session_unarchived', properties: { launch_target: CODEX } },
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('rename never carries the title', () =>
     Effect.gen(function* () {
       const s = yield* setup();

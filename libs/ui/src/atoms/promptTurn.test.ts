@@ -129,7 +129,7 @@ const rejectionItem = (method: string) => ({
 const stripId = <T extends { readonly id: string }>({ id: _id, ...rest }: T) => rest;
 
 const send = (registry: Registry, text = 'hello', sessionId = 's1') =>
-  sendPromptTurn(registry, { launchTarget: CODEX, sessionId, text });
+  sendPromptTurn(registry, { launchTarget: CODEX, sessionId, text, trackAnalytics: true });
 
 const steer = (registry: Registry, text = 'hello') =>
   steerPromptTurn(registry, { launchTarget: CODEX, sessionId: 's1', text });
@@ -181,6 +181,14 @@ layer(hostLayer)('Send', layeredIt => {
         { name: 'prompt_sent', properties: { attachment_count: 0, launch_target: CODEX } },
       ]);
       assert.notInclude(JSON.stringify(summarize(analytics.events)), 'CANARY');
+    }).pipe(Effect.scoped),
+  );
+
+  layeredIt.effect('a Send not initiated by the user (Handoff, subagent) captures no event', () =>
+    Effect.gen(function* () {
+      const h = yield* harness();
+      yield* sendPromptTurn(h.registry, { launchTarget: CODEX, sessionId: 's1', text: 'hello' });
+      assert.deepStrictEqual(analytics.events, []);
     }).pipe(Effect.scoped),
   );
 

@@ -19,8 +19,7 @@ import { subagentRowFields } from './subagentRowFields.ts';
 export const SubagentRow: FC<{
   readonly action?: ReactNode;
   readonly childId: string;
-  readonly showRollUp?: boolean;
-}> = ({ action, childId, showRollUp = true }) => {
+}> = ({ action, childId }) => {
   const child = useAtomValue(selectedSubagentAtom(childId));
   const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const configuration = useAtomValue(selectedSubagentConfigurationAtom(childId));
@@ -29,7 +28,7 @@ export const SubagentRow: FC<{
   const setViewed = useAtomSet(viewedSubagentAtom);
   if (launchTarget === undefined || rootSessionId === undefined || child === undefined) return null;
   const fields = subagentRowFields(child, launchTarget, configuration);
-  const showRunning = showRollUp && rollUp.running > 0;
+  const showRunning = rollUp.running > 0;
   return (
     <Box
       onClick={() => {
@@ -48,11 +47,15 @@ export const SubagentRow: FC<{
       }}
     >
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
-        <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
+        <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, minWidth: 0 }}>
           {/* A descendant that needs input wins over this child's own state. */}
-          <SubagentStatusIndicator child={child} needsInput={showRollUp && rollUp.needsInput} />
-          <AgentLaunchTargetIcon launchTarget={fields.launchTarget} size={14} />
-          <Typography sx={{ fontWeight: 600 }} variant="body2">
+          <Box sx={{ display: 'flex', flexShrink: 0 }}>
+            <SubagentStatusIndicator child={child} needsInput={rollUp.needsInput} />
+          </Box>
+          <Box sx={{ display: 'flex', flexShrink: 0 }}>
+            <AgentLaunchTargetIcon launchTarget={fields.launchTarget} size={14} />
+          </Box>
+          <Typography noWrap sx={{ fontWeight: 600, minWidth: 0 }} variant="body2">
             {fields.name}
           </Typography>
           {fields.modelEffort === undefined ? null : (

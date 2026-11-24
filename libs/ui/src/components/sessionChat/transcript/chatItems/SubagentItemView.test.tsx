@@ -21,6 +21,7 @@ import { theme } from '../../../../theme/themes.ts';
 bindHostRuntime(createHostRuntime(mockHostLayer));
 const { configOptionIndexAtom, selectedAtom } = await import('../../../../atoms/backendState.atoms.ts');
 const { SubagentItemView } = await import('./SubagentItemView.tsx');
+const { SessionChatSurfaceProvider } = await import('../../useSessionChatSurface.tsx');
 
 afterEach(cleanup);
 
@@ -37,7 +38,9 @@ const mount = (child: SubagentSnapshot, withChildSession = true) => {
   return render(
     <RegistryContext.Provider value={registry}>
       <ThemeProvider theme={theme}>
-        <SubagentItemView item={{ id: 'subagent:c1', kind: 'subagent', subagentSessionId: 'c1' }} />
+        <SessionChatSurfaceProvider onClientError={() => undefined}>
+          <SubagentItemView item={{ id: 'subagent:c1', kind: 'subagent', subagentSessionId: 'c1' }} />
+        </SessionChatSurfaceProvider>
       </ThemeProvider>
     </RegistryContext.Provider>,
   );
@@ -104,7 +107,9 @@ describe('SubagentItemView restored child', () => {
     const { container } = render(
       <RegistryContext.Provider value={registry}>
         <ThemeProvider theme={theme}>
-          <SubagentItemView item={{ id: 'subagent:c1', kind: 'subagent', subagentSessionId: 'c1' }} />
+          <SessionChatSurfaceProvider onClientError={() => undefined}>
+            <SubagentItemView item={{ id: 'subagent:c1', kind: 'subagent', subagentSessionId: 'c1' }} />
+          </SessionChatSurfaceProvider>
         </ThemeProvider>
       </RegistryContext.Provider>,
     );
@@ -128,7 +133,9 @@ describe('SubagentItemView roll-up over descendants (#277)', () => {
     render(
       <RegistryContext.Provider value={registry}>
         <ThemeProvider theme={theme}>
-          <SubagentItemView item={{ id: 'subagent:c1', kind: 'subagent', subagentSessionId: 'c1' }} />
+          <SessionChatSurfaceProvider onClientError={() => undefined}>
+            <SubagentItemView item={{ id: 'subagent:c1', kind: 'subagent', subagentSessionId: 'c1' }} />
+          </SessionChatSurfaceProvider>
         </ThemeProvider>
       </RegistryContext.Provider>,
     );
@@ -149,5 +156,25 @@ describe('SubagentItemView roll-up over descendants (#277)', () => {
     mountTree([subagent('g1', 'c1', { state: { state: 'completed' } })]);
     assert.isNull(screen.queryByText(/running/));
     assert.isNull(screen.queryByText('Needs input'));
+  });
+});
+
+describe('SubagentItemView cancel', () => {
+  const running = { state: { state: 'running' } } as const;
+  const cancellable = { capabilities: { cancel: {} } } as const;
+
+  it('offers Cancel when running and the child grants cancel', () => {
+    mount(subagent('c1', 's1', { ...running, ...cancellable }));
+    assert.strictEqual(screen.getAllByRole('button', { name: 'Cancel' }).length, 1);
+  });
+
+  it('offers no Cancel when running without a grant', () => {
+    mount(subagent('c1', 's1', running));
+    assert.isNull(screen.queryByRole('button', { name: 'Cancel' }));
+  });
+
+  it('offers no Cancel once finished', () => {
+    mount(subagent('c1', 's1', { ...cancellable, state: { state: 'completed' } }));
+    assert.isNull(screen.queryByRole('button', { name: 'Cancel' }));
   });
 });

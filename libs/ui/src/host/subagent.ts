@@ -98,13 +98,6 @@ export const subagentNeedsInput = (child: SubagentSnapshot): boolean =>
 export const isWorking = (child: SubagentSnapshot): boolean =>
   child.state?.state === WORK_STATE.running || child.state?.state === WORK_STATE.requiresAction;
 
-/** Running or needing input: a child that has not reported a state counts (unless unconfirmed after a reload). */
-export const isSubagentActive = (child: SubagentSnapshot): boolean => {
-  if (isSubagentTerminal(child.state) || isSubagentFinished(child.state)) return false;
-  if (subagentNeedsInput(child) || isWorking(child)) return true;
-  return child.state === undefined && child.stateUnconfirmed !== true;
-};
-
 /** Transcript items to show: a `session/load` replays the task as the child's first user message, which the Subagent task row already shows. */
 export const subagentTranscriptItems = (child: SubagentSnapshot): SessionTranscript['items'] => {
   const [first, ...rest] = child.transcript.items;

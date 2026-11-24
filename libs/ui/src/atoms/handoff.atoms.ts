@@ -1,8 +1,13 @@
 /** Cross-launch-target session handoff Atom fns. */
-import { Deferred, Duration, Effect, Exit, Fiber, Option, Schema } from 'effect';
+import { Cause, Deferred, Duration, Effect, Exit, Fiber, Option, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
-import { sessionAttributes } from '@lib/hub/telemetryKeys';
+import {
+  HANDOFF_PROMPT_CHARS,
+  HANDOFF_SOURCE_SESSION_ID,
+  HANDOFF_TARGET_LAUNCH_TARGET,
+  sessionAttributes,
+} from '@lib/hub/telemetryKeys';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
@@ -40,7 +45,7 @@ export class HandoffError extends Schema.TaggedError<HandoffError>()('HandoffErr
  */
 export const handoffPrompt = Effect.fn('handoffPrompt')(
   function* (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget, sessionId: string, text: string) {
-    yield* Effect.logInfo('Handoff prompt').pipe(Effect.annotateLogs({ chars: text.trim().length }));
+    yield* Effect.logInfo('Handoff prompt').pipe(Effect.annotateLogs({ [HANDOFF_PROMPT_CHARS]: text.trim().length }));
     const result = yield* sendPromptTurn(registry, { launchTarget, sessionId, text }).pipe(
       Effect.catchTag('ComposerActionUnavailable', error => Effect.fail(new HandoffError({ message: error.message }))),
     );
@@ -56,7 +61,10 @@ export const handoffPrompt = Effect.fn('handoffPrompt')(
   },
   (effect, _registry, launchTarget, sessionId) =>
     effect.pipe(
-      Effect.tapCause(cause => Effect.logError('handoffPrompt failed', cause)),
+      // A cancel is not a failure (same policy as `logFailure` in `sessionRpc.ts`).
+      Effect.tapCause(cause =>
+        Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError('handoffPrompt failed', cause),
+      ),
       annotateSessionLogs(launchTarget, sessionId),
     ),
 );
@@ -107,7 +115,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           get.set(handoffInProgressAtom, true);
           yield* Effect.annotateCurrentSpan(sessionAttributes(arg.sourceLaunchTarget, arg.sourceSessionId));
           yield* Effect.logInfo('Handoff started').pipe(
-            Effect.annotateLogs({ target_launch_target: arg.targetLaunchTarget }),
+            Effect.annotateLogs({ [HANDOFF_TARGET_LAUNCH_TARGET]: arg.targetLaunchTarget }),
             annotateSessionLogs(arg.sourceLaunchTarget, arg.sourceSessionId),
           );
           const sourceEntry = get(unifiedSessionHistoryAtom).find(
@@ -137,7 +145,9 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
 
           // After a successful source response, target create / config / seed failures are soft.
           if (!isUsablePhase(get(backendHarnessSnapshotAtom(arg.targetLaunchTarget)).phase)) {
-            yield* Effect.logWarning('Handoff soft-abort; target launch target not usable', arg.targetLaunchTarget);
+            yield* Effect.logWarning('Handoff soft-abort; target launch target not usable').pipe(
+              annotateLaunchTargetLogs(arg.targetLaunchTarget),
+            );
             return;
           }
 
@@ -183,7 +193,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             );
           } else {
             yield* Effect.logInfo('Handoff complete').pipe(
-              Effect.annotateLogs({ source_session_id: arg.sourceSessionId }),
+              Effect.annotateLogs({ [HANDOFF_SOURCE_SESSION_ID]: arg.sourceSessionId }),
               annotateSessionLogs(arg.targetLaunchTarget, targetSessionId),
             );
           }

@@ -65,8 +65,8 @@ export const createSessionFsListingAtoms = (
           listRecursiveEntries(arg.cwd, alwaysHiddenGlobs).pipe(Effect.onInterrupt(() => resetLoading)),
         );
         if (Exit.isFailure(exit)) {
-          yield* Effect.logWarning('session fs listing failed', Redacted.make(arg.cwd), exit.cause).pipe(
-            Effect.annotateLogs({ [ACP_SESSION_ID]: arg.sessionId }),
+          yield* Effect.logWarning('session fs listing failed', exit.cause).pipe(
+            Effect.annotateLogs({ cwd: Redacted.make(arg.cwd), [ACP_SESSION_ID]: arg.sessionId }),
           );
           if (get(sessionFsListingAtom(key)).status === 'loading') {
             get.set(sessionFsListingAtom(key), emptyListing(arg.cwd));

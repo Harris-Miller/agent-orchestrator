@@ -15,7 +15,7 @@ import { AppSessionId, ClientKind, ClientMessage, HUB_APP_ID, HUB_HOST, PROTOCOL
 import { makeHubState } from './state.ts';
 import { APP_SESSION_ID, HUB_CLIENT_KIND } from './telemetryKeys.ts';
 import { forwardingHandlers, HubToolkit } from './tools.ts';
-import { makeToolCallTelemetry } from './toolCall.ts';
+import { makeToolCallTelemetry, RoutingMark } from './toolCall.ts';
 
 /** The calling session's bearer token, provided per `/mcp` request by the auth middleware. */
 class CallerToken extends Context.Service<CallerToken, string>()('@lib/hub/CallerToken') {}
@@ -70,6 +70,7 @@ export const startHub = Effect.fnUntraced(function* (
       // even though `McpServer` strips request services from the context captured at registration.
       Effect.withFiber(fiber => {
         const token = Context.getOrUndefined(fiber.context, CallerToken);
+        Context.getOrUndefined(fiber.context, RoutingMark)?.mark();
         return token === undefined
           ? Effect.succeed({ isError: true, text: 'Missing session credential.' })
           : state.route(token, tool, args);
@@ -198,7 +199,7 @@ export const startHub = Effect.fnUntraced(function* (
     protocols: MCP_PROTOCOLS,
     registrations: McpServer.toolkit(HubToolkit).pipe(
       Layer.provide(ToolHandlers),
-      Layer.provide(makeToolCallTelemetry(state).layer),
+      Layer.provide(makeToolCallTelemetry(state.telemetryAttributes).layer),
     ),
     version: '0.1.0',
   }).pipe(Layer.provide(BearerAuth.layer));

@@ -1,4 +1,6 @@
 import { ConfigProvider, Layer, References } from 'effect';
+import { UNKNOWN_LABEL } from './protocol.ts';
+import { BUILD_TARGET, SERVICE_INSTANCE_ID } from './telemetryKeys.ts';
 import { FetchHttpClient } from 'effect/http';
 import { Otlp, OtlpSerialization } from 'effect/observability';
 
@@ -10,7 +12,7 @@ export type HubBuildTarget = 'dev' | 'prod';
  * version-like string becomes `unknown` (root ADR 0002).
  */
 export const hubServiceVersion = (value: string | undefined): string =>
-  value !== undefined && /^[\w.+-]{1,64}$/.test(value) ? value : 'unknown';
+  value !== undefined && /^[\w.+-]{1,64}$/.test(value) ? value : UNKNOWN_LABEL;
 
 /** The local LGTM stack (`compose.yml`) every dev `.env.development` points at. */
 const DEV_OTLP_ENDPOINT = 'http://127.0.0.1:4318';
@@ -37,17 +39,17 @@ const AllLogLevelsLive = Layer.succeed(References.MinimumLogLevel, 'All');
 /**
  * OTLP export for the hub's traces, logs and metrics. Dev only: `OTEL_EXPORTER_OTLP_ENDPOINT` is never read in a prod
  * build, since that env var is a common convention a user's machine may already set. In dev, the endpoint defaults to
- * the local LGTM stack. Every signal carries `build_target`. Requires a ConfigProvider (the default reads
+ * the local LGTM stack. Every signal carries `build.target`. Requires a ConfigProvider (the default reads
  * `process.env`, inherited from the starting client).
  */
-export const makeHubObservabilityLive = (target: HubBuildTarget, serviceVersion = 'unknown') =>
+export const makeHubObservabilityLive = (target: HubBuildTarget, serviceVersion = UNKNOWN_LABEL) =>
   target === 'dev'
     ? Layer.merge(
         AllLogLevelsLive,
         Otlp.layerFromConfig({
           resource: {
             // A fresh id per hub process tells a restarted hub from its predecessor.
-            attributes: { build_target: target, 'service.instance.id': crypto.randomUUID() },
+            attributes: { [BUILD_TARGET]: target, [SERVICE_INSTANCE_ID]: crypto.randomUUID() },
             serviceName: 'hoa-hub',
             serviceVersion,
           },

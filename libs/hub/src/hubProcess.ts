@@ -3,6 +3,7 @@
  * EADDRINUSE), publish the owner-only discovery file, then exit once idle. The file is removed on the way out only if it
  * is still this process's, so a successor hub's file survives.
  */
+import { HUB_PORT } from './telemetryKeys.ts';
 import { Effect, Option, Schema } from 'effect';
 import type { Duration } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
@@ -43,6 +44,6 @@ export const runHubProcess = Effect.fn('runHubProcess')(function* (options: HubP
       }
     }).pipe(Effect.ignore),
   );
-  yield* Effect.logInfo('Hub listening', { port: hub.port });
+  yield* Effect.logInfo('Hub listening').pipe(Effect.annotateLogs({ [HUB_PORT]: hub.port }));
   return hub;
 });

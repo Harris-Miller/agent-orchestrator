@@ -114,8 +114,12 @@ export const HUB_TOOL_NAMES = [
 ] as const;
 export type HubToolName = (typeof HUB_TOOL_NAMES)[number];
 
+/** The label for a value outside a closed set (an unlisted tool, a missing or malformed service version). */
+export const UNKNOWN_LABEL = 'unknown';
+
 /** A tool name from the allowlist, else `unknown`: the name arrives from the agent and must never be free text. */
-export const toolLabel = (name: string): string => (HUB_TOOL_NAMES.some(known => known === name) ? name : 'unknown');
+export const toolLabel = (name: string): string =>
+  HUB_TOOL_NAMES.some(known => known === name) ? name : UNKNOWN_LABEL;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // `/clients` messages

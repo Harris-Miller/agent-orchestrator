@@ -11,7 +11,14 @@ import type {
   RequestPermissionResponse,
 } from '@libs/effect-acp';
 import { Cause, Effect, Exit, Ref } from 'effect';
-import { ACP_LAUNCH_TARGET } from '@lib/hub/telemetryKeys';
+import {
+  ACP_LAUNCH_TARGET,
+  CODE_NAMESPACE,
+  FAILURE_REASON,
+  FAILURE_TAG,
+  PROCESS_PID,
+  RETRY_MAX_ATTEMPTS,
+} from '@lib/hub/telemetryKeys';
 
 import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
@@ -110,7 +117,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     const { agent } = connection;
     // Released with this attempt's scope (Stop, retry, retries exhausted): Connection lost.
     yield* registerBackendConnection(launchTarget, connection, handlers);
-    yield* Effect.logInfo('ACP harness connected').pipe(Effect.annotateLogs({ pid: connection.handle.pid }));
+    yield* Effect.logInfo('ACP harness connected').pipe(Effect.annotateLogs({ [PROCESS_PID]: connection.handle.pid }));
 
     const initializeResult = yield* agent.initialize({
       clientCapabilities: clientCapabilitiesFor(launchTarget),
@@ -154,7 +161,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     onReady();
   },
   (effect, launchTarget) =>
-    effect.pipe(Effect.annotateLogs({ [ACP_LAUNCH_TARGET]: launchTarget, module: 'backendHarness' })),
+    effect.pipe(Effect.annotateLogs({ [ACP_LAUNCH_TARGET]: launchTarget, [CODE_NAMESPACE]: 'backendHarness' })),
 );
 
 /**
@@ -177,7 +184,7 @@ export const runBackendHarness = Effect.fnUntraced(
           Effect.catchTag('MissingLaunchPrerequisite', (error: MissingLaunchPrerequisite) =>
             Effect.gen(function* () {
               yield* Effect.logError('ACP harness missing launch prerequisite').pipe(
-                Effect.annotateLogs({ reason: error._tag }),
+                Effect.annotateLogs({ [FAILURE_REASON]: error._tag }),
               );
               handlers.onPhase('error', { _tag: 'Failed', message: error.message });
             }),
@@ -185,7 +192,7 @@ export const runBackendHarness = Effect.fnUntraced(
           Effect.catchTag('VendorNotAuthenticated', (error: VendorNotAuthenticated) =>
             Effect.gen(function* () {
               yield* Effect.logError('ACP harness vendor CLI not authenticated').pipe(
-                Effect.annotateLogs({ reason: error._tag }),
+                Effect.annotateLogs({ [FAILURE_REASON]: error._tag }),
               );
               handlers.onPhase('error', { _tag: 'NotSignedIn', message: error.message });
             }),
@@ -204,7 +211,7 @@ export const runBackendHarness = Effect.fnUntraced(
       const failure = classifyBootstrapFailure(launchTarget, exit.cause);
       // `failure.message` can quote the Agent's error text; the cause carries it redacted.
       yield* Effect.logError('ACP harness bootstrap failed', exit.cause).pipe(
-        Effect.annotateLogs({ failure: failure._tag }),
+        Effect.annotateLogs({ [FAILURE_TAG]: failure._tag }),
       );
       handlers.onPhase('error', failure);
       consecutiveFailures.count += 1;
@@ -216,12 +223,12 @@ export const runBackendHarness = Effect.fnUntraced(
       }
 
       yield* Effect.logWarning('ACP harness retrying connect').pipe(
-        Effect.annotateLogs({ attempt: consecutiveFailures.count, max_attempts: MAX_CONNECT_ATTEMPTS }),
+        Effect.annotateLogs({ attempt: consecutiveFailures.count, [RETRY_MAX_ATTEMPTS]: MAX_CONNECT_ATTEMPTS }),
       );
       yield* Effect.sleep('1 second');
     }
   },
   Effect.scoped,
   (effect, launchTarget) =>
-    effect.pipe(Effect.annotateLogs({ [ACP_LAUNCH_TARGET]: launchTarget, module: 'backendHarness' })),
+    effect.pipe(Effect.annotateLogs({ [ACP_LAUNCH_TARGET]: launchTarget, [CODE_NAMESPACE]: 'backendHarness' })),
 );

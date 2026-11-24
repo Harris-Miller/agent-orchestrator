@@ -107,7 +107,7 @@ export const makeHubState = () => {
      * The allowlisted attributes naming who is calling (ids and discriminators only, root ADR 0002): the owning app
      * session and client kind, and the bound ACP session, its launch target and parent. Empty for an unknown token.
      */
-    describe: (token: string): Record<string, string> => {
+    telemetryAttributes: (token: string): Record<string, string> => {
       const { client, credential } = ownerOf(token);
       return {
         ...(client === undefined ? {} : { [APP_SESSION_ID]: client.appSessionId, [HUB_CLIENT_KIND]: client.kind }),

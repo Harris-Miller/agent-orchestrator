@@ -106,6 +106,27 @@ const spanFailed = (span: Tracer.NativeSpan | undefined) =>
 
 const toolCallSpans = (spans: readonly Tracer.NativeSpan[]) => spans.filter(span => span.name === 'hub.toolCall');
 
+/** The global `hub.tool_calls` count for a tool and outcome (the registry is process-wide: compare before / after). */
+const callCount = (tool: string, outcome: string) =>
+  Effect.map(Metric.snapshot, snapshot =>
+    snapshot
+      .filter(
+        metric =>
+          metric.id === 'hub.tool_calls' &&
+          metric.attributes?.['hub.tool'] === tool &&
+          metric.attributes['hub.outcome'] === outcome,
+      )
+      .reduce((sum, metric) => sum + ('count' in metric.state ? Number(metric.state.count) : 0), 0),
+  );
+
+/** The global `hub.tool_call.duration` observation count for an outcome. */
+const durationCount = (outcome: string) =>
+  Effect.map(Metric.snapshot, snapshot =>
+    snapshot
+      .filter(metric => metric.id === 'hub.tool_call.duration' && metric.attributes?.['hub.outcome'] === outcome)
+      .reduce((sum, metric) => sum + ('count' in metric.state ? Number(metric.state.count) : 0), 0),
+  );
+
 describe('hub', () => {
   it('declares exactly the tools the protocol names', () => {
     assert.deepStrictEqual(Object.keys(HubToolkit.tools).toSorted(), [...HUB_TOOL_NAMES].toSorted());
@@ -336,28 +357,17 @@ describe('hub', () => {
       const { port } = yield* hubUp();
       const owner = yield* connectTestClient(port);
       yield* registerToken(owner, 'tok-metric');
+      const before = yield* callCount('submit_handoff', 'ok');
+      const beforeDurations = yield* durationCount('ok');
       yield* callHandoff(port, owner, 'tok-metric', 'doc', 'ok');
-      const snapshot = yield* Metric.snapshot;
-      const counter = snapshot.find(
-        metric =>
-          metric.id === 'hub.tool_calls' &&
-          metric.attributes?.['hub.tool'] === 'submit_handoff' &&
-          metric.attributes['hub.outcome'] === 'ok',
-      );
-      assert.isDefined(counter);
-      assert.isTrue(
-        snapshot.some(metric => metric.id === 'hub.tool_call.duration' && metric.attributes?.['hub.outcome'] === 'ok'),
-      );
+      assert.strictEqual((yield* callCount('submit_handoff', 'ok')) - before, 1);
+      assert.strictEqual((yield* durationCount('ok')) - beforeDurations, 1);
     }).pipe(Effect.scoped),
   );
 
   it.live('an abandoned (interrupted) call is recorded once with outcome interrupted', () => {
     const { layer, spans } = capture();
-    const interruptedCount = Effect.map(Metric.snapshot, snapshot =>
-      snapshot
-        .filter(metric => metric.id === 'hub.tool_calls' && metric.attributes?.['hub.outcome'] === 'interrupted')
-        .reduce((sum, metric) => sum + Number((metric.state as { count: number | bigint }).count), 0),
-    );
+    const interruptedCount = callCount('submit_handoff', 'interrupted');
     return Effect.gen(function* () {
       const { port } = yield* hubUp();
       const owner = yield* connectTestClient(port);

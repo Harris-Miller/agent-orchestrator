@@ -35,12 +35,12 @@ const exportedWith = (target: HubBuildTarget, env: Record<string, string> = ENDP
   });
 
 describe('makeHubObservabilityLive', () => {
-  it.effect('dev exports OTLP to the configured endpoint as hoa-hub, tagged build_target=dev', () =>
+  it.effect('dev exports OTLP to the configured endpoint as hoa-hub, tagged build.target=dev', () =>
     Effect.gen(function* () {
       const calls = yield* exportedWith('dev');
       assert.isAbove(calls.length, 0);
       assert.isTrue(calls.every(call => call.url.startsWith('http://127.0.0.1:4318/')));
-      assert.isTrue(calls.some(call => call.body.includes('build_target') && call.body.includes('dev')));
+      assert.isTrue(calls.some(call => call.body.includes('build.target') && call.body.includes('dev')));
       assert.isTrue(calls.some(call => call.body.includes('hoa-hub')));
     }),
   );

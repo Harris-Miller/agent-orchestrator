@@ -1,4 +1,5 @@
 /** Config probe: disposable-cwd session → Config option index (per-model config options). */
+import { CONFIG_PROBE_STEP } from '@lib/hub/telemetryKeys';
 import type { ConfigOptionIndexDocument } from '@lib/hoa-home';
 import { Effect, Exit, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
@@ -69,7 +70,9 @@ type ProbeAgent<E = never> = {
 const bestEffort = Effect.fn('configProbeBestEffort')(function* <E>(label: string, effect: Effect.Effect<unknown, E>) {
   const exit = yield* Effect.exit(effect);
   if (Exit.isFailure(exit)) {
-    yield* Effect.logWarning(`Config probe ${label} failed`, exit.cause);
+    yield* Effect.logWarning('Config probe step failed', exit.cause).pipe(
+      Effect.annotateLogs({ [CONFIG_PROBE_STEP]: label }),
+    );
   }
 });
 

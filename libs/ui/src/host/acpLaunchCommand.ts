@@ -2,6 +2,7 @@
  * Provider ACP launch command: adapter resource entry (`node` + shim),
  * native Vendor CLI (`cursor-agent acp`), or managed Antigravity binary.
  */
+import { ACP_ADAPTER_VERSION, CODE_NAMESPACE } from '@lib/hub/telemetryKeys';
 import {
   ANTIGRAVITY_ACP_SPAWN_NAME,
   ensureAntigravityProviderBrowserHelper,
@@ -58,12 +59,12 @@ const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
     const active = yield* resolveActiveRuntime(launchTarget);
     const entry = path.join(active.runtimeDir, npmAdapterEntryRelativePath(launchTarget));
     yield* Effect.logInfo('Resolved ACP adapter entry').pipe(
-      Effect.annotateLogs({ adapter_version: active.version, entry: Redacted.make(entry) }),
+      Effect.annotateLogs({ [ACP_ADAPTER_VERSION]: active.version, entry: Redacted.make(entry) }),
       annotateLaunchTargetLogs(launchTarget),
     );
     return entry;
   },
-  Effect.annotateLogs({ module: 'acpLaunchCommand' }),
+  Effect.annotateLogs({ [CODE_NAMESPACE]: 'acpLaunchCommand' }),
 );
 
 type VendorCliAdapter = {
@@ -161,6 +162,6 @@ export const makeAcpLaunchCommand = Effect.fn('makeAcpLaunchCommand')(
         return yield* makeVendorCliAdapterCommand({ envKey: 'CODEX_PATH', executable: 'codex', launchTarget }, entry);
     }
   },
-  Effect.annotateLogs({ module: 'acpLaunchCommand' }),
+  Effect.annotateLogs({ [CODE_NAMESPACE]: 'acpLaunchCommand' }),
   Effect.tapError(error => Effect.logError('makeAcpLaunchCommand failed', error)),
 );

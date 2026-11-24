@@ -6,7 +6,12 @@
  */
 import { Duration, Effect, Exit, Redacted, Semaphore } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
-import { ACP_FORK_SOURCE_SESSION_ID, ACP_FORKED_SESSION_ID, sessionAttributes } from '@lib/hub/telemetryKeys';
+import {
+  ACP_FORK_SOURCE_SESSION_ID,
+  ACP_FORKED_SESSION_ID,
+  ACP_SESSION_LOAD_MODE,
+  sessionAttributes,
+} from '@lib/hub/telemetryKeys';
 import { annotateLaunchTargetLogs, annotateSessionLogs } from '../host/sessionTelemetry.ts';
 
 import {
@@ -210,7 +215,7 @@ export const activateSession = Effect.fn('activateSession')(function* (
   const hasHistory = existingSession !== undefined && existingSession.transcript.items.length > 0;
   const useResume = snapshot.agentCapabilities.sessionResume && hasHistory;
   yield* Effect.logInfo('Activating session').pipe(
-    Effect.annotateLogs({ cwd: Redacted.make(cwd), mode: useResume ? 'resume' : 'load' }),
+    Effect.annotateLogs({ cwd: Redacted.make(cwd), [ACP_SESSION_LOAD_MODE]: useResume ? 'resume' : 'load' }),
     annotateSessionLogs(arg.launchTarget, arg.sessionId),
   );
 

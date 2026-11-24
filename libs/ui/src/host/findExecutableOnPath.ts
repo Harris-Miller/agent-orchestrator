@@ -1,6 +1,7 @@
 /**
  * Resolve an executable name against the host PATH using OS + Path + FileSystem.
  */
+import { CODE_NAMESPACE, EXECUTABLE_NAME, EXECUTABLE_PATH } from '@lib/hub/telemetryKeys';
 import { OS } from '@lib/context-services';
 import { Effect, Option, Redacted, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
@@ -41,16 +42,18 @@ export const findExecutableOnPath = Effect.fn('findExecutableOnPath')(
         // Treat any exists failure as absent and keep scanning.
         const present = yield* fs.exists(candidate).pipe(Effect.orElseSucceed(() => false));
         if (present) {
-          yield* Effect.logDebug('Found executable on PATH', name, Redacted.make(candidate));
+          yield* Effect.logDebug('Found executable on PATH').pipe(
+            Effect.annotateLogs({ [EXECUTABLE_NAME]: name, [EXECUTABLE_PATH]: Redacted.make(candidate) }),
+          );
           return Option.some(candidate);
         }
       }
     }
 
-    yield* Effect.logDebug('Executable not found on PATH', name);
+    yield* Effect.logDebug('Executable not found on PATH').pipe(Effect.annotateLogs({ [EXECUTABLE_NAME]: name }));
     return Option.none<string>();
   },
-  Effect.annotateLogs({ module: 'findExecutableOnPath' }),
+  Effect.annotateLogs({ [CODE_NAMESPACE]: 'findExecutableOnPath' }),
 );
 
 /** Absolute path for `name` on PATH, or {@link MissingLaunchPrerequisite}. */
@@ -58,7 +61,7 @@ export const requireExecutableOnPath = Effect.fn('requireExecutableOnPath')(
   function* (name: string) {
     const found = yield* findExecutableOnPath(name);
     if (Option.isNone(found)) {
-      yield* Effect.logWarning('Missing launch prerequisite', name);
+      yield* Effect.logWarning('Missing launch prerequisite').pipe(Effect.annotateLogs({ [EXECUTABLE_NAME]: name }));
       return yield* new MissingLaunchPrerequisite({
         executable: name,
         message: `\`${name}\` not found on PATH`,
@@ -66,5 +69,5 @@ export const requireExecutableOnPath = Effect.fn('requireExecutableOnPath')(
     }
     return found.value;
   },
-  Effect.annotateLogs({ module: 'findExecutableOnPath' }),
+  Effect.annotateLogs({ [CODE_NAMESPACE]: 'findExecutableOnPath' }),
 );

@@ -753,6 +753,9 @@ importers:
       '@lib/hoa-home':
         specifier: workspace:^
         version: link:../hoa-home
+      '@lib/hub':
+        specifier: workspace:^
+        version: link:../hub
       '@tauri-apps/api':
         specifier: 'catalog:'
         version: 2.12.4
@@ -823,6 +826,9 @@ importers:
       '@lib/context-services':
         specifier: workspace:^
         version: link:../context-services
+      '@lib/hub':
+        specifier: workspace:^
+        version: link:../hub
       effect:
         specifier: 'catalog:'
         version: 4.1.4

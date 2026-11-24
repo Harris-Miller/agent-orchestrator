@@ -41,7 +41,7 @@
 import type { AcpError, SessionFailure, StopReason } from '@libs/effect-acp';
 import { Clock, Effect, Exit, Option, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
-import { sessionAttributes } from '@lib/hub/telemetryKeys';
+import { sessionAttributes, STEERING_OUTCOME } from '@lib/hub/telemetryKeys';
 
 import { promptSent } from '../analytics/catalog.ts';
 import { captureEvent } from '../analytics/trackEvent.ts';
@@ -295,7 +295,9 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
     }
     return;
   }
-  yield* Effect.logDebug('_session/steering fell back to session/prompt', result.outcome);
+  yield* Effect.logDebug('_session/steering fell back to session/prompt').pipe(
+    Effect.annotateLogs({ [STEERING_OUTCOME]: result.outcome }),
+  );
   // The ended turn's `session/prompt` response may still be in flight; Send once it has cleared the request.
   yield* awaitNoClientRequest(registry, launchTarget, sessionId);
   yield* sendPromptTurn(registry, input).pipe(

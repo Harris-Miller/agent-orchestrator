@@ -1,7 +1,6 @@
 {
   "extends": "@tooling/tsconfig/tsconfig.base.json",
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vscode.tsbuildinfo",
     "module": "esnext",
     "moduleResolution": "bundler",
     "types": ["node"]

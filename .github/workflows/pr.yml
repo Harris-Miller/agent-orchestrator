@@ -28,7 +28,12 @@ jobs:
 
       - uses: actions/cache@v4
         with:
-          path: .turbo
+          path: |
+            .turbo
+            tsconfig.tsbuildinfo
+            apps/*/*.tsbuildinfo
+            libs/*/*.tsbuildinfo
+            tooling/*/*.tsbuildinfo
           key: turbo-${{ runner.os }}-pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
           restore-keys: |
             turbo-${{ runner.os }}-pr-${{ github.event.pull_request.number }}-
@@ -36,4 +41,6 @@ jobs:
 
       - run: pnpm run local-ci
 
+      # this is here so local-ci fails if `pnpm run build` on `apps/website` fails to prevent PR merging
+      # the output directories are not part of the cache, nor do I want it to be
       - run: pnpm --filter=@apps/website run build

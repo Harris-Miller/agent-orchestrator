@@ -1,6 +1,7 @@
 {
   "$schema": "@effect/tsgo/schema.json",
   "compilerOptions": {
+    "incremental": true,
     "target": "es2024",
     "module": "nodenext",
     "moduleResolution": "nodenext",

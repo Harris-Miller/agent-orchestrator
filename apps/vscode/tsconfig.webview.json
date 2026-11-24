@@ -1,7 +1,6 @@
 {
   "extends": "@tooling/tsconfig/tsconfig.base.json",
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.webview.tsbuildinfo",
     "module": "esnext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",

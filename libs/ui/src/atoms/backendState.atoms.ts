@@ -16,7 +16,14 @@ import { harnessAvailabilityEqual, harnessUnavailableReason } from '../host/laun
 import type { HarnessAvailability } from '../host/launchTargetAvailability.ts';
 import { isSwitchingJob } from '../host/providerView.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
-import { getSubagent, hasBackgroundActivity, rootAncestorId, subagentRollUp } from '../host/subagent.ts';
+import {
+  getSubagent,
+  hasBackgroundActivity,
+  isWorking,
+  rootAncestorId,
+  subagentNeedsInput,
+  subagentRollUp,
+} from '../host/subagent.ts';
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
@@ -245,6 +252,23 @@ export const selectedSubagentRollUpAtom = Atom.family((childId: string) =>
     ),
   ),
 );
+
+/**
+ * Ids of the Selected session's Subagents (native or Spawned, any depth) that are working or need input, in record
+ * order. Compared by value, so subscribers re-render only when membership changes.
+ */
+export const selectedActiveSubagentIdsAtom = Atom.make(get => {
+  const subagents = get(selectedSubagentsRecordAtom);
+  const rootId = get(selectedSessionIdAtom);
+  return subagents === undefined || rootId === undefined
+    ? ([] as readonly string[])
+    : Object.values(subagents)
+        .filter(
+          child =>
+            rootAncestorId(subagents, child.sessionId) === rootId && (isWorking(child) || subagentNeedsInput(child)),
+        )
+        .map(child => child.sessionId);
+}).pipe(Atom.withEquality<readonly string[]>((a, b) => a.length === b.length && a.every((id, i) => id === b[i])));
 
 /**
  * Narrows to a child's display name (undefined when the id is undefined, the child is absent, or it is unnamed).

@@ -3,13 +3,14 @@ import Box from '@mui/material/Box';
 import type { FC, ReactNode } from 'react';
 
 import { subagentViewAtom } from '../../atoms/backendState.atoms.ts';
+import { ActiveSubagentsStrip } from './ActiveSubagentsStrip.tsx';
 import { useChatWidthSx } from './chatWidth.ts';
 import { Composer } from './composer/Composer.tsx';
 import { usePreloadSessionFsListing } from './composer/menu/usePreloadSessionFsListing.ts';
 import { PendingElicitationDock } from './pendingInteractions/PendingElicitationDock.tsx';
 import { SubagentView } from './SubagentView.tsx';
 import { ChatTranscript } from './transcript/ChatTranscript.tsx';
-import { SessionChatSurfaceProvider } from './useSessionChatSurface.tsx';
+import { SessionChatSurfaceProvider, useSessionChatSurface } from './useSessionChatSurface.tsx';
 
 const SessionChatBodyInner: FC<{
   readonly aboveComposer?: ReactNode;
@@ -17,6 +18,7 @@ const SessionChatBodyInner: FC<{
 }> = ({ aboveComposer, virtualEmptyState }) => {
   usePreloadSessionFsListing();
   const chatWidthSx = useChatWidthSx();
+  const { onClientError } = useSessionChatSurface();
 
   return (
     <Box
@@ -35,6 +37,7 @@ const SessionChatBodyInner: FC<{
     >
       <ChatTranscript virtualEmptyState={virtualEmptyState} />
       <Box sx={{ ...chatWidthSx, display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
+        <ActiveSubagentsStrip onClientError={onClientError} />
         <PendingElicitationDock />
         <Composer aboveComposer={aboveComposer} />
       </Box>

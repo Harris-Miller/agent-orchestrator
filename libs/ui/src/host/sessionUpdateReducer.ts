@@ -652,8 +652,9 @@ export const appendUserChatMessage = (
   images?: readonly UserMessageImageRef[],
   options?: { readonly steering?: true },
 ): SessionTranscript => {
-  // Same lift as session/load `user_message_chunk`: `@` image markdown → top thumbnails.
-  const lifted = liftImageMarkdownLinks(text);
+  // Same lift as session/load `user_message_chunk`: `@` image markdown → top thumbnails. Never for a Harness-sent
+  // Subagent report: its echoed task or body may hold such a link, and the message is hidden whole in the chat.
+  const lifted = opensSubagentReport(text) ? { images: [], text } : liftImageMarkdownLinks(text);
   const mergedImages = [...(images ?? []), ...lifted.images];
   const steering = options?.steering;
   if (mergedImages.length === 0 && steering === undefined) {

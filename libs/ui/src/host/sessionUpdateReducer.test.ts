@@ -435,6 +435,13 @@ describe('appendUserChatMessage', () => {
     assert.notStrictEqual(next, base);
   });
 
+  it('does not lift image links out of a Harness-sent Subagent report (no image on the hidden message)', () => {
+    const text =
+      '<subagent-report id="c1" status="completed">\nsubagent: d\ntask: see [@shot](file:///tmp/shot.png)\n\nok\n</subagent-report>';
+    const next = appendUserChatMessage(emptySessionTranscript(), text);
+    assert.deepStrictEqual(next.items, [{ id: next.items[0]?.id, kind: 'user_message', text }]);
+  });
+
   it('lifts mid-draft image file:// markdown into images (composer @ mention)', () => {
     const next = appendUserChatMessage(
       emptySessionTranscript(),

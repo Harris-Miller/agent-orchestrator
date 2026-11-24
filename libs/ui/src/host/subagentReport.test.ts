@@ -5,7 +5,7 @@ import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import { applyLiveSessionUpdate } from './harnessStateTransitions.ts';
 import { initialSpawnedSubagentSnapshot } from './subagent.ts';
-import { buildSubagentResult, parseSubagentReports } from './subagentResult.ts';
+import { buildSubagentResult, hasSubagentReport, parseSubagentReports } from './subagentResult.ts';
 
 const report = (status: 'cancelled' | 'completed' | 'failed', text: string, task = 't') =>
   buildSubagentReport({ description: 'd', id: 'c1', outcome: { status, text }, task });
@@ -29,6 +29,17 @@ describe('parseSubagentReports', () => {
     assert.strictEqual(parseSubagentReports(text)[0].body, 'x </subagent-report> y');
   });
 
+  it('tolerates CRLF line endings', () => {
+    const text = report('completed', 'a\nb').replaceAll('\n', '\r\n');
+    assert.deepStrictEqual(parseSubagentReports(text), [
+      { body: 'a\nb', description: 'd', id: 'c1', status: 'completed', task: 't' },
+    ]);
+  });
+
+  it('keeps image markdown in a body', () => {
+    assert.strictEqual(parseSubagentReports(report('completed', 'see ![x](a.png)'))[0].body, 'see ![x](a.png)');
+  });
+
   it('skips malformed and unknown-status reports', () => {
     assert.deepStrictEqual(
       parseSubagentReports('<subagent-report id="c1" status="running">\nsubagent: d\ntask: t\n\nb\n</subagent-report>'),
@@ -39,6 +50,15 @@ describe('parseSubagentReports', () => {
       [],
     );
     assert.deepStrictEqual(parseSubagentReports('plain'), []);
+  });
+});
+
+describe('hasSubagentReport', () => {
+  it('needs both opening and closing tags', () => {
+    assert.isTrue(hasSubagentReport(report('completed', 'x')));
+    assert.isFalse(hasSubagentReport('<subagent-report id="c1" status="completed">\nsubagent: d'));
+    assert.isFalse(hasSubagentReport('x</subagent-report>'));
+    assert.isFalse(hasSubagentReport('plain'));
   });
 });
 
@@ -113,5 +133,71 @@ describe('Subagent report on replay', () => {
     };
     const s = applyLiveSessionUpdate(live, 'p1', userMessage(report('completed', 'x'))).snapshot;
     assert.strictEqual(s.subagents.c1, live.subagents.c1);
+  });
+
+  it('upgrades the child only once the closing tag of a chunked report arrives', () => {
+    const text = report('completed', 'the answer');
+    const cut = text.length - 8;
+    const chunk = (t: string) => ({
+      content: { text: t, type: 'text' },
+      messageId: 'm1',
+      sessionUpdate: 'user_message_chunk',
+    });
+    const partial = replay(spawn('running'), chunk(text.slice(0, 20)), chunk(text.slice(20, cut)));
+    assert.deepStrictEqual(partial.subagents.c1.state, replay(spawn('running')).subagents.c1.state);
+    const done = replay(spawn('running'), chunk(text.slice(0, 20)), chunk(text.slice(20, cut)), chunk(text.slice(cut)));
+    assert.deepStrictEqual(done.subagents.c1.state, { state: 'completed' });
+  });
+
+  it('upgrades two children from two reports in one user message', () => {
+    const second = buildSubagentReport({
+      description: 'd',
+      id: 'c2',
+      outcome: { status: 'failed', text: 'no' },
+      task: 't',
+    });
+    const s = replay(
+      spawn('running'),
+      {
+        ...spawn('running'),
+        title: 'mcp__hoa-hub__spawn_subagent',
+        toolCallId: 'h2',
+        content: [
+          {
+            content: {
+              text: buildSubagentResult({
+                body: '',
+                config: {},
+                description: 'd',
+                id: 'c2',
+                launchTarget: 'codex-acp',
+                status: 'running',
+                task: 't',
+              }),
+              type: 'text',
+            },
+            type: 'content',
+          },
+        ],
+      },
+      userMessage(`${report('completed', 'yes')}\n${second}`),
+    );
+    assert.deepStrictEqual(s.subagents.c1.state, { state: 'completed' });
+    assert.deepStrictEqual(s.subagents.c2.state, { error: 'no', state: 'failed' });
+  });
+
+  it('upgrades from a CRLF report', () => {
+    const s = replay(spawn('running'), userMessage(report('completed', 'x').replaceAll('\n', '\r\n')));
+    assert.deepStrictEqual(s.subagents.c1.state, { state: 'completed' });
+  });
+
+  it('is a no-op for an unclosed report', () => {
+    const s = replay(spawn('running'), userMessage(report('completed', 'x').replace('</subagent-report>', '')));
+    assert.deepStrictEqual(s.subagents.c1.state, replay(spawn('running')).subagents.c1.state);
+  });
+
+  it('upgrades with image markdown in the report body', () => {
+    const s = replay(spawn('running'), userMessage(report('completed', 'see ![x](a.png) done')));
+    assert.deepStrictEqual(s.subagents.c1.state, { state: 'completed' });
   });
 });

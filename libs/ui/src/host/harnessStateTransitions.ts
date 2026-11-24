@@ -80,7 +80,7 @@ import {
   withParentChatItem,
 } from './subagentRouting.ts';
 import { withoutUndefined } from '../optionalFields.ts';
-import { parseSubagentReports } from './subagentResult.ts';
+import { hasSubagentReport, parseSubagentReports } from './subagentResult.ts';
 import type { KnownSubagentResult, SubagentReport } from './subagentResult.ts';
 
 export const markHistoryUnavailable = (history: readonly HistoryEntry[]): readonly HistoryEntry[] =>
@@ -1008,7 +1008,7 @@ const restoreSubagentsOfReports = (
   }
   const transcript = sessionOrSubagentOf(snapshot, sessionId)?.transcript;
   const item = transcript?.items.at(-1);
-  return item?.kind !== 'user_message' || !item.text.includes('<subagent-report')
+  return item?.kind !== 'user_message' || !hasSubagentReport(item.text)
     ? snapshot
     : parseSubagentReports(item.text).reduce(applySubagentReport, snapshot);
 };
@@ -1045,10 +1045,9 @@ export const applyLiveSessionUpdate = (
     return routed;
   }
   const next = applyRootSessionUpdate(snapshot, sessionId, update);
-  return {
-    snapshot:
-      next === snapshot
-        ? snapshot
-        : restoreSubagentsOfReports(restoreSubagentsOfToolCall(next, sessionId, update), sessionId, update),
-  };
+  if (next === snapshot) {
+    return { snapshot };
+  }
+  const withToolCallChildren = restoreSubagentsOfToolCall(next, sessionId, update);
+  return { snapshot: restoreSubagentsOfReports(withToolCallChildren, sessionId, update) };
 };

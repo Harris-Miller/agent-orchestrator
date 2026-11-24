@@ -2,9 +2,9 @@
 import { RegistryContext } from '@effect/atom-react';
 import { assert, describe, it } from '@effect/vitest';
 import { ThemeProvider } from '@mui/material/styles';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { AtomRegistry } from 'effect/reactivity';
-import { afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
 
 import { CLAUDE, CODEX } from '../../../../atoms/fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from '../../../../atoms/harnessSnapshot.ts';
@@ -18,12 +18,23 @@ import { emptySessionTranscript, reduceSessionUpdate } from '../../../../host/se
 import { bindHostRuntime } from '../../../../hostRuntime.ts';
 import { theme } from '../../../../theme/themes.ts';
 
+const { cancelMock } = vi.hoisted(() => ({ cancelMock: vi.fn() }));
+
+// `cancelSubagentAtomFn` needs a live backend, so the hook is stubbed here.
+vi.mock('../../useCancelSubagent.ts', () => ({
+  useCancelSubagent: () => ({ cancel: cancelMock, cancelRequested: false }),
+}));
+
 bindHostRuntime(createHostRuntime(mockHostLayer));
-const { configOptionIndexAtom, selectedAtom } = await import('../../../../atoms/backendState.atoms.ts');
+const { configOptionIndexAtom, selectedAtom, viewedSubagentAtom } =
+  await import('../../../../atoms/backendState.atoms.ts');
 const { SubagentItemView } = await import('./SubagentItemView.tsx');
 const { SessionChatSurfaceProvider } = await import('../../useSessionChatSurface.tsx');
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  cancelMock.mockClear();
+});
 
 const configuration: NormalizedConfigOption[] = [
   { choices: [{ id: 'opus', name: 'Opus' }], currentValue: 'opus', id: 'model', name: 'Model', type: 'select' },
@@ -35,15 +46,18 @@ const mount = (child: SubagentSnapshot, withChildSession = true) => {
   updateHarnessSnapshot(registry, CODEX, () => harness([session('s1')], [child]));
   updateHarnessSnapshot(registry, CLAUDE, () => harness(withChildSession ? [session('c1', { configuration })] : []));
   registry.set(selectedAtom, { _tag: 'Session', sessionId: 's1' });
-  return render(
-    <RegistryContext.Provider value={registry}>
-      <ThemeProvider theme={theme}>
-        <SessionChatSurfaceProvider onClientError={() => undefined}>
-          <SubagentItemView item={{ id: 'subagent:c1', kind: 'subagent', subagentSessionId: 'c1' }} />
-        </SessionChatSurfaceProvider>
-      </ThemeProvider>
-    </RegistryContext.Provider>,
-  );
+  return {
+    ...render(
+      <RegistryContext.Provider value={registry}>
+        <ThemeProvider theme={theme}>
+          <SessionChatSurfaceProvider onClientError={() => undefined}>
+            <SubagentItemView item={{ id: 'subagent:c1', kind: 'subagent', subagentSessionId: 'c1' }} />
+          </SessionChatSurfaceProvider>
+        </ThemeProvider>
+      </RegistryContext.Provider>,
+    ),
+    registry,
+  };
 };
 
 const iconFor = (container: HTMLElement, label: string) => container.querySelector(`img[aria-label="${label}"]`);
@@ -176,5 +190,39 @@ describe('SubagentItemView cancel', () => {
   it('offers no Cancel once finished', () => {
     mount(subagent('c1', 's1', { ...cancellable, state: { state: 'completed' } }));
     assert.isNull(screen.queryByRole('button', { name: 'Cancel' }));
+  });
+
+  describe('interaction', () => {
+    const working = subagent('c1', 's1', { name: 'Working', ...running, ...cancellable });
+
+    it('opens the Subagent view when the row is clicked', () => {
+      const { registry } = mount(working);
+      fireEvent.click(screen.getByText('Working'));
+      assert.strictEqual(registry.get(viewedSubagentAtom)?.childId, 'c1');
+    });
+
+    it('opens the Subagent view on Enter and Space on the row', () => {
+      const { registry } = mount(working);
+      const [row] = screen.getAllByRole('button');
+      assert.strictEqual(row.getAttribute('tabindex'), '0');
+      fireEvent.keyDown(row, { key: 'Enter' });
+      assert.strictEqual(registry.get(viewedSubagentAtom)?.childId, 'c1');
+      registry.set(viewedSubagentAtom, undefined);
+      fireEvent.keyDown(row, { key: ' ' });
+      assert.strictEqual(registry.get(viewedSubagentAtom)?.childId, 'c1');
+    });
+
+    it('Enter on Cancel does not open the Subagent view', () => {
+      const { registry } = mount(working);
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Cancel' }), { key: 'Enter' });
+      assert.isUndefined(registry.get(viewedSubagentAtom));
+    });
+
+    it('clicking Cancel cancels without opening the Subagent view', () => {
+      const { registry } = mount(working);
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      assert.strictEqual(cancelMock.mock.calls.length, 1);
+      assert.isUndefined(registry.get(viewedSubagentAtom));
+    });
   });
 });

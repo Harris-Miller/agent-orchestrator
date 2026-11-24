@@ -6,14 +6,13 @@ import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 
 /** Cancel a Subagent once; re-enables the action and reports the error if the cancel request fails. */
 export const useCancelSubagent = (
-  launchTarget: AgentLaunchTarget | undefined,
+  launchTarget: AgentLaunchTarget,
   childId: string,
   onClientError: (error: unknown) => void,
 ) => {
   const [cancelRequested, setCancelRequested] = useState(false);
   const cancelAtom = useAtomSet(cancelSubagentAtomFn, { mode: 'promise' });
   const cancel = () => {
-    if (launchTarget === undefined) return;
     setCancelRequested(true);
     cancelAtom({ launchTarget, sessionId: childId }).catch((error: unknown) => {
       setCancelRequested(false);

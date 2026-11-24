@@ -1,7 +1,8 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import type { FC, ReactNode } from 'react';
+import type { FC, KeyboardEvent, ReactNode } from 'react';
+import { useRef } from 'react';
 
 import {
   selectedSessionLaunchTargetAtom,
@@ -26,15 +27,27 @@ export const SubagentRow: FC<{
   const rootSessionId = useAtomValue(selectedSubagentRootIdAtom(childId));
   const rollUp = useAtomValue(selectedSubagentRollUpAtom(childId));
   const setViewed = useAtomSet(viewedSubagentAtom);
+  const actionRef = useRef<HTMLDivElement>(null);
   if (launchTarget === undefined || rootSessionId === undefined || child === undefined) return null;
   const fields = subagentRowFields(child, launchTarget, configuration);
   const showRunning = rollUp.running > 0;
+  const open = () => {
+    setViewed({ childId: child.sessionId, launchTarget, rootSessionId });
+  };
+  const onKeyDown = (event: KeyboardEvent) => {
+    // Keys on the nested action (Cancel) belong to it.
+    if (event.target instanceof Node && actionRef.current?.contains(event.target) === true) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      open();
+    }
+  };
   return (
     <Box
-      onClick={() => {
-        setViewed({ childId: child.sessionId, launchTarget, rootSessionId });
-      }}
+      onClick={open}
+      onKeyDown={onKeyDown}
       role="button"
+      tabIndex={0}
       sx={{
         alignItems: 'center',
         bgcolor: 'action.hover',
@@ -78,6 +91,7 @@ export const SubagentRow: FC<{
           onClick={event => {
             event.stopPropagation();
           }}
+          ref={actionRef}
           sx={{ flexShrink: 0 }}
         >
           {action}

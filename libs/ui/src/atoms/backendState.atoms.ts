@@ -109,7 +109,7 @@ export const requireLaunchTargetUsable = (get: AtomGetter, launchTarget: AgentLa
   return undefined;
 };
 
-/** Every launch target's Session History rows, except Spawned subagent sessions, which are never listed, live or after their link ends (ADR 0011). */
+/** Every launch target's Session History rows, except Spawned subagent sessions, which are never listed while this app run knows them, live or after their link ends (ADR 0011). Not durable across a restart. */
 export const unifiedSessionHistoryAtom = Atom.make(get => {
   const children = get(spawnedChildrenSnapshotAtom);
   const entries: UnifiedHistoryEntry[] = [];

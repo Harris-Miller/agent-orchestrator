@@ -1,7 +1,7 @@
 /**
  * Spawned subagent links (internal to the Spawned subagent module): which `(launch target, session)` is a child the
- * Harness started for a parent, plus the live-children cap that guards spawning. In memory only (like credentials): after
- * a restart the child is just a session on its own launch target. The read half (`subagentLinksAtom`, `isChild`,
+ * Harness started for a parent, plus the live-children cap that guards spawning. In memory only (like credentials; ADR 0011): while
+ * this app run knows a child it is never listed in Session History or Import; after a restart it is not a Tracked session. The read half (`subagentLinksAtom`, `isChild`,
  * `isChildIn`, `wasSpawnedChildIn`) is public through `index.ts`; `backendState.atoms.ts` imports it from here (the barrel would cycle).
  */
 import { Deferred, Effect, Fiber } from 'effect';

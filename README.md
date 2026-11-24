@@ -6,7 +6,7 @@
 
 **Every coding agent, one harness.** HOA is a desktop app (with a matching VS Code extension) for working with the coding agents you already use: Codex and Claude, plus Cursor and Antigravity in beta. It runs them on your own machine and gives them one shared home: one list of sessions, one composer, one place to answer their questions.
 
-**[Read the docs →](https://harris-miller.github.io/agent-orchestrator/)**
+**[Read the docs →](https://harris-miller.github.io/hoa/)**
 
 ## What you get
 
@@ -23,14 +23,14 @@ HOA talks to every agent through the open [Agent Client Protocol](https://agentc
 
 HOA is in **Alpha**. Expect settings and features to change between versions.
 
-- **Download** the macOS or Windows installer from [GitHub Releases](https://github.com/Harris-Miller/agent-orchestrator/releases). Installed apps update themselves from there.
-- **Or build from source:** see [Getting started](https://harris-miller.github.io/agent-orchestrator/guide/getting-started).
+- **Download** the macOS or Windows installer from [GitHub Releases](https://github.com/Harris-Miller/hoa/releases). Installed apps update themselves from there.
+- **Or build from source:** see [Getting started](https://harris-miller.github.io/hoa/guide/getting-started).
 
-HOA needs **Node.js 22+** and **npm** on your `PATH` (it uses them to download and run agents) and an account with at least one agent provider. See [Agent providers](https://harris-miller.github.io/agent-orchestrator/guide/providers).
+HOA needs **Node.js 22+** and **npm** on your `PATH` (it uses them to download and run agents) and an account with at least one agent provider. See [Agent providers](https://harris-miller.github.io/hoa/guide/providers).
 
 ## Feedback and contributing
 
-Report bugs and request features in [GitHub Issues](https://github.com/Harris-Miller/agent-orchestrator/issues). To work on HOA itself, read [CONTRIBUTING.md](./CONTRIBUTING.md).
+Report bugs and request features in [GitHub Issues](https://github.com/Harris-Miller/hoa/issues). To work on HOA itself, read [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 

@@ -3,7 +3,7 @@
 ## Install HOA
 
 1. Make sure **Node.js 22+** and **npm** are on your `PATH`. HOA uses them to download and run agents; it checks at startup and tells you what's missing.
-2. Download the installer for your OS from [GitHub Releases](https://github.com/Harris-Miller/agent-orchestrator/releases):
+2. Download the installer for your OS from [GitHub Releases](https://github.com/Harris-Miller/hoa/releases):
    - **macOS** (Apple Silicon or Intel): the `.dmg`. HOA isn't notarized by Apple yet, so the first time you open it, allow it in **System Settings › Privacy & Security**.
    - **Windows:** the `-setup.exe`.
 3. You need an account with at least one agent provider. Codex and Claude sign in through their own CLIs or keys.
@@ -15,8 +15,8 @@ HOA checks for updates when it starts and offers to install them.
 To run the latest `develop` or work on HOA itself, you also need **pnpm** (the version in `package.json`'s `packageManager`) and **Rust** with the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
 
 ```sh
-git clone https://github.com/Harris-Miller/agent-orchestrator.git
-cd agent-orchestrator
+git clone https://github.com/Harris-Miller/hoa.git
+cd hoa
 pnpm install
 pnpm run tauri:dev     # run the desktop app in development
 ```

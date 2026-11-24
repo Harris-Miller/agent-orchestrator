@@ -5,7 +5,7 @@ import type { FC } from 'react';
 import { SettingsRow, SettingsSection } from './SettingsSection.tsx';
 import { useOpenExternalUrl } from './useOpenExternalUrl.ts';
 
-export const GITHUB_REPO_URL = 'https://github.com/Harris-Miller/agent-orchestrator';
+export const GITHUB_REPO_URL = 'https://github.com/Harris-Miller/hoa';
 
 /** Settings → About: project links. */
 export const AboutSettingsPane: FC = () => {

@@ -18,7 +18,7 @@ Repo rules for coding agents. Human contributors follow the same rules; [`CONTRI
 
 ### Issue tracker
 
-Issues live in GitHub (`Harris-Miller/agent-orchestrator`). See `docs/agents/issue-tracker.md`. In a fork, `gh` may default to either the fork or upstream: check the target with `gh repo view --json nameWithOwner` before filing an issue or opening a PR, and open PRs against upstream's `develop`.
+Issues live in GitHub (`Harris-Miller/hoa`). See `docs/agents/issue-tracker.md`. In a fork, `gh` may default to either the fork or upstream: check the target with `gh repo view --json nameWithOwner` before filing an issue or opening a PR, and open PRs against upstream's `develop`.
 
 ### Domain docs
 

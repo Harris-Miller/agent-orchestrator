@@ -1,6 +1,6 @@
 # Desktop Alpha release
 
-Release CI (`.github/workflows/release-desktop.yml`) builds macOS (Apple Silicon + Intel) and Windows installers and the VS Code `.vsix`, and attaches them to a **draft** GitHub Release tagged `vX.Y.Z`. Installed apps check `https://github.com/Harris-Miller/agent-orchestrator/releases/latest/download/latest.json` on launch (production builds only).
+Release CI (`.github/workflows/release-desktop.yml`) builds macOS (Apple Silicon + Intel) and Windows installers and the VS Code `.vsix`, and attaches them to a **draft** GitHub Release tagged `vX.Y.Z`. Installed apps check `https://github.com/Harris-Miller/hoa/releases/latest/download/latest.json` on launch (production builds only).
 
 Branching: see [`docs/gitflow.md`](../../../docs/gitflow.md). Release CI runs on **push to `main`** (merging a release PR), or via **Actions → Release → Run workflow** on `main`.
 

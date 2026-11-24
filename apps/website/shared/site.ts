@@ -2,7 +2,7 @@
 import { fileURLToPath } from 'node:url';
 import type { DefaultTheme, UserConfig } from 'vitepress';
 
-export const REPO_URL = 'https://github.com/Harris-Miller/agent-orchestrator';
+export const REPO_URL = 'https://github.com/Harris-Miller/hoa';
 
 const websiteDir = fileURLToPath(new URL('..', import.meta.url));
 const contentDir = fileURLToPath(new URL('../content', import.meta.url));

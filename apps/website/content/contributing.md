@@ -1,14 +1,14 @@
 # Develop HOA
 
-HOA is developed on [GitHub](https://github.com/Harris-Miller/agent-orchestrator), where its issues live too. The full guide is [`CONTRIBUTING.md`](https://github.com/Harris-Miller/agent-orchestrator/blob/develop/CONTRIBUTING.md) in the repository.
+HOA is developed on [GitHub](https://github.com/Harris-Miller/hoa), where its issues live too. The full guide is [`CONTRIBUTING.md`](https://github.com/Harris-Miller/hoa/blob/develop/CONTRIBUTING.md) in the repository.
 
 ## Setup
 
 You need Node.js 22+ with npm, pnpm, and (for the desktop app) Rust with the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ```sh
-git clone https://github.com/Harris-Miller/agent-orchestrator.git
-cd agent-orchestrator
+git clone https://github.com/Harris-Miller/hoa.git
+cd hoa
 git checkout develop
 pnpm install
 pnpm run tauri:dev    # desktop app

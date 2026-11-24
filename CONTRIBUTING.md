@@ -1,6 +1,6 @@
 # Contributing to HOA
 
-Thanks for helping out. This guide covers setting up the repo, running the apps locally, and getting a pull request merged. For what HOA does, see the [README](./README.md) and the [docs site](https://harris-miller.github.io/agent-orchestrator/).
+Thanks for helping out. This guide covers setting up the repo, running the apps locally, and getting a pull request merged. For what HOA does, see the [README](./README.md) and the [docs site](https://harris-miller.github.io/hoa/).
 
 Using a coding agent? It reads [`AGENTS.md`](./AGENTS.md) (`CLAUDE.md` is a symlink to it), which holds the same rules in more detail. Everything here applies to agent-written changes too.
 
@@ -17,8 +17,8 @@ Using a coding agent? It reads [`AGENTS.md`](./AGENTS.md) (`CLAUDE.md` is a syml
 ## Setup
 
 ```sh
-git clone https://github.com/Harris-Miller/agent-orchestrator.git   # or your fork
-cd agent-orchestrator
+git clone https://github.com/Harris-Miller/hoa.git   # or your fork
+cd hoa
 git checkout develop
 pnpm install        # also runs `prepare` (patches TypeScript for @effect/tsgo)
 pnpm run local-ci   # sanity check: should pass on a fresh clone
@@ -107,7 +107,7 @@ Name your branch after what it does, with the issue number if there is one (for 
 
 ### Issues
 
-Bugs and features are tracked in [GitHub Issues](https://github.com/Harris-Miller/agent-orchestrator/issues). For anything bigger than a small fix, open or comment on an issue first so we can agree on the approach.
+Bugs and features are tracked in [GitHub Issues](https://github.com/Harris-Miller/hoa/issues). For anything bigger than a small fix, open or comment on an issue first so we can agree on the approach.
 
 ### Before you open a pull request
 

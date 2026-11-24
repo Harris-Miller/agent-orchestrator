@@ -16,14 +16,14 @@
     "codex",
     "orchestration"
   ],
-  "homepage": "https://github.com/Harris-Miller/agent-orchestrator#readme",
+  "homepage": "https://github.com/Harris-Miller/hoa#readme",
   "bugs": {
-    "url": "https://github.com/Harris-Miller/agent-orchestrator/issues"
+    "url": "https://github.com/Harris-Miller/hoa/issues"
   },
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Harris-Miller/agent-orchestrator.git"
+    "url": "https://github.com/Harris-Miller/hoa.git"
   },
   "publisher": "harris-miller",
   "type": "module",

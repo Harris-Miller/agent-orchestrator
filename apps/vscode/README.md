@@ -21,4 +21,4 @@ Run and orchestrate coding agents from VS Code. Harness Orchestrating Agents (HO
 
 ## Feedback
 
-Report bugs and request features on [GitHub](https://github.com/Harris-Miller/agent-orchestrator/issues).
+Report bugs and request features on [GitHub](https://github.com/Harris-Miller/hoa/issues).

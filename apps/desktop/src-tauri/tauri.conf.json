@@ -43,7 +43,7 @@
     },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU3Q0JFRkIzMEY1MDZCMzUKUldRMWExQVBzKy9MVjlFczlmSXpQQTAzS0lTVkxBRXk5T255THNwSDUyNEhEYmI1K0Zac0dVeUoK",
-      "endpoints": ["https://github.com/Harris-Miller/agent-orchestrator/releases/latest/download/latest.json"]
+      "endpoints": ["https://github.com/Harris-Miller/hoa/releases/latest/download/latest.json"]
     }
   }
 }

@@ -1,0 +1,197 @@
+# Product release (gitflow: merging a release PR into `main` cuts a release). semantic-release computes the version and
+# notes from the squash-merged PR titles since the last `v*` tag; no releasable commit → every later job is skipped.
+# Builds macOS (Apple Silicon + Intel) and Windows into a DRAFT `vX.Y.Z` release with the `.vsix` and `latest.json`.
+# A maintainer publishes the draft by hand. See apps/desktop/docs/alpha-release.md.
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      released: ${{ steps.version.outputs.released }}
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      release_id: ${{ steps.create.outputs.release_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # semantic-release reads every commit and tag since the last release
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Compute version
+        id: version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release-version.ts "$RUNNER_TEMP/release-notes.md"
+
+      # A draft has no git tag, so semantic-release computes the same version again until the draft is published.
+      - name: Fail if the tag or a release already exists
+        if: steps.version.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists." >&2
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "A release ${TAG} (draft included) already exists. Publish or delete it, then re-run." >&2
+            exit 1
+          fi
+
+      - name: Create draft release
+        id: create
+        if: steps.version.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release create "$TAG" \
+            --draft \
+            --title "HOA ${TAG}" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --target "$GITHUB_SHA"
+          # databaseId = numeric REST id (drafts are not returned by /releases/tags/{tag})
+          echo "release_id=$(gh release view "$TAG" --json databaseId --jq .databaseId)" >> "$GITHUB_OUTPUT"
+
+  publish-tauri:
+    needs: create-release
+    if: needs.create-release.outputs.released == 'true'
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - run: pnpm install --frozen-lockfile
+
+      # Never committed: the apps hold `0.0.0` in git.
+      - name: Set app versions
+        shell: bash
+        env:
+          VERSION: ${{ needs.create-release.outputs.version }}
+        run: |
+          (cd apps/desktop && npm pkg set "version=${VERSION}")
+          (cd apps/vscode && npm pkg set "version=${VERSION}")
+
+      # The desktop bundle ships the MCP hub and the `.vsix` (tauri.bundle.conf.json)
+      - name: Build bundled resources
+        run: pnpm turbo run package --filter=hoa-vscode
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ needs.create-release.outputs.tag }}
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }} --config src-tauri/tauri.bundle.conf.json
+
+  publish-vscode:
+    needs: create-release
+    if: needs.create-release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Set app version
+        env:
+          VERSION: ${{ needs.create-release.outputs.version }}
+        run: cd apps/vscode && npm pkg set "version=${VERSION}"
+
+      - name: Package VS Code extension
+        run: pnpm turbo run package --filter=hoa-vscode
+
+      - name: Upload .vsix to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: gh release upload "$TAG" apps/vscode/hoa-vscode.vsix --clobber
+
+  # The matrix jobs update one `latest.json` in parallel and can overwrite each other's entries.
+  finalize:
+    needs: [create-release, publish-tauri, publish-vscode]
+    if: needs.create-release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      # drafts are only visible to tokens with write access
+      contents: write
+    steps:
+      - name: Check latest.json has every platform
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern latest.json --dir "$RUNNER_TEMP"
+          missing=0
+          for platform in darwin-aarch64 darwin-x86_64 windows-x86_64; do
+            if ! jq -e --arg p "$platform" '.platforms[$p] | (.url // "" | length > 0) and (.signature // "" | length > 0)' \
+              "$RUNNER_TEMP/latest.json" >/dev/null; then
+              echo "latest.json is missing a url or signature for ${platform}." >&2
+              missing=1
+            fi
+          done
+          exit "$missing"

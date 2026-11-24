@@ -5,6 +5,9 @@
       "cache": false,
       "dependsOn": ["^build", "@lib/hub#build"]
     },
+    "package": {
+      "dependsOn": ["@lib/hub#build"]
+    },
     "watch:main": {
       "dependsOn": ["@lib/hub#build"]
     }

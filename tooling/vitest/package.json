@@ -1,6 +1,5 @@
 {
   "name": "@tooling/vitest",
-  "version": "0.0.0",
   "private": true,
   "license": "ISC",
   "type": "module",

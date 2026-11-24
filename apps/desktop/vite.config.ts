@@ -7,8 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
-// The repo-root `package.json` is the version source of truth.
-const rootVersion = (JSON.parse(readFileSync(path.join(rootDir, '../../package.json'), 'utf8')) as { version?: string })
+// This app's `package.json` version: `0.0.0` in dev; release CI sets the computed version before it builds.
+const appVersion = (JSON.parse(readFileSync(path.join(rootDir, 'package.json'), 'utf8')) as { version?: string })
   .version;
 const host = process.env.TAURI_DEV_HOST;
 
@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
 
     define: {
       'process.env.HOA_ANTIGRAVITY_BETA': JSON.stringify(env.HOA_ANTIGRAVITY_BETA || ''),
-      'process.env.HOA_APP_VERSION': JSON.stringify(rootVersion ?? 'unknown'),
+      'process.env.HOA_APP_VERSION': JSON.stringify(appVersion ?? 'unknown'),
       'process.env.HOA_BUILD_TARGET': JSON.stringify(mode === 'development' ? 'dev' : 'prod'),
       'process.env.HOA_CURSOR_BETA': JSON.stringify(env.HOA_CURSOR_BETA || ''),
       'process.env.POSTHOG_PROJECT_TOKEN': JSON.stringify(

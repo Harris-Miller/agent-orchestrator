@@ -1,6 +1,5 @@
 {
   "name": "hoa",
-  "version": "0.1.0",
   "private": true,
   "description": "",
   "keywords": [],
@@ -32,11 +31,13 @@
     "@effect/tsgo": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
+    "conventional-changelog-eslint": "catalog:",
     "effect": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
     "rimraf": "catalog:",
+    "semantic-release": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:"
   },

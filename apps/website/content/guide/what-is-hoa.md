@@ -19,4 +19,4 @@ HOA talks to every agent through the open [Agent Client Protocol](https://agentc
 
 ## Status
 
-HOA is **pre-alpha**. There are no installers yet; you [build it from source](./getting-started). Expect settings and features to change between versions.
+HOA is in **Alpha**. Installers for macOS and Windows are on [GitHub Releases](https://github.com/Harris-Miller/hoa/releases), and installed apps update themselves; see [Getting started](./getting-started). Expect settings and features to change between versions.

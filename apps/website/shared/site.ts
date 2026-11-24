@@ -2,7 +2,7 @@
 import { fileURLToPath } from 'node:url';
 import type { DefaultTheme, UserConfig } from 'vitepress';
 
-export const REPO_URL = 'https://github.com/Harris-Miller/agent-orchestrator';
+export const REPO_URL = 'https://github.com/Harris-Miller/hoa';
 
 const websiteDir = fileURLToPath(new URL('..', import.meta.url));
 const contentDir = fileURLToPath(new URL('../content', import.meta.url));
@@ -47,9 +47,9 @@ export const docsThemeConfig: DefaultTheme.Config = {
   sidebar,
   socialLinks: [{ icon: 'github', link: REPO_URL }],
   search: { provider: 'local' },
-  editLink: { pattern: `${REPO_URL}/edit/main/apps/website/content/:path`, text: 'Edit this page on GitHub' },
+  editLink: { pattern: `${REPO_URL}/edit/develop/apps/website/content/:path`, text: 'Edit this page on GitHub' },
   outline: [2, 3],
-  footer: { message: 'Pre-alpha software. Built with VitePress.' },
+  footer: { message: 'Alpha software. Built with VitePress.' },
 };
 
 export const siteConfig = (): UserConfig<DefaultTheme.Config> => {

@@ -4,7 +4,7 @@
  */
 import { Schema } from 'effect';
 
-export const HUB_APP_ID = 'agent-orchestrator-hub';
+export const HUB_APP_ID = 'hoa-hub';
 /** Bumped on any incompatible change to `/clients` messages or tool schemas; a mismatch is refused, never half-working. */
 export const PROTOCOL_VERSION = 3;
 export const DEFAULT_HUB_PORT = 47821;

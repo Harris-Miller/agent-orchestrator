@@ -5,8 +5,8 @@ use std::io::{Read, Write};
 use std::process::{ChildStdin, Command, Stdio};
 use std::sync::Mutex;
 use tauri::ipc::Channel;
-use tauri::{Manager, State};
 use tauri::webview::PageLoadEvent;
+use tauri::{Manager, State};
 
 /// HOA home directory name under the OS home. Must equal `HOA_HOME_DIRNAME` in `@lib/hoa-home` and the `.hoa` in the
 /// `capabilities/default.json` shell scope (guarded by `tauriShellScope.test.ts`).
@@ -406,7 +406,10 @@ fn install_bundled_vscode_extension(app: tauri::AppHandle) -> Result<(), String>
 fn kill_process_tree(pid: u32) {
     #[cfg(unix)]
     {
-        if let Ok(output) = Command::new("pgrep").args(["-P", &pid.to_string()]).output() {
+        if let Ok(output) = Command::new("pgrep")
+            .args(["-P", &pid.to_string()])
+            .output()
+        {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
                 if let Ok(child) = line.trim().parse::<u32>() {
@@ -445,6 +448,8 @@ pub fn run() {
     }
 
     let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())

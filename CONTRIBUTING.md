@@ -121,7 +121,7 @@ CI runs `local-ci` and builds the website on every PR. If you changed `package.j
 
 ### Pull request title
 
-The PR title becomes the squash commit on `develop`, and release CI reads it to decide the next version and write the release notes. It must look like:
+The PR title becomes the squash commit on `develop`, and release CI reads it to decide the next version and write the release notes. Only the PR title follows this convention; commits on your branch are free-form (no tag, no issue suffix) because they are squashed away. The title must look like:
 
 ```
 <Tag>: <Short description>

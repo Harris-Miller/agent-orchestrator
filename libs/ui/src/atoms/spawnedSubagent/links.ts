@@ -58,7 +58,7 @@ const linksAtom = Atom.make<LinkMap>(new Map()).pipe(Atom.withLabel('spawnedLink
  * Every Spawned subagent session ever linked this app run, never pruned (ending a link does not remove it): the hide key
  * for Session History, so a child never becomes a top-level Session. Memory only.
  */
-const spawnedChildrenAtom = Atom.make<ReadonlyMap<string, true>>(new Map()).pipe(
+const spawnedChildrenAtom = Atom.make<{ readonly keys: ReadonlySet<string> }>({ keys: new Set<string>() }).pipe(
   Atom.withLabel('spawnedChildren'),
   Atom.keepAlive,
 );
@@ -74,7 +74,7 @@ export const spawnedChildrenSnapshotAtom: Atom.Atom<SpawnedChildren> =
 
 /** True for a session that was ever a Spawned subagent session this app run, whether or not its link is still live. */
 export const wasSpawnedChildIn = (children: SpawnedChildren, session: SessionRef): boolean =>
-  (children as unknown as ReadonlyMap<string, true>).has(linkKey(session));
+  (children as unknown as { readonly keys: ReadonlySet<string> }).keys.has(linkKey(session));
 
 /** Spawns past their cap check but without a link yet, per parent: they count toward the live-children cap. */
 const pendingSpawnsAtom = Atom.make<ReadonlyMap<string, number>>(new Map()).pipe(
@@ -167,7 +167,7 @@ export const reserveSlot = (registry: Registry, parent: SessionRef): Slot | unde
         task,
       };
       registry.update(linksAtom, links => new Map(links).set(linkKey(child), link));
-      registry.update(spawnedChildrenAtom, children => new Map(children).set(linkKey(child), true));
+      registry.update(spawnedChildrenAtom, children => ({ keys: new Set(children.keys).add(linkKey(child)) }));
       adjustPending(-1);
       return link;
     },

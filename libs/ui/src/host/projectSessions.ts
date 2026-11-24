@@ -23,6 +23,7 @@ export type ProjectMembership = {
 /**
  * Which sessions belong to the Project `cwd`. One rule: a session's cwd is its snapshot cwd (else History row cwd),
  * falling back to the Virtual blob's cwd only for the Bound Virtual session; it is in the Project when that equals `cwd`.
+ * Live Spawned subagent children (`isSpawnedChild`) are not counted: they close with their parent.
  * A Virtual draft with no Bound session is not a session on the agent: never counted, never bound in the Project.
  */
 export const projectMembership = (
@@ -30,13 +31,16 @@ export const projectMembership = (
   virtual: Pick<VirtualSession, 'cwd' | 'launchTarget' | 'sessionId'> | null | undefined,
   selected: Selected | undefined,
   cwd: string,
+  isSpawnedChild: (session: SessionTarget) => boolean,
 ): ProjectMembership => {
   const cwdOf = (launchTarget: AgentLaunchTarget, snapshot: BackendHarnessSnapshot, sessionId: string) =>
     sessionCwdInSnapshot(snapshot, sessionId) ??
     (virtual?.launchTarget === launchTarget && virtual.sessionId === sessionId ? virtual.cwd : undefined);
   const activeSessions = snapshots.flatMap(({ launchTarget, snapshot }) =>
     Object.values(snapshot.sessions).flatMap(session =>
-      isSessionActiveOrActivating(session.status) && cwdOf(launchTarget, snapshot, session.sessionId) === cwd
+      isSessionActiveOrActivating(session.status) &&
+      cwdOf(launchTarget, snapshot, session.sessionId) === cwd &&
+      !isSpawnedChild({ launchTarget, sessionId: session.sessionId })
         ? [{ launchTarget, sessionId: session.sessionId }]
         : [],
     ),

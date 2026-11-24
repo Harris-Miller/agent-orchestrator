@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { appSessionId } from '@lib/context-services';
+import { appSessionId, appVersion } from '@lib/context-services';
 import type { BuildTarget } from '@lib/context-services';
 import { ConfigProvider, Effect, Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
@@ -41,6 +41,7 @@ describe('makeObservabilityLive', () => {
       assert.isTrue(calls.every(call => call.url.startsWith('http://127.0.0.1:4318/')));
       assert.isTrue(calls.some(call => call.body.includes('build_target') && call.body.includes('dev')));
       assert.isTrue(calls.some(call => call.body.includes('app_session.id') && call.body.includes(appSessionId)));
+      assert.isTrue(calls.some(call => call.body.includes('service.version') && call.body.includes(appVersion)));
     }),
   );
 

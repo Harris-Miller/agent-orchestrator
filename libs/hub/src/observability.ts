@@ -5,6 +5,13 @@ import { Otlp, OtlpSerialization } from 'effect/observability';
 /** Build target as the hub knows it: only an explicit `dev` is dev; anything else is prod (fail closed). */
 export type HubBuildTarget = 'dev' | 'prod';
 
+/**
+ * The starting client's app version, from `--service-version`. It lands on every hub signal, so anything but a short
+ * version-like string becomes `unknown` (root ADR 0002).
+ */
+export const hubServiceVersion = (value: string | undefined): string =>
+  value !== undefined && /^[\w.+-]{1,64}$/.test(value) ? value : 'unknown';
+
 /** The local LGTM stack (`compose.yml`) every dev `.env.development` points at. */
 const DEV_OTLP_ENDPOINT = 'http://127.0.0.1:4318';
 
@@ -33,12 +40,17 @@ const AllLogLevelsLive = Layer.succeed(References.MinimumLogLevel, 'All');
  * the local LGTM stack. Every signal carries `build_target`. Requires a ConfigProvider (the default reads
  * `process.env`, inherited from the starting client).
  */
-export const makeHubObservabilityLive = (target: HubBuildTarget) =>
+export const makeHubObservabilityLive = (target: HubBuildTarget, serviceVersion = 'unknown') =>
   target === 'dev'
     ? Layer.merge(
         AllLogLevelsLive,
         Otlp.layerFromConfig({
-          resource: { attributes: { build_target: target }, serviceName: 'hoa-hub' },
+          resource: {
+            // A fresh id per hub process tells a restarted hub from its predecessor.
+            attributes: { build_target: target, 'service.instance.id': crypto.randomUUID() },
+            serviceName: 'hoa-hub',
+            serviceVersion,
+          },
         }).pipe(
           Layer.provide(OtlpSerialization.layerJson),
           Layer.provide(FetchHttpClient.layer),

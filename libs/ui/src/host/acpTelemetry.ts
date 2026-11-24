@@ -19,12 +19,6 @@ export type AcpTelemetry = Readonly<Record<string, boolean | number | string>> &
 const telemetry = (fields: Readonly<Record<string, boolean | number | string | undefined>>): AcpTelemetry =>
   Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as AcpTelemetry;
 
-/**
- * Span attribute and log annotation naming a Spawned subagent session's parent (its ACP `sessionId`, an id: not private
- * data). Set on the child's Prompt turn and inherited by the spans the turn correlates (updates, requests).
- */
-export const PARENT_SESSION_ATTRIBUTE = 'acp.parentSessionId';
-
 export const SessionUpdateKind = Schema.Literals([
   'agent_message_chunk',
   'agent_thought_chunk',

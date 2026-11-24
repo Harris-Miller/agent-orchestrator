@@ -139,11 +139,24 @@ export const ClientMessage = Schema.Union([
 ]);
 export type ClientMessage = typeof ClientMessage.Type;
 
+export const TraceContext = Schema.Struct({
+  sampled: Schema.Boolean,
+  spanId: Schema.String.check(Schema.isPattern(/^[0-9a-f]{16}$/)),
+  traceId: Schema.String.check(Schema.isPattern(/^[0-9a-f]{32}$/)),
+});
+export type TraceContext = typeof TraceContext.Type;
+
 /** Hub → client: a tool call routed to the client that owns `token`. */
 export const ToolCallMessage = Schema.Struct({
   args: Schema.Unknown,
   requestId: Schema.String,
   token: Schema.String,
+  /**
+   * The hub's `hub.toolCall` span for this call, so the Harness can handle the call as a child of it (one trace). Ids
+   * and the sampling flag only, validated to hex because it lands on Harness telemetry (root ADR 0002). Optional added to
+   * v3 without a bump (unreleased protocol, like `parentSessionId`).
+   */
+  trace: Schema.optionalKey(TraceContext),
   tool: Schema.String,
   type: Schema.Literal('toolCall'),
 });

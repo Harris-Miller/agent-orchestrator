@@ -3,7 +3,7 @@
  * the launcher starts the hub detached and exits at once, so the hub is no Host's tracked child and outlives whichever
  * window started it (root ADR 0003: the exception to VS Code ADR 0003, "webview lifetime equals process lifetime").
  */
-import { buildTarget, BundledResource, OS } from '@lib/context-services';
+import { appVersion, buildTarget, BundledResource, OS } from '@lib/context-services';
 import { defaultSettings, readUserSettings } from '@lib/hoa-home';
 import { DEFAULT_HUB_PORT } from '@lib/hub/protocol';
 import type { ClientKind } from '@lib/hub/protocol';
@@ -50,6 +50,8 @@ export const launchHub = Effect.fnUntraced(function* (port: number) {
     String(port),
     '--build-target',
     buildTarget,
+    '--service-version',
+    appVersion,
   ]).pipe(Effect.mapError(cannotStart));
   if (result.exitCode !== 0) {
     yield* Effect.logWarning('Hub launcher failed', result.exitCode, Redacted.make(result.stderr));

@@ -11,6 +11,7 @@ import type {
   RequestPermissionResponse,
 } from '@libs/effect-acp';
 import { Cause, Effect, Exit, Ref } from 'effect';
+import { ACP_LAUNCH_TARGET } from '@lib/hub/telemetryKeys';
 
 import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
@@ -86,10 +87,8 @@ const MAX_CONNECT_ATTEMPTS = 3;
 /** Connect + initialize + optional Sign in + Config probe when the index cache is missing (`usable`), then `ready`. Session History is never listed here: `session/list` runs only from Import. */
 const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
   function* (launchTarget: AgentLaunchTarget, handlers: BackendHarnessCallbacks, onReady: () => void) {
-    yield* Effect.annotateCurrentSpan({
-      'acp.agent': launchTarget,
-    });
-    yield* Effect.logInfo('ACP harness connecting', launchTarget);
+    yield* Effect.annotateCurrentSpan({ [ACP_LAUNCH_TARGET]: launchTarget });
+    yield* Effect.logInfo('ACP harness connecting');
     handlers.onPhase('connecting');
 
     const command = yield* makeAcpLaunchCommand(launchTarget);
@@ -111,7 +110,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     const { agent } = connection;
     // Released with this attempt's scope (Stop, retry, retries exhausted): Connection lost.
     yield* registerBackendConnection(launchTarget, connection, handlers);
-    yield* Effect.logInfo('ACP harness connected', launchTarget, { pid: connection.handle.pid });
+    yield* Effect.logInfo('ACP harness connected').pipe(Effect.annotateLogs({ pid: connection.handle.pid }));
 
     const initializeResult = yield* agent.initialize({
       clientCapabilities: clientCapabilitiesFor(launchTarget),
@@ -120,14 +119,14 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     setBackendMcpHttp(launchTarget, supportsMcpHttp(initializeResult));
     handlers.onInitializeResult(initializeResult);
     handlers.onPhase('initialized');
-    yield* Effect.logInfo('ACP harness initialized', launchTarget);
+    yield* Effect.logInfo('ACP harness initialized');
 
     const pendingSignIn =
       launchTarget === 'antigravity-acp' &&
       (yield* Ref.getAndSet(getOrCreateBoolRef(pendingSignInRefs, launchTarget), false));
     if (pendingSignIn) {
       handlers.onPhase('signing-in');
-      yield* Effect.logInfo('ACP harness Antigravity Sign in', launchTarget);
+      yield* Effect.logInfo('ACP harness Antigravity Sign in');
       yield* Effect.forkScoped(
         consumeAntigravityAuthStderr(connection.handle.stderr, handlers.onAntigravityAuthUrl).pipe(
           Effect.catchCause(cause => Effect.logWarning('Antigravity stderr auth consumer stopped', cause)),
@@ -139,7 +138,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
           orElse: () => Effect.fail(new AntigravitySignInTimedOut({ message: 'Antigravity Sign in timed out' })),
         }),
       );
-      yield* Effect.logInfo('ACP harness Antigravity Sign in complete', launchTarget);
+      yield* Effect.logInfo('ACP harness Antigravity Sign in complete');
     }
 
     // Cold cache only: one probe session seeds the index; later rows arrive by Lazy hydrate.
@@ -148,13 +147,14 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     }
 
     handlers.onPhase('usable');
-    yield* Effect.logInfo('ACP harness usable', launchTarget);
+    yield* Effect.logInfo('ACP harness usable');
 
     handlers.onPhase('ready');
-    yield* Effect.logInfo('ACP harness ready', launchTarget);
+    yield* Effect.logInfo('ACP harness ready');
     onReady();
   },
-  (effect, launchTarget) => effect.pipe(Effect.annotateLogs({ launchTarget, module: 'backendHarness' })),
+  (effect, launchTarget) =>
+    effect.pipe(Effect.annotateLogs({ [ACP_LAUNCH_TARGET]: launchTarget, module: 'backendHarness' })),
 );
 
 /**
@@ -164,7 +164,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
 export const runBackendHarness = Effect.fnUntraced(
   function* (launchTarget: AgentLaunchTarget, handlers: BackendHarnessCallbacks) {
     const consecutiveFailures = { count: 0 };
-    yield* Effect.logInfo('ACP harness started', launchTarget);
+    yield* Effect.logInfo('ACP harness started');
 
     // Runs until interrupted: `BackendLifecycle.stop` interrupts this fiber and awaits the scope finalizers.
     while (true) {
@@ -176,13 +176,17 @@ export const runBackendHarness = Effect.fnUntraced(
           Effect.scoped,
           Effect.catchTag('MissingLaunchPrerequisite', (error: MissingLaunchPrerequisite) =>
             Effect.gen(function* () {
-              yield* Effect.logError('ACP harness missing launch prerequisite', launchTarget, error.message);
+              yield* Effect.logError('ACP harness missing launch prerequisite').pipe(
+                Effect.annotateLogs({ reason: error.message }),
+              );
               handlers.onPhase('error', { _tag: 'Failed', message: error.message });
             }),
           ),
           Effect.catchTag('VendorNotAuthenticated', (error: VendorNotAuthenticated) =>
             Effect.gen(function* () {
-              yield* Effect.logError('ACP harness vendor CLI not authenticated', launchTarget, error.message);
+              yield* Effect.logError('ACP harness vendor CLI not authenticated').pipe(
+                Effect.annotateLogs({ reason: error.message }),
+              );
               handlers.onPhase('error', { _tag: 'NotSignedIn', message: error.message });
             }),
           ),
@@ -199,23 +203,25 @@ export const runBackendHarness = Effect.fnUntraced(
       }
       const failure = classifyBootstrapFailure(launchTarget, exit.cause);
       // `failure.message` can quote the Agent's error text; the cause carries it redacted.
-      yield* Effect.logError('ACP harness bootstrap failed', launchTarget, failure._tag, exit.cause);
+      yield* Effect.logError('ACP harness bootstrap failed', exit.cause).pipe(
+        Effect.annotateLogs({ failure: failure._tag }),
+      );
       handlers.onPhase('error', failure);
       consecutiveFailures.count += 1;
       if (consecutiveFailures.count >= MAX_CONNECT_ATTEMPTS) {
-        yield* Effect.logFatal('ACP harness exhausted connect retries', launchTarget, {
-          attempts: consecutiveFailures.count,
-        });
+        yield* Effect.logFatal('ACP harness exhausted connect retries').pipe(
+          Effect.annotateLogs({ attempts: consecutiveFailures.count }),
+        );
         return;
       }
 
-      yield* Effect.logWarning('ACP harness retrying connect', launchTarget, {
-        attempt: consecutiveFailures.count,
-        maxAttempts: MAX_CONNECT_ATTEMPTS,
-      });
+      yield* Effect.logWarning('ACP harness retrying connect').pipe(
+        Effect.annotateLogs({ attempt: consecutiveFailures.count, max_attempts: MAX_CONNECT_ATTEMPTS }),
+      );
       yield* Effect.sleep('1 second');
     }
   },
   Effect.scoped,
-  (effect, launchTarget) => effect.pipe(Effect.annotateLogs({ launchTarget, module: 'backendHarness' })),
+  (effect, launchTarget) =>
+    effect.pipe(Effect.annotateLogs({ [ACP_LAUNCH_TARGET]: launchTarget, module: 'backendHarness' })),
 );

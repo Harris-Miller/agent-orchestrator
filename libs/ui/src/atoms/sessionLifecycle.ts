@@ -6,6 +6,7 @@
  */
 import { Duration, Effect, Exit, Redacted, Semaphore } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
+import { sessionAttributes } from '@lib/hub/telemetryKeys';
 
 import {
   applySessionInfoTitle,
@@ -92,7 +93,7 @@ export const logSessionFailure = (label: string, target: SessionTarget) =>
   Effect.tapError((error: unknown) => Effect.logError(`${label} failed`, target.launchTarget, target.sessionId, error));
 
 const sessionSpan = (target: SessionTarget) =>
-  Effect.annotateCurrentSpan({ 'acp.agent': target.launchTarget, 'acp.sessionId': target.sessionId });
+  Effect.annotateCurrentSpan(sessionAttributes(target.launchTarget, target.sessionId));
 
 const usableHarness = (registry: Registry, launchTarget: AgentLaunchTarget) => {
   const snapshot = registry.get(backendHarnessSnapshotAtom(launchTarget));

@@ -2,6 +2,7 @@
 import { Deferred, Duration, Effect, Exit, Fiber, Option, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
+import { sessionAttributes } from '@lib/hub/telemetryKeys';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
@@ -24,6 +25,7 @@ import { cancelPromptTurn, sendPromptTurn } from './promptTurn.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
 import { ensureWorkspaceProject } from './trackSession.ts';
 import { select } from './virtualSession.atoms.ts';
+import { annotateLaunchTargetLogs, annotateSessionLogs } from '../host/sessionTelemetry.ts';
 
 export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);
 
@@ -38,7 +40,7 @@ export class HandoffError extends Schema.TaggedError<HandoffError>()('HandoffErr
  */
 export const handoffPrompt = Effect.fn('handoffPrompt')(
   function* (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget, sessionId: string, text: string) {
-    yield* Effect.logInfo('Handoff prompt', launchTarget, sessionId, { chars: text.trim().length });
+    yield* Effect.logInfo('Handoff prompt').pipe(Effect.annotateLogs({ chars: text.trim().length }));
     const result = yield* sendPromptTurn(registry, { launchTarget, sessionId, text }).pipe(
       Effect.catchTag('ComposerActionUnavailable', error => Effect.fail(new HandoffError({ message: error.message }))),
     );
@@ -53,7 +55,10 @@ export const handoffPrompt = Effect.fn('handoffPrompt')(
     }
   },
   (effect, _registry, launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('handoffPrompt failed', launchTarget, sessionId, error))),
+    effect.pipe(
+      Effect.tapCause(cause => Effect.logError('handoffPrompt failed', cause)),
+      annotateSessionLogs(launchTarget, sessionId),
+    ),
 );
 
 /** How long a Handoff waits for the source agent to end the turn that asks it for the document. */
@@ -100,15 +105,11 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             return yield* blocked;
           }
           get.set(handoffInProgressAtom, true);
-          yield* Effect.annotateCurrentSpan({
-            'acp.agent': arg.sourceLaunchTarget,
-            'acp.sessionId': arg.sourceSessionId,
-          });
-          yield* Effect.logInfo('Handoff started', {
-            sourceLaunchTarget: arg.sourceLaunchTarget,
-            sourceSessionId: arg.sourceSessionId,
-            targetLaunchTarget: arg.targetLaunchTarget,
-          });
+          yield* Effect.annotateCurrentSpan(sessionAttributes(arg.sourceLaunchTarget, arg.sourceSessionId));
+          yield* Effect.logInfo('Handoff started').pipe(
+            Effect.annotateLogs({ target_launch_target: arg.targetLaunchTarget }),
+            annotateSessionLogs(arg.sourceLaunchTarget, arg.sourceSessionId),
+          );
           const sourceEntry = get(unifiedSessionHistoryAtom).find(
             entry => entry.launchTarget === arg.sourceLaunchTarget && entry.sessionId === arg.sourceSessionId,
           );
@@ -142,7 +143,9 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
 
           const createExit = yield* Effect.exit(createSession(arg.targetLaunchTarget, sourceEntry.cwd));
           if (Exit.isFailure(createExit)) {
-            yield* Effect.logWarning('Handoff soft-abort; target session create failed', arg.targetLaunchTarget);
+            yield* Effect.logWarning('Handoff soft-abort; target session create failed').pipe(
+              annotateLaunchTargetLogs(arg.targetLaunchTarget),
+            );
             return;
           }
           const { cwd, result } = createExit.value;
@@ -161,7 +164,9 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             arg.configValues,
           );
           if (configured.stoppedEarly) {
-            yield* Effect.logWarning('Handoff Config diffs stopped early', arg.targetLaunchTarget, targetSessionId);
+            yield* Effect.logWarning('Handoff Config diffs stopped early').pipe(
+              annotateSessionLogs(arg.targetLaunchTarget, targetSessionId),
+            );
           }
 
           const seedExit = yield* Effect.exit(

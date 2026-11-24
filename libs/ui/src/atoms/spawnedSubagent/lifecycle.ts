@@ -8,9 +8,9 @@ import { MAX_SUBAGENT_TEXT_CHARS } from '@lib/hub/protocol';
 import type { HostServices } from '@lib/context-services';
 import { Deferred, Effect, Exit, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
+import { ACP_CHILD_SESSION_ID, ACP_PARENT_SESSION_ID, sessionAttributes } from '@lib/hub/telemetryKeys';
 
 import { resolveSessionCwd } from '../../host/acpSessionBootstrap.ts';
-import { PARENT_SESSION_ATTRIBUTE } from '../../host/acpTelemetry.ts';
 import type { AgentLaunchTarget, SessionRef } from '../../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { closeOnAgent } from '../../host/closeOnAgent.ts';
@@ -181,7 +181,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
 ): Effect.fn.Return<StartedSubagent, SpawnSubagentError, HostServices> {
   const { parent } = input;
   const task = input.task.trim();
-  yield* Effect.annotateCurrentSpan({ 'acp.agent': input.launchTarget, 'acp.sessionId': parent.sessionId });
+  yield* Effect.annotateCurrentSpan(sessionAttributes(input.launchTarget, parent.sessionId));
   const refuse = (message: string) => new SpawnSubagentError({ message });
 
   if (task === '') {
@@ -232,8 +232,8 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     }),
   );
   const child = { launchTarget: input.launchTarget, sessionId: created.result.sessionId } as const;
-  // The span's `acp.sessionId` is the parent's: this id completes the link, so the children of a parent are findable.
-  yield* Effect.annotateCurrentSpan('acp.childSessionId', child.sessionId);
+  // The span's `acp.session.id` is the parent's: this id completes the link, so the children of a parent are findable.
+  yield* Effect.annotateCurrentSpan(ACP_CHILD_SESSION_ID, child.sessionId);
   const link = slot.register({ child, description: input.description, task });
   // The hub connection can drop mid-setup (interrupting this handler): whatever was written is torn down then too.
   return yield* Effect.gen(function* () {
@@ -263,8 +263,8 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     attach(registry, child, { projection });
 
     const configured = yield* applySessionConfigValues(registry, child, input.configOptions).pipe(
-      Effect.annotateSpans(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
-      Effect.annotateLogs(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
+      Effect.annotateSpans(ACP_PARENT_SESSION_ID, parent.sessionId),
+      Effect.annotateLogs(ACP_PARENT_SESSION_ID, parent.sessionId),
     );
     if (configured.stoppedEarly) {
       yield* abandonSpawn(registry, child);
@@ -272,11 +272,11 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     }
 
     // The turn runs in the spawn's trace, but an attribute is what a query can filter on: it ties the child's turn
-    // back to the parent session (ids only), also when both run on one launch target and `acp.agent` is the same.
+    // back to the parent session (ids only), also when both run on one launch target and `acp.launch_target` is the same.
     yield* Effect.forkDetach(
       runChildTurn(registry, { ...link, projection }, task).pipe(
-        Effect.annotateSpans(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
-        Effect.annotateLogs(PARENT_SESSION_ATTRIBUTE, parent.sessionId),
+        Effect.annotateSpans(ACP_PARENT_SESSION_ID, parent.sessionId),
+        Effect.annotateLogs(ACP_PARENT_SESSION_ID, parent.sessionId),
       ),
     );
     return { childSessionId: child.sessionId, outcome: link.outcome };
@@ -301,8 +301,8 @@ const endChildWork = Effect.fnUntraced(function* (registry: Registry, link: Spaw
 
 const endChild = (registry: Registry, link: SpawnedLink, why: string) =>
   endChildWork(registry, link, why).pipe(
-    Effect.annotateSpans(PARENT_SESSION_ATTRIBUTE, link.parentSessionId),
-    Effect.annotateLogs(PARENT_SESSION_ATTRIBUTE, link.parentSessionId),
+    Effect.annotateSpans(ACP_PARENT_SESSION_ID, link.parentSessionId),
+    Effect.annotateLogs(ACP_PARENT_SESSION_ID, link.parentSessionId),
   );
 
 /** The parent session was closed or deleted: every child it started ends with it. */

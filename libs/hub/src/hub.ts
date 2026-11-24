@@ -5,7 +5,7 @@
  */
 import { NodeHttpServer } from '@effect/platform-node';
 import type { Duration, Scope } from 'effect';
-import { ByteSize, Context, Deferred, Effect, Fiber, Layer, Option, Ref, Schema } from 'effect';
+import { ByteSize, Context, Deferred, Effect, Fiber, Layer, Option, Ref, Schema, Tracer } from 'effect';
 import { McpProtocol, McpServer } from 'effect/ai';
 import { HttpMiddleware, HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Socket } from 'effect/socket';
@@ -13,7 +13,9 @@ import { createServer } from 'node:http';
 
 import { AppSessionId, ClientKind, ClientMessage, HUB_APP_ID, HUB_HOST, PROTOCOL_VERSION } from './protocol.ts';
 import { makeHubState } from './state.ts';
+import { APP_SESSION_ID } from './telemetryKeys.ts';
 import { forwardingHandlers, HubToolkit } from './tools.ts';
+import { makeToolCallTelemetry } from './toolCall.ts';
 
 /** The calling session's bearer token, provided per `/mcp` request by the auth middleware. */
 class CallerToken extends Context.Service<CallerToken, string>()('@lib/hub/CallerToken') {}
@@ -148,7 +150,7 @@ export const startHub = Effect.fnUntraced(function* (
       });
       yield* disarmIdle;
       yield* Effect.logInfo('Hub client connected').pipe(
-        Effect.annotateLogs({ 'app_session.id': appSessionId.value, 'hub.client.kind': kind.value }),
+        Effect.annotateLogs({ [APP_SESSION_ID]: appSessionId.value, 'hub.client.kind': kind.value }),
       );
       yield* Effect.gen(function* () {
         const pull = yield* Socket.readerString(socket);
@@ -166,7 +168,7 @@ export const startHub = Effect.fnUntraced(function* (
         Effect.ensuring(
           Effect.gen(function* () {
             yield* Effect.logInfo('Hub client disconnected').pipe(
-              Effect.annotateLogs({ 'app_session.id': appSessionId.value, 'hub.client.kind': kind.value }),
+              Effect.annotateLogs({ [APP_SESSION_ID]: appSessionId.value, 'hub.client.kind': kind.value }),
             );
             yield* state.removeClient(clientId);
             if (state.clientCount() === 0) {
@@ -194,7 +196,10 @@ export const startHub = Effect.fnUntraced(function* (
     name: 'HOA Hub',
     path: '/mcp',
     protocols: MCP_PROTOCOLS,
-    registrations: McpServer.toolkit(HubToolkit).pipe(Layer.provide(ToolHandlers)),
+    registrations: McpServer.toolkit(HubToolkit).pipe(
+      Layer.provide(ToolHandlers),
+      Layer.provide(makeToolCallTelemetry(state).layer),
+    ),
     version: '0.1.0',
   }).pipe(Layer.provide(BearerAuth.layer));
 
@@ -205,14 +210,21 @@ export const startHub = Effect.fnUntraced(function* (
     port: options.port,
     websocket: { maxPayload: MAX_MESSAGE_BYTES },
   });
+  // `disableLogger`: the per-request `Sent HTTP response` log has no session id and is noise; each tool call logs once
+  // (`Hub tool call`, see `toolCall.ts`).
   const served = HttpRouter.serve(app, {
+    disableLogger: true,
     middleware: Effect.provideService(HttpServerRequest.MaxBodySize, ByteSize.bytes(MAX_MESSAGE_BYTES)),
   });
   // No automatic HTTP server span on any route (root ADR 0002 allows allowlisted attributes only): `/clients` has the hub
   // secret in its URL, and the other routes' spans record the URL, user agent, headers and client address. The
   // `hub.toolCall` span is the hub's tool-call trace.
   const noHttpTracing = Layer.succeed(HttpMiddleware.TracerDisabledWhen)(() => true);
-  const context = yield* Layer.build(served.pipe(Layer.provide(noHttpTracing), Layer.provideMerge(serverLayer)));
+  // Build outside the process-lifetime `runHubProcess` span: the request fibers inherit this context, and would all
+  // join that one endless trace. Each request (and its `hub.toolCall`) starts its own.
+  const context = yield* Layer.build(served.pipe(Layer.provide(noHttpTracing), Layer.provideMerge(serverLayer))).pipe(
+    Effect.updateContext((current: Context.Context<Scope.Scope>) => Context.omit(Tracer.ParentSpan)(current)),
+  );
   // Added after the server, so it runs before the server's own shutdown (finalizers run in reverse).
   yield* Effect.addFinalizer(() => state.closeAll);
   const { address } = Context.get(context, HttpServer.HttpServer);

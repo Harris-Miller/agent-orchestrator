@@ -9,7 +9,7 @@ import { OS } from '@lib/context-services';
 import { runHubProcess, startHub as startHubServer } from '@lib/hub';
 import { PROTOCOL_VERSION } from '@lib/hub/protocol';
 import { mcpCallTool, mcpInitialize } from '@lib/hub/testing';
-import { Deferred, Effect, Exit, Layer, Scope, Tracer } from 'effect';
+import { Deferred, Effect, Exit, Layer, Option, Scope, Tracer } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -17,6 +17,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { platform, tmpdir } from 'node:os';
 import { pid as hubPid } from 'node:process';
 import { join } from 'node:path';
+import { ACP_PARENT_SESSION_ID, ACP_SESSION_ID } from '@lib/hub/telemetryKeys';
 
 import { bearerOf, installFakeAgent } from '../atoms/fakeAgent.testing.ts';
 import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
@@ -129,6 +130,41 @@ describe('hub client + hub', () => {
     }).pipe(Effect.scoped, Effect.provide(homeLayer(home)));
   });
 
+  it.live('the Harness handles a routed tool call as a child of the hub.toolCall span: one trace', () => {
+    const home = mkdtempSync(join(tmpdir(), 'hoa-e2e-'));
+    // Hub and Harness run in this process, so one tracer sees both sides.
+    const spans: Tracer.NativeSpan[] = [];
+    const tracerLive = Layer.succeed(
+      Tracer.Tracer,
+      Tracer.make({
+        span: options => {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      }),
+    );
+    return Effect.gen(function* () {
+      yield* Effect.addFinalizer(() => reset);
+      const port = yield* freePort;
+      const hub = yield* startHubIn(home, port);
+      yield* Effect.addFinalizer(() => Scope.close(hub, Exit.void));
+      const startHub = Effect.fail(new HubUnavailable({ reason: 'already running' }));
+      yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, registry, startHub }));
+      yield* waitFor(isAvailable);
+      const { sessionId, token, url } = yield* sessionWithCredential();
+      yield* agentSubmitsHandoff(url, token, sessionId, 'traced');
+
+      const hubCall = spans.find(span => span.name === 'hub.toolCall');
+      const handled = spans.find(span => span.name === 'hub.handleToolCall');
+      assert.isDefined(hubCall);
+      assert.isDefined(handled);
+      assert.strictEqual(handled?.traceId, hubCall?.traceId);
+      assert.strictEqual(Option.getOrUndefined(handled?.parent ?? Option.none())?.spanId, hubCall?.spanId);
+      assert.strictEqual(handled?.attributes.get('hub.tool'), 'submit_handoff');
+    }).pipe(Effect.scoped, Effect.provide(homeLayer(home)), Effect.provide(tracerLive));
+  });
+
   it.live('survives a hub restart: existing credentials are re-registered and route again', () => {
     const home = mkdtempSync(join(tmpdir(), 'hoa-e2e-'));
     // The hub runs in this process, so its spans land here: a Spawned subagent session's parent must survive the restart.
@@ -170,8 +206,8 @@ describe('hub client + hub', () => {
 
       assert.strictEqual(yield* agentSubmitsHandoff(url, token, sessionId, 'after restart'), 'after restart');
       const restartedCall = hubSpans.filter(span => span.name === 'hub.toolCall').at(-1);
-      assert.strictEqual(restartedCall?.attributes.get('acp.sessionId'), sessionId);
-      assert.strictEqual(restartedCall?.attributes.get('acp.parentSessionId'), 'parent-1');
+      assert.strictEqual(restartedCall?.attributes.get(ACP_SESSION_ID), sessionId);
+      assert.strictEqual(restartedCall?.attributes.get(ACP_PARENT_SESSION_ID), 'parent-1');
     }).pipe(Effect.scoped, Effect.provide(homeLayer(home)), Effect.provide(tracerLive));
   });
 

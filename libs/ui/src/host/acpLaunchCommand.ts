@@ -19,6 +19,7 @@ import { mapAntigravityFs } from './antigravityShell.ts';
 import { MissingLaunchPrerequisite, requireExecutableOnPath } from './findExecutableOnPath.ts';
 import { ANTIGRAVITY_HARNESS_MEMBER, npmAdapterEntryRelativePath, resolveActiveRuntime } from './providerRuntime.ts';
 import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
+import { annotateLaunchTargetLogs } from './sessionTelemetry.ts';
 
 /** Claude's per-request MCP timer (default 60 s) must outlast the foreground subagent bound, or the call dies first. */
 const CLAUDE_MCP_TOOL_TIMEOUT_MS = MAX_SUBAGENT_WAIT_MS + 30_000;
@@ -56,7 +57,10 @@ const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
     const path = yield* Path;
     const active = yield* resolveActiveRuntime(launchTarget);
     const entry = path.join(active.runtimeDir, npmAdapterEntryRelativePath(launchTarget));
-    yield* Effect.logInfo('Resolved ACP adapter entry', launchTarget, active.version, Redacted.make(entry));
+    yield* Effect.logInfo('Resolved ACP adapter entry').pipe(
+      Effect.annotateLogs({ adapter_version: active.version, entry: Redacted.make(entry) }),
+      annotateLaunchTargetLogs(launchTarget),
+    );
     return entry;
   },
   Effect.annotateLogs({ module: 'acpLaunchCommand' }),
@@ -127,7 +131,7 @@ const makeAntigravityCommand = Effect.fn('makeAntigravityCommand')(function* () 
 /** Resolve PATH/auth prerequisites and return the ACP spawn command for a launch target. */
 export const makeAcpLaunchCommand = Effect.fn('makeAcpLaunchCommand')(
   function* (launchTarget: AgentLaunchTarget) {
-    yield* Effect.logInfo('Building ACP launch command', launchTarget);
+    yield* Effect.logInfo('Building ACP launch command').pipe(annotateLaunchTargetLogs(launchTarget));
 
     if (launchTarget === 'cursor-acp') {
       return yield* makeCursorNativeCommand();

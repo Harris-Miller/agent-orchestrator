@@ -41,6 +41,7 @@
 import type { AcpError, SessionFailure, StopReason } from '@libs/effect-acp';
 import { Clock, Effect, Exit, Option, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
+import { sessionAttributes } from '@lib/hub/telemetryKeys';
 
 import { promptSent } from '../analytics/catalog.ts';
 import { captureEvent } from '../analytics/trackEvent.ts';
@@ -70,6 +71,7 @@ import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { reportRequestError } from './reportRequestError.ts';
 import { currentUserSettings } from './userSettings/userSettingsDocument.atoms.ts';
+import { annotateSessionLogs } from '../host/sessionTelemetry.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -171,7 +173,9 @@ const runPrompt = Effect.fnUntraced(function* (
     } satisfies PromptTurnResult;
   }
   if (sessionIn(registry, launchTarget, sessionId)?.promptCancelRequested === true) {
-    yield* Effect.logDebug('session/prompt error after Prompt turn cancel', launchTarget, sessionId, exit.cause);
+    yield* Effect.logDebug('session/prompt error after Prompt turn cancel', exit.cause).pipe(
+      annotateSessionLogs(launchTarget, sessionId),
+    );
     return { _tag: 'Ended', stopReason: 'cancelled' } satisfies PromptTurnResult;
   }
   const error = acpErrorOfCause(exit.cause);
@@ -186,7 +190,7 @@ export const sendPromptTurn = Effect.fn('sendPromptTurn')(function* (registry: R
   const attachments = input.attachments ?? [];
   const { launchTarget, sessionId } = input;
   const startedAt = yield* Clock.currentTimeMillis;
-  yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget, 'acp.sessionId': sessionId });
+  yield* Effect.annotateCurrentSpan(sessionAttributes(launchTarget, sessionId));
   // Begin and installing the end run uninterruptibly: no interrupt can land between them (invariant 2).
   return yield* Effect.uninterruptibleMask(restore =>
     Effect.gen(function* () {
@@ -269,7 +273,7 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
     return yield* refusal('Steering', action);
   }
 
-  yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget, 'acp.sessionId': sessionId });
+  yield* Effect.annotateCurrentSpan(sessionAttributes(launchTarget, sessionId));
   const prompt = yield* promptBlocksFromComposerDraft(text, {
     attachments,
     cwd: session.cwd,
@@ -309,7 +313,7 @@ export const cancelPromptTurn = Effect.fnUntraced(function* (
   registry: Registry,
   { launchTarget, sessionId }: { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string },
 ) {
-  yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget, 'acp.sessionId': sessionId });
+  yield* Effect.annotateCurrentSpan(sessionAttributes(launchTarget, sessionId));
   const session = sessionIn(registry, launchTarget, sessionId);
   const inTurn = session?.pendingClientRequest === 'prompt';
   if (session === undefined || !sessionHasLiveWork(snapshotOf(registry, launchTarget), session)) {

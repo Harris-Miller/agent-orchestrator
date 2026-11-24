@@ -5,6 +5,7 @@
  */
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
+import { sessionAttributes } from '@lib/hub/telemetryKeys';
 
 import {
   projectTrackingStopped,
@@ -37,7 +38,7 @@ import type { RestartBackend } from './sessionLifecycle.ts';
 /** The action's root span (desktop ADR 0008), carrying the Session it acts on. */
 const rootSpan = (name: string, target?: SessionTarget) =>
   Effect.withSpan(name, {
-    attributes: target === undefined ? {} : { 'acp.agent': target.launchTarget, 'acp.sessionId': target.sessionId },
+    attributes: target === undefined ? {} : sessionAttributes(target.launchTarget, target.sessionId),
     root: true,
   });
 

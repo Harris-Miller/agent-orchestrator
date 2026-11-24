@@ -1,3 +1,5 @@
+import { makeAnalyticsLive } from '@lib/analytics-posthog';
+import { buildTarget } from '@lib/context-services';
 import type { HostServices } from '@lib/context-services';
 import { Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
@@ -49,6 +51,12 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
   const fetchLive = makeExtensionFetchLive(client);
 
   return Layer.mergeAll(
+    makeAnalyticsLive(buildTarget, 'vscode').pipe(
+      Layer.provide(FetchHttpClient.layer),
+      Layer.provide(fetchLive),
+      Layer.provide(ConfigProviderLive.pipe(Layer.provide(osLive))),
+      Layer.provide(osLive),
+    ),
     makeAtomicFileLive(client),
     makeBundledResourceLive(client),
     makeChildProcessSpawnerLive(client),

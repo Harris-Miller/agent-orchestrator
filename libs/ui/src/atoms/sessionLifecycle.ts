@@ -334,7 +334,7 @@ export const forkSession = Effect.fn('forkSession')(
     yield* sessionSpan(arg);
     const snapshot = yield* usableHarnessOrSkip(registry, arg.launchTarget, 'forkSession');
     if (snapshot === undefined) {
-      return;
+      return false;
     }
     yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionFork');
 
@@ -342,7 +342,7 @@ export const forkSession = Effect.fn('forkSession')(
       reportRequestError(registry, arg, 'session/fork'),
     );
     if (result === undefined) {
-      return;
+      return false;
     }
     const forkedSessionId = result.sessionId;
     yield* Effect.annotateCurrentSpan('acp.forkedSessionId', forkedSessionId);
@@ -351,7 +351,7 @@ export const forkSession = Effect.fn('forkSession')(
     const createdEntry = historyEntryFromNew(result, arg.cwd);
     if (createdEntry === undefined) {
       yield* Effect.logError('forkSession skipped; fork result missing sessionId', arg.launchTarget);
-      return;
+      return false;
     }
     const historyEntry =
       parentEntry?.title !== undefined ? { ...createdEntry, title: parentEntry.title } : createdEntry;
@@ -362,6 +362,7 @@ export const forkSession = Effect.fn('forkSession')(
       forkedSessionId,
       parentSessionId: arg.sessionId,
     });
+    return true;
   },
   (effect, _registry, arg) => effect.pipe(logSessionFailure('forkSession', arg)),
 );
@@ -411,7 +412,7 @@ export const renameSession = Effect.fn('renameSession')(
     yield* sessionSpan(arg);
     const snapshot = yield* usableHarnessOrSkip(registry, arg.launchTarget, 'renameSession');
     if (snapshot === undefined) {
-      return;
+      return false;
     }
     yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionRename');
 
@@ -434,6 +435,7 @@ export const renameSession = Effect.fn('renameSession')(
         }),
       ),
     );
+    return true;
   },
   (effect, _registry, arg) => effect.pipe(logSessionFailure('renameSession', arg)),
 );

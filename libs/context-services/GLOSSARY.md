@@ -24,6 +24,16 @@ _Avoid_: clipboard-manager, navigator.clipboard (when you mean the portable Seam
 The host capability to pick filesystem paths via a native open dialog (`pickFiles` → absolute paths; cancel → empty list). Does not return file bytes.
 _Avoid_: showOpenDialog, plugin-dialog, `<input type="file">` (when you mean the portable Seam)
 
+**Analytics** (service):
+The host capability to capture a product Analytics event. Fire-and-forget: it cannot fail or block the caller, and an undeliverable event is dropped. Accepts only an Analytics event built from the closed catalog in `@lib/ui`.
+_Avoid_: telemetry service, tracker, `posthog.capture` (when you mean the portable Seam)
+
+**Analytics event**:
+A named product event with allowlisted simple properties and no free text or Private data, captured when a user action succeeds. A separate pipeline from OTLP traces, logs and metrics. See root ADR 0004.
+
+**App version**:
+The version of the app bundle, fixed when the bundle is built. Sent with every Analytics event.
+
 **Notifier** (service):
 The host capability to raise an OS Notification (`notify({ title, body, sound })`), play its own chime without a Notification (`playSound`), report whether the Host window is focused (`isWindowFocused`), and report `supported: 'os' | 'in-app'`. Used for Attention events. Failures are swallowed by callers.
 _Avoid_: toast service, plugin-notification, `new Notification` (when you mean the portable Seam)
@@ -47,5 +57,5 @@ The runtime environment that supplies a live implementation of Host services to 
 _Avoid_: Node, machine, runtime (when you mean the Seam consumer)
 
 **Host services**:
-Portable aggregate of BundledResource, ChildProcessSpawner, Clipboard, FileDialog, FileSystem, HttpClient, Notifier, OpenFile, OpenUrl, OS, Path, and VscodeExtension — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags. Live Adapters stay in Host packages; Effect-only helpers those Adapters share (no Host SDK) may live in this package.
+Portable aggregate of Analytics, BundledResource, ChildProcessSpawner, Clipboard, FileDialog, FileSystem, HttpClient, Notifier, OpenFile, OpenUrl, OS, Path, and VscodeExtension — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags. Live Adapters stay in Host packages; Effect-only helpers those Adapters share (no Host SDK) may live in this package.
 _Avoid_: Platform services, Tauri services (when you mean the portable aggregate)

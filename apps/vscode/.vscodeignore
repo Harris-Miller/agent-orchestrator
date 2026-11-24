@@ -20,3 +20,4 @@ dist/**/*.map
 DEVELOPMENT.md
 GLOSSARY.md
 docs/**
+.env

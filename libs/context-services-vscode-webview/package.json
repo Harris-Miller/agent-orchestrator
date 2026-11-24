@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@lib/analytics-posthog": "workspace:^",
     "@lib/context-services": "workspace:^",
     "effect": "catalog:"
   },

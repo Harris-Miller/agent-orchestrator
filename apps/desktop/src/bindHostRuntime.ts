@@ -1,5 +1,8 @@
 /** Desktop Host runtime bind (Tauri Live). Import this module before any @lib/ui Atoms. */
 import { TauriServicesLive } from '@lib/context-services-tauri';
-import { bindHostRuntime, createHostRuntime } from '@lib/ui/host-runtime';
+import { bindHostRuntime, captureAppOpened, createHostRuntime } from '@lib/ui/host-runtime';
 
-bindHostRuntime(createHostRuntime(TauriServicesLive));
+const hostBag = createHostRuntime(TauriServicesLive);
+bindHostRuntime(hostBag);
+// Once per bootstrap; fire-and-forget.
+hostBag.hostRunFork(captureAppOpened);

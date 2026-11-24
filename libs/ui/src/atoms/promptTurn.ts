@@ -42,6 +42,8 @@ import type { AcpError, SessionFailure, StopReason } from '@libs/effect-acp';
 import { Clock, Effect, Exit, Option, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
+import { promptSent } from '../analytics/catalog.ts';
+import { captureEvent } from '../analytics/trackEvent.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ComposerAction } from '../host/composerAction.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
@@ -99,6 +101,8 @@ export type PromptTurnInput = {
   readonly notifyTurnEnd?: false;
   readonly sessionId: string;
   readonly text: string;
+  /** `true` only for a prompt the user sent from the Composer: captures `prompt_sent` (never Handoff or subagent prompts). */
+  readonly trackAnalytics?: true;
 };
 
 /** How long the Steer fallback waits for the ended turn's `session/prompt` response. */
@@ -133,7 +137,7 @@ export const sessionIn = (registry: Registry, launchTarget: AgentLaunchTarget, s
 /** Prompt blocks → `session/prompt` → soft-cancel → turn-end Attention event. */
 const runPrompt = Effect.fnUntraced(function* (
   registry: Registry,
-  { attachments, launchTarget, sessionId, text }: Required<Omit<PromptTurnInput, 'notifyTurnEnd'>>,
+  { attachments, launchTarget, sessionId, text }: Required<Omit<PromptTurnInput, 'notifyTurnEnd' | 'trackAnalytics'>>,
   notifyTurnEnd: boolean,
 ) {
   const prompt = yield* promptBlocksFromComposerDraft(text, {
@@ -196,6 +200,10 @@ export const sendPromptTurn = Effect.fn('sendPromptTurn')(function* (registry: R
       });
       if (begun._tag === 'Refused') {
         return yield* refusal('Sending', begun.action);
+      }
+      // Captured once the Harness accepted the send, not when the turn ends. Never the text.
+      if (input.trackAnalytics === true) {
+        yield* captureEvent(promptSent({ attachmentCount: attachments.length, launchTarget }));
       }
       return yield* restore(
         runPrompt(registry, { attachments, launchTarget, sessionId, text }, input.notifyTurnEnd !== false),
@@ -278,6 +286,9 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
     // A steered message joins the in-flight turn: no turn timing, Pending client request untouched (ADR-0018).
     const images = slimImageRefsFromAttachments(attachments);
     updateHarnessSnapshot(registry, launchTarget, current => appendSteeredMessage(current, sessionId, text, images));
+    if (input.trackAnalytics === true) {
+      yield* captureEvent(promptSent({ attachmentCount: attachments.length, launchTarget }));
+    }
     return;
   }
   yield* Effect.logDebug('_session/steering fell back to session/prompt', result.outcome);
@@ -302,7 +313,7 @@ export const cancelPromptTurn = Effect.fnUntraced(function* (
   const session = sessionIn(registry, launchTarget, sessionId);
   const inTurn = session?.pendingClientRequest === 'prompt';
   if (session === undefined || !sessionHasLiveWork(snapshotOf(registry, launchTarget), session)) {
-    return;
+    return false;
   }
 
   // Every Pending interaction shown or waiting now; the writer cancels them on the agent. One raised meanwhile stays answerable.
@@ -314,4 +325,5 @@ export const cancelPromptTurn = Effect.fnUntraced(function* (
   );
 
   yield* cancelSession(launchTarget, sessionId);
+  return true;
 });

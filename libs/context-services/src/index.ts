@@ -1,4 +1,6 @@
+export * from './Analytics.ts';
 export * from './AppSession.ts';
+export * from './AppVersion.ts';
 export * from './AtomicFile.ts';
 export * from './BuildTarget.ts';
 export * from './BundledResource.ts';
@@ -11,4 +13,5 @@ export * from './openQueuedChildProcessStdio.ts';
 export * from './OpenUrl.ts';
 export * from './OpenFile.ts';
 export * from './OS.ts';
+export * from './PosthogProjectToken.ts';
 export * from './VscodeExtension.ts';

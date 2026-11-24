@@ -9,3 +9,4 @@ export {
   hostRunPromiseExit,
   hostRuntime,
 } from './hostRuntime.ts';
+export { captureAppOpened } from './analytics/trackEvent.ts';

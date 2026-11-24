@@ -6,6 +6,7 @@
       "dependsOn": ["^build"]
     },
     "tauri:build": {
+      "inputs": ["$TURBO_DEFAULT$", ".env", ".env.*"],
       "dependsOn": ["hoa-vscode#package", "@lib/hub#build"]
     },
     "tauri:dev": {

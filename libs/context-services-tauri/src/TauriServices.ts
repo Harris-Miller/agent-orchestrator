@@ -1,7 +1,9 @@
+import { buildTarget } from '@lib/context-services';
 import type { HostServices } from '@lib/context-services';
 import { Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 
+import { makeAnalyticsLive } from '@lib/analytics-posthog';
 import { AtomicFileLive } from './AtomicFileLive.ts';
 import { BundledResourceLive } from './BundledResourceLive.ts';
 import { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
@@ -24,7 +26,8 @@ import { VscodeExtensionLive } from './VscodeExtensionLive.ts';
  *
  * Also installs a host {@link ConfigProvider} (Reference — not listed in the
  * Layer ROut type) via {@link ConfigProviderLive}, and OTLP export via
- * {@link ObservabilityLive} in dev builds when host `OTEL_*` config enables it.
+ * {@link ObservabilityLive} in dev builds when host `OTEL_*` config enables it. Analytics is the PostHog Live in dev
+ * builds with a build-time `POSTHOG_PROJECT_TOKEN` set, else a no-op.
  */
 export type TauriServices = HostServices;
 
@@ -33,6 +36,12 @@ export type TauriServices = HostServices;
  * ConfigProvider backed by Tauri plugins / host_process_info.
  */
 export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
+  makeAnalyticsLive(buildTarget, 'desktop').pipe(
+    Layer.provide(FetchHttpClient.layer),
+    Layer.provide(TauriFetchLive),
+    Layer.provide(ConfigProviderLive.pipe(Layer.provide(OSLive))),
+    Layer.provide(OSLive),
+  ),
   AtomicFileLive,
   BundledResourceLive,
   ClipboardLive,

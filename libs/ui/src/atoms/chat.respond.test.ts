@@ -37,7 +37,7 @@ const setup = Effect.fnUntraced(function* () {
 });
 
 const elicitationRequest = {} as PendingElicitation['request'];
-const permissionRequest = {} as PendingPermission['request'];
+const permissionRequest = { options: [] } as unknown as PendingPermission['request'];
 
 describe('respondPermissionAtomFn', () => {
   it.effect('keeps what the agent reported as soon as the permission was answered', () =>

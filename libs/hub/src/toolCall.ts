@@ -72,6 +72,14 @@ export const makeToolCallTelemetry = (state: HubState) =>
           const tags = { [HUB_OUTCOME]: outcome, [HUB_TOOL]: tool };
           yield* Metric.update(Metric.withAttributes(toolCalls, tags), 1);
           yield* Metric.update(Metric.withAttributes(toolCallDuration, tags), durationMs);
+          if (outcome === 'interrupted') {
+            // Effect ends a span with error status on an interrupt exit, but a cancel is not a failure: end it first,
+            // successfully (a span already ended is left alone when the fiber's real exit arrives).
+            const span = yield* Effect.option(Effect.currentSpan);
+            if (Option.isSome(span)) {
+              span.value.end(end, Exit.void);
+            }
+          }
         });
       // An abandoned call never reaches the code after its exit, so it is recorded here (and only here) instead.
       const exit = yield* Effect.exit(effect.pipe(Effect.onInterrupt(() => record('interrupted'))));

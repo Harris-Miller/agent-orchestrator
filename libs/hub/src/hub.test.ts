@@ -374,6 +374,8 @@ describe('hub', () => {
       }).pipe(Effect.timeout('5 seconds'));
       const interrupted = toolCallSpans(spans).filter(span => span.attributes.get('hub.outcome') === 'interrupted');
       assert.lengthOf(interrupted, 1);
+      assert.strictEqual(interrupted[0]?.status._tag, 'Ended');
+      assert.isFalse(spanFailed(interrupted[0]));
       const after = yield* interruptedCount;
       assert.strictEqual(after - before, 1);
     }).pipe(Effect.scoped, Effect.provide(layer));

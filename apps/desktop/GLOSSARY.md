@@ -37,7 +37,7 @@ A single ordered unit in a session transcript — a user message, agent message,
 _Avoid_: Message, bubble, row, event
 
 **Work region**:
-The collapsible run of a turn's chat items between the user message and the Turn answer — Work items and Interim agent messages. An Elicitation summary splits it, so a turn may have several. Starts collapsed and only the user opens or closes it; while its Prompt turn is in flight and it is collapsed, it previews its latest Work item. When open, its header stays in view until the whole region scrolls past.
+The collapsible run of a turn's chat items between the user message and the Turn answer — Work items and Interim agent messages. An Elicitation summary splits it, so a turn may have several. Starts collapsed and only the user opens or closes it; while its Prompt turn is in flight and it is collapsed, it previews its latest Work item other than a subagent. A collapsed region also pins its Subagent rows between its header and that preview, in flight or not and after they finish (see Subagent row in the UI glossary); an open region shows them in their normal position. When open, its header stays in view until the whole region scrolls past.
 _Avoid_: work run, work group, activity log
 
 **Work item**:
@@ -441,7 +441,7 @@ The message the Harness sends a parent when a background Spawned subagent sessio
 _Avoid_: notification, callback
 
 **Subagent view**:
-The read-only, full-pane transcript of one Subagent session of the Selected session, shown in place of the Selected session's transcript and Composer. Opens with the Subagent task, then the transcript, and ends with a read-only dock that shows the child's Provider and, when known, its Model and Effort (a Spawned subagent session's Session configuration; a native one reports none, so only its Provider shows) as disabled Config chips beside a "Subagent session — read-only." note, with no editor or send controls. Its own children show as transcript rows like a parent's, each opening its own Subagent view, with a breadcrumb path (Selected session › child › …) to step back up. A child's row shows its Work state rolled up over its descendants: `requires_action` when any descendant has a Pending interaction, plus a count of running descendants. Shown only while that Subagent session still exists; otherwise the Selected session's transcript shows.
+The read-only, full-pane transcript of one Subagent session of the Selected session, shown in place of the Selected session's transcript and Composer. Opens with the Subagent task, then the transcript, and ends with a read-only dock that shows the child's Provider and, when known, its Model and Effort (a Spawned subagent session's Session configuration; a native one reports none, so only its Provider shows) as disabled Config chips beside a "Subagent session — read-only." note, with no editor or send controls. Its own children show as Subagent rows like a parent's, each opening its own Subagent view, with a breadcrumb path (Selected session › child › …) to step back up. A child's row shows its Work state rolled up over its descendants: `requires_action` when any descendant has a Pending interaction, plus a count of running descendants. Shown only while that Subagent session still exists; otherwise the Selected session's transcript shows.
 _Avoid_: child view, subagent page, viewed subagent (when you mean what is on screen)
 
 **Subagent task**:

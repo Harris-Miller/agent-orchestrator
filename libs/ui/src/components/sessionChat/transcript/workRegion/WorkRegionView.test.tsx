@@ -82,7 +82,7 @@ describe('WorkRegionView pinned subagents', () => {
 
   it('renders each subagent once when expanded', () => {
     mount(true);
-    fireEvent.click(screen.getAllByRole('button')[0]);
+    fireEvent.click(screen.getByRole('button', { name: /^Work(ing|ed)/ }));
     assert.strictEqual(screen.getAllByText('Runner').length, 1);
     assert.strictEqual(screen.getAllByText('Finisher').length, 1);
   });

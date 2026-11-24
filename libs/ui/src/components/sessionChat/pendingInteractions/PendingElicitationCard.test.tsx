@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { assert, describe, it } from '@effect/vitest';
-import { CreateElicitationFormRequest, CreateElicitationUrlSessionRequest } from '@libs/effect-acp';
+import { CreateElicitationFormRequest, CreateElicitationUrlSessionRequest } from '@lib/effect-acp';
 import { ThemeProvider } from '@mui/material/styles';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

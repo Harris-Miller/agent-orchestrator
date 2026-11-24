@@ -2,8 +2,8 @@
  * Test-only stand-ins: a fake ACP agent registered as the Backend connection (through the real
  * `registerBackendConnection`, released with the test's scope), a disposable registry, and a phase flip.
  */
-import { makeAcpError } from '@libs/effect-acp';
-import type { SessionSteeringResponse, StopReason } from '@libs/effect-acp';
+import { makeAcpError } from '@lib/effect-acp';
+import type { SessionSteeringResponse, StopReason } from '@lib/effect-acp';
 import { Deferred, Effect } from 'effect';
 import type { Scope } from 'effect';
 import { AsyncResult, AtomRegistry } from 'effect/reactivity';

@@ -3,7 +3,7 @@
  * answer, not a transport failure: only a response with a numeric `code` and a `message` counts, so
  * `BackendNotConnected`, `RpcClientError` and plain `Error`s never do.
  */
-import { AcpError, acpErrorData, acpErrorMessage } from '@libs/effect-acp';
+import { AcpError, acpErrorData, acpErrorMessage } from '@lib/effect-acp';
 import { Cause, Option, Predicate, Redacted, Schema } from 'effect';
 
 export const isAcpError: (value: unknown) => value is AcpError = Schema.is(AcpError);

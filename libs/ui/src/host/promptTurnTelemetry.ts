@@ -6,7 +6,7 @@
 import { Clock, Effect, Exit, Schema } from 'effect';
 import type { Tracer } from 'effect';
 
-import type { StopReason } from '@libs/effect-acp';
+import type { StopReason } from '@lib/effect-acp';
 import { ACP_SESSION_ID } from '@lib/hub/telemetryKeys';
 
 import type { AcpTelemetry, SessionUpdateSummary } from './acpTelemetry.ts';

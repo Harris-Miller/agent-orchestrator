@@ -6,8 +6,8 @@ import { assert, layer } from '@effect/vitest';
 import { Notifier, OS } from '@lib/context-services';
 
 import { makeRecordingAnalytics, summarize } from '../analytics/recordingAnalytics.testing.ts';
-import { acpErrorData, acpErrorMessage } from '@libs/effect-acp';
-import type { AcpError } from '@libs/effect-acp';
+import { acpErrorData, acpErrorMessage } from '@lib/effect-acp';
+import type { AcpError } from '@lib/effect-acp';
 import { Clock, Effect, Exit, Fiber, Layer, Option, Predicate } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';

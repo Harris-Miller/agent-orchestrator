@@ -397,15 +397,15 @@ importers:
       '@lib/context-services-tauri':
         specifier: workspace:^
         version: link:../../libs/context-services-tauri
+      '@lib/effect-acp':
+        specifier: workspace:^
+        version: link:../../libs/effect-acp
       '@lib/hoa-home':
         specifier: workspace:^
         version: link:../../libs/hoa-home
       '@lib/ui':
         specifier: workspace:^
         version: link:../../libs/ui
-      '@libs/effect-acp':
-        specifier: workspace:^
-        version: link:../../libs/effect-acp
       '@mui/material':
         specifier: 'catalog:'
         version: 9.5.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@7.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@7.2.0))(@types/react@19.3.0)(react@19.3.1)(supports-color@7.2.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1004,15 +1004,15 @@ importers:
       '@lib/context-services':
         specifier: workspace:^
         version: link:../context-services
+      '@lib/effect-acp':
+        specifier: workspace:^
+        version: link:../effect-acp
       '@lib/hoa-home':
         specifier: workspace:^
         version: link:../hoa-home
       '@lib/hub':
         specifier: workspace:^
         version: link:../hub
-      '@libs/effect-acp':
-        specifier: workspace:^
-        version: link:../effect-acp
       '@mui/material':
         specifier: 'catalog:'
         version: 9.5.0(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@7.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@7.2.0))(@types/react@19.3.0)(react@19.3.1)(supports-color@7.2.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

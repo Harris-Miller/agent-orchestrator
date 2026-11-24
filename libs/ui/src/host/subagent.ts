@@ -1,5 +1,5 @@
 /** Pure subagent-session model: wire decode, child snapshot, and nullable-patch reducer. */
-import { SubagentUpdate } from '@libs/effect-acp';
+import { SubagentUpdate } from '@lib/effect-acp';
 import type { Option } from 'effect';
 import { Schema } from 'effect';
 

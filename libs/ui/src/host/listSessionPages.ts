@@ -1,4 +1,4 @@
-import type { AcpAgentConnection, ListSessionsResponse } from '@libs/effect-acp';
+import type { AcpAgentConnection, ListSessionsResponse } from '@lib/effect-acp';
 import type { Effect } from 'effect';
 
 /** Safety cap on `session/list` pages followed for one launch target of one Import. */

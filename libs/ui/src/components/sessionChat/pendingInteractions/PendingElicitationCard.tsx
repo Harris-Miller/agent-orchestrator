@@ -1,5 +1,5 @@
-import { CreateElicitationFormRequest, CreateElicitationUrlSessionRequest } from '@libs/effect-acp';
-import type { CreateElicitationRequestBody, ElicitationContent } from '@libs/effect-acp';
+import { CreateElicitationFormRequest, CreateElicitationUrlSessionRequest } from '@lib/effect-acp';
+import type { CreateElicitationRequestBody, ElicitationContent } from '@lib/effect-acp';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';

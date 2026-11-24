@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { BundledResource, OpenUrl, OS } from '@lib/context-services';
 import { PathLive } from '@lib/context-services-tauri';
-import { makeAcpError } from '@libs/effect-acp';
+import { makeAcpError } from '@lib/effect-acp';
 import { Cause, Effect, Layer, Option, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';

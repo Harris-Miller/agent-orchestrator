@@ -4,8 +4,8 @@ import {
   ElicitationIntegerProperty,
   ElicitationNumberProperty,
   ElicitationStringProperty,
-} from '@libs/effect-acp';
-import type { CreateElicitationFormRequest, ElicitationContent, ElicitationPropertySchema } from '@libs/effect-acp';
+} from '@lib/effect-acp';
+import type { CreateElicitationFormRequest, ElicitationContent, ElicitationPropertySchema } from '@lib/effect-acp';
 import { Schema } from 'effect';
 
 import type { ElicitationSummaryRow } from '../../../host/sessionUpdateReducer.ts';

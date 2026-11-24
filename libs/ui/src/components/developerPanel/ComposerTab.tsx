@@ -1,6 +1,6 @@
 /** Live preview of ContentBlock[] the composer draft would send on session/prompt. */
 import { useAtomValue } from '@effect/atom-react';
-import type { ContentBlock } from '@libs/effect-acp';
+import type { ContentBlock } from '@lib/effect-acp';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';

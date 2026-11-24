@@ -1,4 +1,4 @@
-# @libs/effect-acp
+# @lib/effect-acp
 
 Effect library for the [Agent Client Protocol](https://agentclientprotocol.com/) (ACP): typed RPC over newline-delimited JSON-RPC on a child-process stdio duplex.
 
@@ -15,6 +15,6 @@ See [`GLOSSARY.md`](./GLOSSARY.md) for the domain glossary and [`docs/adr/`](./d
 ## Scripts
 
 ```sh
-pnpm --filter=@libs/effect-acp test
-pnpm --filter=@libs/effect-acp typecheck
+pnpm --filter=@lib/effect-acp test
+pnpm --filter=@lib/effect-acp typecheck
 ```

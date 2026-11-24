@@ -2,13 +2,13 @@
  * ACP Client RPC adapter for a backend harness: turn-correlated session/update,
  * elicitation, permission; stub fs/terminal handlers.
  */
-import { ClientRpcs } from '@libs/effect-acp';
+import { ClientRpcs } from '@lib/effect-acp';
 import type {
   CreateElicitationRequestBody,
   CreateElicitationResponseBody,
   RequestPermissionRequest,
   RequestPermissionResponse,
-} from '@libs/effect-acp';
+} from '@lib/effect-acp';
 import { Clock, Effect, Predicate } from 'effect';
 import { ACP_PARENT_SESSION_ID, sessionAttributes } from '@lib/hub/telemetryKeys';
 

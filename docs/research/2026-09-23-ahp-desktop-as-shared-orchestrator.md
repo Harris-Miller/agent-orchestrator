@@ -82,7 +82,7 @@ This repo’s desktop **Agent Harness** (`apps/desktop/CONTEXT.md`) already is a
 - Owns Backend Harness bootstrap, `session/list` roster, session snapshots/transcripts, permissions/elicitations.
 - Harness UI is a React consumer of Effect Atom state — does not speak ACP on the wire itself.
 
-`@libs/effect-acp` is the ACP client stack. Issue #65 moves that harness into a shared package and injects portable Host services so the **VS Code webview** can run the same atoms, with the extension host fulfilling spawn/FS over `postMessage` — still **webview-owned**, lifetime = webview.
+`@lib/effect-acp` is the ACP client stack. Issue #65 moves that harness into a shared package and injects portable Host services so the **VS Code webview** can run the same atoms, with the extension host fulfilling spawn/FS over `postMessage` — still **webview-owned**, lifetime = webview.
 
 ### Does AHP wrap existing ACP adapters?
 
@@ -214,7 +214,7 @@ Issue [#65](https://github.com/Harris-Miller/agent-orchestrator/issues/65) (Epic
 ### Option D — Hybrid / incremental
 
 - Track A/B of #65 first.
-- Seams to leave open: Host services injection; avoid baking “webview is the only possible owner” into non-portable modules; keep ACP client connect API stable (`@libs/effect-acp`); optional later “remote harness client” adapter that speaks WS instead of local spawn — **without** implementing it now.
+- Seams to leave open: Host services injection; avoid baking “webview is the only possible owner” into non-portable modules; keep ACP client connect API stable (`@lib/effect-acp`); optional later “remote harness client” adapter that speaks WS instead of local spawn — **without** implementing it now.
 - When sync is demanded: add C (or B if interop). Until then YAGNI.
 
 ## Recommendations

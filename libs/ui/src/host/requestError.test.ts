@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { AcpError } from '@libs/effect-acp';
+import { AcpError } from '@lib/effect-acp';
 import { Cause, Schema } from 'effect';
 
 import { acpErrorOfCause, describeError, isAcpError, RequestErrorDetail, requestErrorDetail } from './requestError.ts';

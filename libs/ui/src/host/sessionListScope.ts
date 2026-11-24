@@ -1,4 +1,4 @@
-import type { ListSessionsRequest } from '@libs/effect-acp';
+import type { ListSessionsRequest } from '@lib/effect-acp';
 
 import { declaresSessionIndex } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';

@@ -5,7 +5,7 @@
  * Image attachments / image-like `resource_link`s are moved to the front and de-duplicated by uri.
  * With the Agent capability `promptImage`, attachments become `type: "image"`; otherwise `resource_link`.
  */
-import type { ContentBlock } from '@libs/effect-acp';
+import type { ContentBlock } from '@lib/effect-acp';
 import { ByteSize, Effect, Option } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';

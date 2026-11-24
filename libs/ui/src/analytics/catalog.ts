@@ -5,7 +5,7 @@
  * Never add a prompt, title, path, URL, id or agent text (root ADR 0002).
  */
 import { makeAnalyticsEvent } from '@lib/context-services';
-import type { PermissionOptionKind } from '@libs/effect-acp';
+import type { PermissionOptionKind } from '@lib/effect-acp';
 
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 

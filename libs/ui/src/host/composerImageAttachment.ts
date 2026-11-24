@@ -3,7 +3,7 @@
  * de-duplication by `uri`, and image-like `resource_link` detection. Prompt assembly lives in draftToContentBlocks.
  */
 import { OpenableImageMimeType } from '@lib/context-services';
-import type { ContentBlock } from '@libs/effect-acp';
+import type { ContentBlock } from '@lib/effect-acp';
 import { Effect, Option, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';

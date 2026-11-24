@@ -1,4 +1,4 @@
-import type { ElicitationContent } from '@libs/effect-acp';
+import type { ElicitationContent } from '@lib/effect-acp';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';

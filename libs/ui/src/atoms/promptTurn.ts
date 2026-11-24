@@ -38,7 +38,7 @@
  * user message stays; the Steer fallback wraps any other failure of its Send in {@link SteerFallbackTurnFailed} so
  * callers can tell it apart.
  */
-import type { AcpError, SessionFailure, StopReason } from '@libs/effect-acp';
+import type { AcpError, SessionFailure, StopReason } from '@lib/effect-acp';
 import { Clock, Effect, Exit, Option, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import { sessionAttributes, STEERING_OUTCOME } from '@lib/hub/telemetryKeys';

@@ -3,7 +3,7 @@
  * `session/list` runs only from here; each launch target has its own cursor, rows from all of them are merged by
  * `(launchTarget, sessionId)` and shown newest Last prompt time first.
  */
-import type { ListSessionsResponse } from '@libs/effect-acp';
+import type { ListSessionsResponse } from '@lib/effect-acp';
 
 import { compareHistoryEntriesByLastPromptDesc, normalizeSessionHistory } from './acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from './acpSessionBootstrap.ts';

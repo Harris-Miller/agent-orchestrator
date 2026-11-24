@@ -1,5 +1,5 @@
 /** Chat Atom fns: Prompt turn cancel, subagent cancel, permission / elicitation replies, Config change. */
-import type { CreateElicitationResponseBody } from '@libs/effect-acp';
+import type { CreateElicitationResponseBody } from '@lib/effect-acp';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';

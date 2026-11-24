@@ -5,7 +5,7 @@
  * runtime Install or Remove, Recheck), on a failed bootstrap attempt before its retry, and on the last failed attempt.
  * A Provider process that dies after `ready` is not yet noticed: its registration stays until one of those.
  */
-import type { AcpAgentConnection, ContentBlock, StopReason } from '@libs/effect-acp';
+import type { AcpAgentConnection, ContentBlock, StopReason } from '@lib/effect-acp';
 import { Clock, Effect, Exit, Predicate, Redacted, Schedule, Schema } from 'effect';
 import type { Scope, Tracer } from 'effect';
 

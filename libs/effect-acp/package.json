@@ -1,5 +1,5 @@
 {
-  "name": "@libs/effect-acp",
+  "name": "@lib/effect-acp",
   "private": true,
   "type": "module",
   "exports": {

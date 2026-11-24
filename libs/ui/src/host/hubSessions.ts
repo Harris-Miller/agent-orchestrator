@@ -6,7 +6,7 @@
 import { HUB_TOOL_NAMES, MCP_SERVER_NAME } from '@lib/hub/protocol';
 import type { HubToolName } from '@lib/hub/protocol';
 import type { HostServices } from '@lib/context-services';
-import type { McpServer } from '@libs/effect-acp';
+import type { McpServer } from '@lib/effect-acp';
 import { Duration, Effect } from 'effect';
 
 import { mcpToolPreapprovalMeta } from './agentCapabilities.ts';

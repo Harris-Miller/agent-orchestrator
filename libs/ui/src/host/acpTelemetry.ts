@@ -5,8 +5,8 @@
  * discriminators are free strings on the wire: anything outside the ACP literal set becomes `unrecognized` (distinct from
  * ACP's own `other` tool kind).
  */
-import { PermissionOptionKind } from '@libs/effect-acp';
-import type { StopReason } from '@libs/effect-acp';
+import { PermissionOptionKind } from '@lib/effect-acp';
+import type { StopReason } from '@lib/effect-acp';
 import { Predicate, Schema } from 'effect';
 
 declare const acpTelemetryBrand: unique symbol;

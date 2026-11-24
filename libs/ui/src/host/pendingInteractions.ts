@@ -1,10 +1,10 @@
-import { CreateElicitationSessionRequest } from '@libs/effect-acp';
+import { CreateElicitationSessionRequest } from '@lib/effect-acp';
 import type {
   CreateElicitationRequestBody,
   CreateElicitationResponseBody,
   RequestPermissionRequest,
   RequestPermissionResponse,
-} from '@libs/effect-acp';
+} from '@lib/effect-acp';
 import { Schema } from 'effect';
 
 export type PendingElicitation = {

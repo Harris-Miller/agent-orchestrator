@@ -1,6 +1,6 @@
 /** JetBrains AIR `_meta.jetbrains.air` envelope. Initialize and `session/list` share it. */
 
-import { SessionFailure } from '@libs/effect-acp';
+import { SessionFailure } from '@lib/effect-acp';
 import { Option, Predicate, Schema } from 'effect';
 
 export const airCapability = {

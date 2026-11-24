@@ -2,7 +2,7 @@
  * Antigravity oauth-personal Sign in helpers for the ACP harness bootstrap.
  */
 import { OpenUrl } from '@lib/context-services';
-import { acpErrorMessage, isAuthRequiredError } from '@libs/effect-acp';
+import { acpErrorMessage, isAuthRequiredError } from '@lib/effect-acp';
 import { Cause, Effect, Option, Schema, Stream } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';

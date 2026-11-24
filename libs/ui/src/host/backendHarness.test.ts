@@ -14,7 +14,7 @@ const control = vi.hoisted(() => ({
   probeCalls: 0,
 }));
 
-vi.mock('@libs/effect-acp', async importOriginal => ({
+vi.mock('@lib/effect-acp', async importOriginal => ({
   ...(await importOriginal<object>()),
   connectAcpAgent: () =>
     Effect.succeed({

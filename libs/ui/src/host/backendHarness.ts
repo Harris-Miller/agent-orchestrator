@@ -3,13 +3,13 @@
  * Live agent handles are registered with sessionRpc for the attempt's scope; every attempt ends with Connection lost.
  * Inbound session/update is forwarded whole; Session update apply owns demux.
  */
-import { connectAcpAgent } from '@libs/effect-acp';
+import { connectAcpAgent } from '@lib/effect-acp';
 import type {
   CreateElicitationRequestBody,
   CreateElicitationResponseBody,
   RequestPermissionRequest,
   RequestPermissionResponse,
-} from '@libs/effect-acp';
+} from '@lib/effect-acp';
 import { Cause, Effect, Exit, Ref } from 'effect';
 import {
   ACP_LAUNCH_TARGET,

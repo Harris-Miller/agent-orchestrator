@@ -12,8 +12,8 @@ import {
   mimeTypeForDataImageHref,
   mimeTypeForImagePath,
 } from './composerImageAttachment.ts';
-import type { SessionFailure, SessionFailureAction, SessionFailureSeverity } from '@libs/effect-acp';
-import { isSessionFailureAction, isSessionFailureSeverity } from '@libs/effect-acp';
+import type { SessionFailure, SessionFailureAction, SessionFailureSeverity } from '@lib/effect-acp';
+import { isSessionFailureAction, isSessionFailureSeverity } from '@lib/effect-acp';
 
 import { isSkillCommand, sessionFailureOf } from './airMeta.ts';
 import { findMarkdownLinks } from './draftToContentBlocks.ts';

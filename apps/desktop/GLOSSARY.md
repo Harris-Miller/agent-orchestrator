@@ -323,7 +323,7 @@ An ACP-speaking process the Harness spawns without a Node adapter in front — V
 _Avoid_: Built-in agent, direct agent, first-party server
 
 **Provider launch**:
-How the Harness starts a provider subprocess: executable, arguments, working directory, and environment — from the adapter resource tree for Node shims, by spawning a Vendor CLI ACP mode (`cursor-agent acp`), or by spawning a Managed ACP Agent (`agy_acp_server`) — yielding a stdio ACP Agent the Harness connects to via `@libs/effect-acp`.
+How the Harness starts a provider subprocess: executable, arguments, working directory, and environment — from the adapter resource tree for Node shims, by spawning a Vendor CLI ACP mode (`cursor-agent acp`), or by spawning a Managed ACP Agent (`agy_acp_server`) — yielding a stdio ACP Agent the Harness connects to via `@lib/effect-acp`.
 _Avoid_: Spawn config, agent command, connection string
 
 ## Desktop host
@@ -405,7 +405,7 @@ An action root that keeps a backend harness or Session History coherent without 
 _Avoid_: Background job, job, task
 
 **Turn-correlated work**:
-Agent→Client traffic that belongs to an open ACP **Turn** (see `@libs/effect-acp`): session updates, elicitation, permission requests, and the user’s respond to those. While a turn is in flight for a session, this work combines into that turn’s trace. When no turn is open, the same traffic (including an orphan respond) is its own short root — not attached to bootstrap or connection setup, and not promoted to a standing user-action term.
+Agent→Client traffic that belongs to an open ACP **Turn** (see `@lib/effect-acp`): session updates, elicitation, permission requests, and the user’s respond to those. While a turn is in flight for a session, this work combines into that turn’s trace. When no turn is open, the same traffic (including an orphan respond) is its own short root — not attached to bootstrap or connection setup, and not promoted to a standing user-action term.
 _Avoid_: RPC child, notification, demux event, action root (for respond-while-turn-open)
 
 **Connection setup**:

@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { CreateElicitationFormRequest } from '@libs/effect-acp';
+import { CreateElicitationFormRequest } from '@lib/effect-acp';
 import { Schema } from 'effect';
 
 import {

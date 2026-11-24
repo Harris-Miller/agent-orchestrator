@@ -3,10 +3,10 @@
  * already narrowed per Provider. Also the initialize request's client capabilities (the AIR offer), so both halves of
  * the handshake live here.
  *
- * Not the ACP `agentCapabilities` wire field, nor `@libs/effect-acp`'s opaque `AgentCapabilities` schema: this record
+ * Not the ACP `agentCapabilities` wire field, nor `@lib/effect-acp`'s opaque `AgentCapabilities` schema: this record
  * also reads top-level `_meta` (Steering, AIR) and applies Provider quirks.
  */
-import type { InitializeRequest } from '@libs/effect-acp';
+import type { InitializeRequest } from '@lib/effect-acp';
 import { Effect, Option, Predicate, Schema } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';

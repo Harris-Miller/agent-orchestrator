@@ -1,6 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { toolCallAttributes, toolLabel } from './toolCall.ts';
+import { toolLabel } from './protocol.ts';
+import { toolCallAttributes } from './toolCall.ts';
 
 describe('tool call telemetry', () => {
   it('attributes carry the owner session ids, the tool and the outcome', () => {

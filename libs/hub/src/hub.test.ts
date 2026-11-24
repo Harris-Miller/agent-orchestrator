@@ -4,7 +4,7 @@
  */
 import { NodeFileSystem, NodePath } from '@effect/platform-node';
 import { assert, describe, it } from '@effect/vitest';
-import { Cause, Effect, Exit, Fiber, Layer, Logger, Metric, Option, References, Scope, Tracer } from 'effect';
+import { Cause, Effect, Exit, Fiber, Layer, Logger, Metric, Option, References, Schedule, Scope, Tracer } from 'effect';
 import type { Duration } from 'effect';
 import { existsSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -381,7 +381,11 @@ describe('hub', () => {
       yield* registerToken(owner, 'tok-sync');
       yield* callHandoff(port, owner, 'tok-bearer-9d2c', `plan ${CANARY}`, `result ${CANARY}`);
       owner.close();
-      yield* Effect.sleep('200 millis'); // let the hub notice the disconnect
+      // The hub has processed the disconnect once the owner's token stops authenticating.
+      yield* mcpPost(mcpUrl(port), 'tok-bearer-9d2c', listTools).pipe(
+        Effect.repeat({ until: ({ response }) => response.status === 401, schedule: Schedule.spaced('10 millis') }),
+        Effect.timeout('5 seconds'),
+      );
 
       assert.isAbove(toolCallSpans(spans).length, 0);
       for (const span of spans) {

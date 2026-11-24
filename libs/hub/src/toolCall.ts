@@ -7,15 +7,12 @@ import type { Headers } from 'effect/http';
 import { McpServer } from 'effect/ai';
 import type { McpSchema } from 'effect/ai';
 
-import { HUB_TOOL_NAMES } from './protocol.ts';
+import { toolLabel } from './protocol.ts';
 import type { HubState } from './state.ts';
 import { HUB_OUTCOME, HUB_TOOL } from './telemetryKeys.ts';
 
 /** How a hub tool call ended: `rejected` before it was routed (e.g. invalid arguments), `error` when it was routed and the result is an error. */
 export type HubOutcome = 'error' | 'ok' | 'rejected';
-
-/** A tool name from the allowlist, else `unknown`: the name arrives from the agent and must never be free text. */
-export const toolLabel = (name: string): string => (HUB_TOOL_NAMES.some(known => known === name) ? name : 'unknown');
 
 const toolCalls = Metric.counter('hub.tool_calls', { description: 'Hub tool calls, by tool and outcome.' });
 const toolCallDuration = Metric.histogram('hub.tool_call.duration', {

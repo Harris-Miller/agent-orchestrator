@@ -14,6 +14,7 @@ import {
   HUB_HOST,
   HubMessage,
   PROTOCOL_VERSION,
+  toolLabel,
 } from '@lib/hub/protocol';
 import type { ClientKind, ClientMessage, ToolCallMessage } from '@lib/hub/protocol';
 import { HUB_TOOL } from '@lib/hub/telemetryKeys';
@@ -25,7 +26,7 @@ import { Socket } from 'effect/socket';
 
 import { installHub, setHubAvailability } from './hubConnection.ts';
 import type { HubConnection } from './hubConnection.ts';
-import { handleHubToolCall, isHubToolName, registeredTokens } from './hubSessions.ts';
+import { handleHubToolCall, registeredTokens } from './hubSessions.ts';
 import type { HubToolContext } from './hubToolHandler.ts';
 import { recordHubWire } from './hubWireLog.ts';
 import { annotateLaunchTargetLogs } from './sessionTelemetry.ts';
@@ -150,7 +151,7 @@ const ensureHub = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>) 
  */
 const withHubTrace = (call: ToolCallMessage) =>
   Effect.withSpan('hub.handleToolCall', {
-    attributes: { [HUB_TOOL]: isHubToolName(call.tool) ? call.tool : 'unknown' },
+    attributes: { [HUB_TOOL]: toolLabel(call.tool) },
     ...(call.trace === undefined ? {} : { parent: Tracer.externalSpan(call.trace) }),
   });
 

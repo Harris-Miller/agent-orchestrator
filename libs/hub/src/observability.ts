@@ -28,7 +28,6 @@ const OtelDefaultsLive = ConfigProvider.layerAdd(
   ConfigProvider.fromUnknown({
     OTEL_EXPORTER_OTLP_ENDPOINT: DEV_OTLP_ENDPOINT,
     OTEL_LOGS_EXPORTER: 'otlp',
-    OTEL_METRICS_EXPORTER: 'otlp',
     OTEL_TRACES_EXPORTER: 'otlp',
   }),
 );
@@ -37,7 +36,7 @@ const OtelDefaultsLive = ConfigProvider.layerAdd(
 const AllLogLevelsLive = Layer.succeed(References.MinimumLogLevel, 'All');
 
 /**
- * OTLP export for the hub's traces, logs and metrics. Dev only: `OTEL_EXPORTER_OTLP_ENDPOINT` is never read in a prod
+ * OTLP export for the hub's traces and logs. Dev only: `OTEL_EXPORTER_OTLP_ENDPOINT` is never read in a prod
  * build, since that env var is a common convention a user's machine may already set. In dev, the endpoint defaults to
  * the local LGTM stack. Every signal carries `build.target`. Requires a ConfigProvider (the default reads
  * `process.env`, inherited from the starting client).

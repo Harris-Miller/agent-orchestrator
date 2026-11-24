@@ -13,7 +13,6 @@ import { Otlp, OtlpSerialization } from 'effect/observability';
 const OtelExporterDefaultsLive = ConfigProvider.layerAdd(
   ConfigProvider.fromUnknown({
     OTEL_LOGS_EXPORTER: 'otlp',
-    OTEL_METRICS_EXPORTER: 'otlp',
     OTEL_TRACES_EXPORTER: 'otlp',
   }),
 );
@@ -25,7 +24,7 @@ const OtelExporterDefaultsLive = ConfigProvider.layerAdd(
 const AllLogLevelsLive = Layer.succeed(References.MinimumLogLevel, 'All');
 
 /**
- * OTLP export for traces, logs, and metrics. Dev builds only: the host-env OTLP config
+ * OTLP export for traces and logs. Dev builds only: the host-env OTLP config
  * (`OTEL_EXPORTER_OTLP_ENDPOINT`, unless `OTEL_SDK_DISABLED` or exporters omit `otlp`) is never read
  * in a prod build, because that env var is a common convention a user's machine may already set.
  * Every signal carries a `build.target` resource attribute.

@@ -15,7 +15,7 @@ import { KeepAwakeMount } from './KeepAwakeMount.tsx';
 import { NodePrerequisiteGate } from './NodePrerequisiteGate.tsx';
 import { PersistUserSettingsToast } from './PersistUserSettingsToast.tsx';
 import { ProviderBootstrapGate } from './ProviderBootstrapGate.tsx';
-import { ProviderUpdateNotice } from './providers/ProviderUpdateNotice.tsx';
+import { ProviderUpdateCheckMount } from './providers/ProviderUpdateCheckMount.tsx';
 import { ProvidersStartupMount } from './providers/ProvidersStartupMount.tsx';
 import { UserSettingsMount } from './UserSettingsMount.tsx';
 
@@ -39,9 +39,7 @@ export const HarnessPrerequisites: FC<{
 /** Hydrate the Harness caches, then mount the Backend harnesses and their companions; `children` render once hydrated. */
 export const HarnessMounts: FC<{
   readonly children?: ReactNode;
-  /** The host's way to show Settings > Providers. */
-  readonly onOpenProviders: () => void;
-}> = ({ children, onOpenProviders }) => (
+}> = ({ children }) => (
   <HarnessCacheGate>
     {/* Before the backends: it marks the hub `connecting` first, so their first session RPCs wait for it. */}
     <HubMount />
@@ -49,7 +47,7 @@ export const HarnessMounts: FC<{
     <KeepAwakeMount />
     <IdleSweepMount />
     <ProvidersStartupMount />
-    <ProviderUpdateNotice onOpenProviders={onOpenProviders} />
+    <ProviderUpdateCheckMount />
     {children}
   </HarnessCacheGate>
 );

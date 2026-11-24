@@ -8,6 +8,8 @@ import { useNavigate } from '@tanstack/react-router';
 import { Layers, MessagesSquare, Settings } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 
+import { UpdatesIndicatorHost } from './UpdatesIndicatorHost.tsx';
+
 const PAGES = [
   { icon: MessagesSquare, label: 'Sessions Page', page: 'sessions', to: '/' },
   { icon: Layers, label: 'Workstreams Page', page: 'workstreams', to: '/workstreams' },
@@ -50,13 +52,16 @@ export const PagesShell: FC<{ readonly children: ReactNode; readonly page: Page 
               </IconButton>
             </Tooltip>
           ))}
+          <Box sx={{ mt: 'auto' }}>
+            <UpdatesIndicatorHost />
+          </Box>
           <Tooltip placement="right" title="Settings">
             <IconButton
               aria-label="Settings"
               onClick={() => {
                 navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
               }}
-              sx={{ bgcolor: page === 'settings' ? 'action.selected' : 'transparent', borderRadius: 1.5, mt: 'auto' }}
+              sx={{ bgcolor: page === 'settings' ? 'action.selected' : 'transparent', borderRadius: 1.5 }}
             >
               <LucideMuiIcon icon={Settings} sx={{ color: page === 'settings' ? 'primary.main' : 'text.secondary' }} />
             </IconButton>

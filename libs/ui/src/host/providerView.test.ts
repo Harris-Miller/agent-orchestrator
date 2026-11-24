@@ -6,7 +6,6 @@ import {
   isSwitchingJob,
   overallStatus,
   providersToCheckForUpdates,
-  providerUpdates,
   readyToInstallVersion,
   STATUS_META,
   unavailableReason,
@@ -154,22 +153,7 @@ describe('per-status decisions', () => {
   });
 });
 
-describe('provider updates', () => {
-  it('reports Available and downloaded versions, skipping disabled and runtime-less providers', () => {
-    const views = [
-      view({ runtime: runtime({ latest: { _tag: 'Available', version: '2.0.0' } }) }),
-      view({ id: 'codex-acp', runtime: runtime({ downloaded: ['0.5.0'] }) }),
-      view({ id: 'antigravity-acp', enabled: false, runtime: runtime({ downloaded: ['9.0.0'] }) }),
-      view({ id: 'cursor-acp', runtime: undefined }),
-      view({ id: 'codex-acp', runtime: runtime({ active: undefined, downloaded: ['1.0.0'] }) }),
-      view({ id: 'claude-agent-acp', runtime: runtime({ latest: { _tag: 'UpToDate' } }) }),
-    ];
-    assert.deepStrictEqual(providerUpdates(views), [
-      { id: 'claude-agent-acp', version: '2.0.0' },
-      { id: 'codex-acp', version: '0.5.0' },
-    ]);
-  });
-
+describe('providersToCheckForUpdates', () => {
   it('checks only enabled, idle, active-runtime providers that are not already checking', () => {
     const views = [
       view(),

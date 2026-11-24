@@ -139,8 +139,12 @@ The downloaded program backing a Provider (see hoa-home _Provider runtime docume
 _Avoid_: adapter resource tree, bundled adapter
 
 **Provider update check**:
-A background Check for latest run after Provider bootstrap and every 6 hours for enabled managed Providers with an Active runtime. Notifies at most once per Provider version per launch, linking to Settings > Providers; never downloads or installs.
+A background Check for latest run after Provider bootstrap and every 6 hours for enabled managed Providers with an Active runtime. Results surface in the Updates indicator (no toast); never downloads or installs.
 _Avoid_: auto-update
+
+**Updates indicator**:
+The button beside the Settings gear. Its badge counts pending Provider and App updates; its popover lists each with Download / Install / Restart, a manual check, and a link to Settings > Providers.
+_Avoid_: update toast, snackbar
 
 **Managed provider**:
 A Provider that has a Provider runtime (Claude, Codex, Antigravity). Cursor is not managed: it runs the Vendor CLI directly. Download, Install, Remove, and Check for latest apply only to managed providers.

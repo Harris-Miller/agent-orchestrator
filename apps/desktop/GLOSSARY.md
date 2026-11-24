@@ -477,3 +477,7 @@ _Avoid_: unassign, detach, remove
 **Experimental: Workstreams**:
 User setting `workstreamsEnabled` (off when unset). While on, the Workstreams Page and its page switcher exist and the Sessions Page lists only sessions no Workstream owns; while off, owned sessions show under their Project again and ownership persists. Changing it does not reactivate sessions.
 _Avoid_: Features setting, Missions setting
+
+**App update**:
+A newer desktop build found via the Tauri updater. Shown only in the Updates indicator: Download, then Restart to install. Checked in prod builds only.
+_Avoid_: self-update

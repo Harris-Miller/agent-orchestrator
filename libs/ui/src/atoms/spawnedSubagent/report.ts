@@ -15,7 +15,7 @@ import type { SessionRef } from '../../host/agentLaunchTarget.ts';
 import { configValuesFromOptions } from '../../host/configProbe.ts';
 import { sessionTurnAction } from '../../host/harnessStateTransitions.ts';
 import type { HubToolResult } from '../../host/hubToolHandler.ts';
-import { buildSubagentResult } from '../../host/subagentResult.ts';
+import { buildSubagentReportText, buildSubagentResult } from '../../host/subagentResult.ts';
 import type { SubagentResultStatus } from '../../host/subagentResult.ts';
 
 import { backendHarnessSnapshotAtom } from '../backendState.atoms.ts';
@@ -71,8 +71,13 @@ export const buildSubagentReport = (report: {
   readonly task: string;
 }): string => {
   const { status, text: body } = asAgentOutcome(report.outcome);
-  const task = truncateTask(report.task);
-  return `<subagent-report id="${report.id}" status="${status}">\nsubagent: ${report.description}\ntask: ${task}\n\n${body}\n</subagent-report>`;
+  return buildSubagentReportText({
+    body,
+    description: report.description,
+    id: report.id,
+    status,
+    task: truncateTask(report.task),
+  });
 };
 
 /**

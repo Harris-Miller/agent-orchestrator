@@ -11,7 +11,7 @@ import { createServer } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { makeHostIpcFulfillment } from '../hostFulfillment';
+import { captureStartupOtelEnv, makeHostIpcFulfillment } from '../hostFulfillment';
 import { ProcessTracker } from '../processTracker';
 
 const vscodeStub = vi.hoisted(() => ({
@@ -233,6 +233,17 @@ describe('Host IPC fulfillment', () => {
       const snapshot = yield* client.request({ _tag: 'OsSnapshot' });
       assert.strictEqual(snapshot.platform, process.platform);
       assert.strictEqual(snapshot.homedir, homedir());
+    }),
+  );
+
+  it.effect('keeps OTEL_* in the snapshot after another extension deletes it from process.env', () =>
+    Effect.gen(function* () {
+      const { client } = yield* fulfillment;
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://127.0.0.1:4318';
+      captureStartupOtelEnv();
+      delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+      const snapshot = yield* client.request({ _tag: 'OsSnapshot' });
+      assert.strictEqual(snapshot.env.OTEL_EXPORTER_OTLP_ENDPOINT, 'http://127.0.0.1:4318');
     }),
   );
 

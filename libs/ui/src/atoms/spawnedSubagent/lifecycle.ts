@@ -16,11 +16,12 @@ import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { closeOnAgent } from '../../host/closeOnAgent.ts';
 import type { ConfigOptionValues } from '../../host/configProbe.ts';
 import {
+  addChildMirror,
+  addChildRowToRootEntry,
   bindSession,
   dropMirror,
   dropSession,
   markSessionInactive,
-  mirrorChildIntoParent,
   projectChildOnto,
   setMirrorWorkState,
 } from '../../host/harnessStateTransitions.ts';
@@ -34,7 +35,22 @@ import { updateHarnessSnapshot } from '../harnessSnapshot.ts';
 import { cancelPromptTurn, sendPromptTurn, sessionIn } from '../promptTurn.ts';
 import type { PromptTurnResult } from '../promptTurn.ts';
 import { applySessionConfigValues } from '../sessionConfigChange.ts';
-import { allLinks, atMaxSpawnDepth, attach, childrenOf, end, linkOf, MAX_LIVE_CHILDREN, reserveSlot } from './links.ts';
+import {
+  allLinks,
+  atMaxSpawnDepth,
+  attach,
+  capReached,
+  childRef,
+  descendantsOf,
+  end,
+  linkOf,
+  MAX_LIVE_CHILDREN,
+  MAX_LIVE_DESCENDANTS,
+  MAX_SPAWN_DEPTH,
+  parentRef,
+  recordFinish,
+  reserveSlot,
+} from './links.ts';
 import type { SpawnedLink, SubagentOutcome } from './links.ts';
 import { usableSubagentTarget } from '../subagentTargets.atoms.ts';
 
@@ -77,9 +93,68 @@ const projectOnce = (registry: Registry, link: SpawnedLink): void => {
   if (root === undefined) {
     return;
   }
-  updateHarnessSnapshot(registry, link.parentLaunchTarget, current =>
+  updateHarnessSnapshot(registry, link.mirrorLaunchTarget, current =>
     projectChildOnto(current, link.childSessionId, root),
   );
+};
+
+const workStateOf = (outcome: SubagentOutcome, stopReason?: string) =>
+  outcome.status === 'failed'
+    ? { error: outcome.text, state: 'failed' }
+    : { state: outcome.status, ...(stopReason === undefined ? {} : { stopReason }) };
+
+const hasLiveDescendants = (registry: Registry, child: SessionRef): boolean =>
+  descendantsOf(registry, child).some(link => !Deferred.isDoneUnsafe(link.outcome));
+
+/** Stamp the mirror's Work state from the link's recorded finish, once. */
+const stampMirror = (registry: Registry, link: SpawnedLink, finish: NonNullable<SpawnedLink['finish']>) => {
+  recordFinish(registry, childRef(link), {
+    ...finish,
+    stamped: true,
+  });
+  updateHarnessSnapshot(registry, link.mirrorLaunchTarget, current =>
+    setMirrorWorkState(current, link.childSessionId, workStateOf(finish.outcome, finish.stopReason)),
+  );
+};
+
+/**
+ * Walk up from a link that just settled or ended: an ancestor whose own turn already ended keeps its mirror `running`
+ * while it has a live descendant, and gets its finished Work state when the last one is done.
+ */
+const stampFinishedAncestors = (registry: Registry, link: SpawnedLink) => {
+  let current = linkOf(registry, parentRef(link));
+  while (current !== undefined) {
+    const { finish } = current;
+    if (finish !== undefined && !finish.stamped) {
+      if (hasLiveDescendants(registry, childRef(current))) {
+        return;
+      }
+      stampMirror(registry, current, finish);
+    }
+    current = linkOf(registry, parentRef(current));
+  }
+};
+
+/**
+ * Record a link's one outcome (first write wins). The winner also stamps the mirror's Work state, unless the child
+ * still has live descendants: those keep it `running` and the last one to settle stamps it. Synchronous, so the fold
+ * can call it from Connection lost.
+ */
+export const settleLink = (registry: Registry, link: SpawnedLink, outcome: SubagentOutcome, stopReason?: string) => {
+  // The last streamed chunks land on the mirror before its Work state does.
+  projectOnce(registry, link);
+  if (Deferred.isDoneUnsafe(link.outcome)) {
+    return;
+  }
+  const child = childRef(link);
+  const finish = { outcome, stamped: false, ...(stopReason === undefined ? {} : { stopReason }) };
+  recordFinish(registry, child, finish);
+  // Work state first: whoever awaits the outcome then reads a finished mirror.
+  if (!hasLiveDescendants(registry, child)) {
+    stampMirror(registry, link, finish);
+  }
+  Deferred.doneUnsafe(link.outcome, Effect.succeed(outcome));
+  stampFinishedAncestors(registry, link);
 };
 
 /**
@@ -96,32 +171,11 @@ export const endLink = Effect.fnUntraced(function* (
     return;
   }
   if (options.dropMirror === true) {
-    updateHarnessSnapshot(registry, link.parentLaunchTarget, current => dropMirror(current, link.childSessionId));
+    updateHarnessSnapshot(registry, link.mirrorLaunchTarget, current => dropMirror(current, link.childSessionId));
   }
+  // A link that left without settling may have been the last live descendant an ancestor was waiting on.
+  stampFinishedAncestors(registry, link);
 });
-
-/**
- * Record a link's one outcome (first write wins). The winner also stamps the mirror's Work state. Synchronous, so the
- * fold can call it from Connection lost.
- */
-export const settleLink = (registry: Registry, link: SpawnedLink, outcome: SubagentOutcome, stopReason?: string) => {
-  // The last streamed chunks land on the mirror before its Work state does.
-  projectOnce(registry, link);
-  if (Deferred.isDoneUnsafe(link.outcome)) {
-    return;
-  }
-  // Work state first: whoever awaits the outcome then reads a finished mirror.
-  updateHarnessSnapshot(registry, link.parentLaunchTarget, current =>
-    setMirrorWorkState(
-      current,
-      link.childSessionId,
-      outcome.status === 'failed'
-        ? { error: outcome.text, state: 'failed' }
-        : { state: outcome.status, ...(stopReason === undefined ? {} : { stopReason }) },
-    ),
-  );
-  Deferred.doneUnsafe(link.outcome, Effect.succeed(outcome));
-};
 
 const outcomeOfTurn = (registry: Registry, link: SpawnedLink, result: PromptTurnResult): SubagentOutcome => {
   if (result._tag === 'Rejected') {
@@ -188,7 +242,9 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     return yield* refuse('The task must not be empty.');
   }
   if (atMaxSpawnDepth(registry, parent)) {
-    return yield* refuse('A subagent cannot start subagents of its own.');
+    return yield* refuse(
+      `Subagents may nest at most ${MAX_SPAWN_DEPTH} levels deep; you cannot start another subagent from here.`,
+    );
   }
   const parentSnapshot = registry.get(backendHarnessSnapshotAtom(parent.launchTarget));
   if (!parentIsActive(registry, parent)) {
@@ -215,7 +271,9 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   const slot = reserveSlot(registry, parent);
   if (slot === undefined) {
     return yield* refuse(
-      `You already have ${MAX_LIVE_CHILDREN} subagents running. Wait for one to finish (wait_subagent) before starting another.`,
+      capReached(registry, parent) === 'descendants'
+        ? `Your session tree already has ${MAX_LIVE_DESCENDANTS} subagents running. Wait for some to finish before starting another.`
+        : `You already have ${MAX_LIVE_CHILDREN} subagents running. Wait for one to finish (wait_subagent) before starting another.`,
     );
   }
   const created = yield* createSession(input.launchTarget, cwd, parent.sessionId).pipe(
@@ -243,14 +301,19 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     }
 
     updateHarnessSnapshot(registry, child.launchTarget, current => bindSession(current, created));
-    updateHarnessSnapshot(registry, parent.launchTarget, current =>
-      mirrorChildIntoParent(current, {
+    // The mirror sits in the Selected session's snapshot (where its Subagent view reads); the row goes into the direct
+    // parent's own root entry, which the parent's projection carries onto its mirror (ADR 0015).
+    updateHarnessSnapshot(registry, link.mirrorLaunchTarget, current =>
+      addChildMirror(current, {
         childId: child.sessionId,
         launchTarget: child.launchTarget,
         name: input.description,
         parentId: parent.sessionId,
         task,
       }),
+    );
+    updateHarnessSnapshot(registry, parent.launchTarget, current =>
+      addChildRowToRootEntry(current, parent.sessionId, child.sessionId),
     );
     const projection = yield* AtomRegistry.toStream(registry, backendHarnessSnapshotAtom(child.launchTarget)).pipe(
       Stream.runForEach(() =>
@@ -289,7 +352,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
 
 /** A child ends with its parent: cancelled, its turn cancelled and its session closed (never deleted), the link removed. */
 const endChildWork = Effect.fnUntraced(function* (registry: Registry, link: SpawnedLink, why: string) {
-  const child = { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId };
+  const child = childRef(link);
   // Settled first, so the mirror reads cancelled rather than whatever the cancelled turn reports; a finished child keeps its state.
   settleLink(registry, link, { status: 'cancelled', text: why }, 'cancelled');
   yield* cancelPromptTurn(registry, child).pipe(Effect.ignore);
@@ -305,24 +368,32 @@ const endChild = (registry: Registry, link: SpawnedLink, why: string) =>
     Effect.annotateLogs(ACP_PARENT_SESSION_ID, link.parentSessionId),
   );
 
-/** The parent session was closed or deleted: every child it started ends with it. */
+/** The parent session was closed or deleted: every descendant it started ends with it, deepest first. */
 export const endSpawnedChildren = Effect.fnUntraced(function* (registry: Registry, parent: SessionRef) {
-  for (const link of childrenOf(registry, parent)) {
+  for (const link of descendantsOf(registry, parent)) {
     yield* endChild(registry, link, 'The parent session ended.');
   }
 });
 
-/** The parent of a Spawned subagent session while its link is live (an Attention event names it under its parent). */
-export const spawnedParentOf = (registry: Registry, child: SessionRef): SessionRef | undefined => {
-  const link = linkOf(registry, child);
-  return link === undefined ? undefined : { launchTarget: link.parentLaunchTarget, sessionId: link.parentSessionId };
-};
+/**
+ * Where a Spawned subagent session's mirror lives while its link is live: the Selected session's launch target
+ * (an Attention event names the child under its direct parent in that snapshot).
+ */
+export const spawnedMirrorOf = (registry: Registry, child: SessionRef): AgentLaunchTarget | undefined =>
+  linkOf(registry, child)?.mirrorLaunchTarget;
 
-/** The parent's launch target lost its Backend connection: its sessions died with it, and so do their children. */
+/** The parent's launch target lost its Backend connection: its sessions died with it, and so do their descendants. */
 const endChildrenOfTarget = Effect.fnUntraced(function* (registry: Registry, launchTarget: AgentLaunchTarget) {
+  const seen = new Set<SpawnedLink>();
   for (const link of allLinks(registry)) {
     if (link.parentLaunchTarget === launchTarget) {
-      yield* endChild(registry, link, 'The parent session ended.');
+      const below = descendantsOf(registry, childRef(link));
+      for (const doomed of [...below, link]) {
+        if (!seen.has(doomed)) {
+          seen.add(doomed);
+          yield* endChild(registry, doomed, 'The parent session ended.');
+        }
+      }
     }
   }
 });

@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
+import Breadcrumbs from '@mui/material/Breadcrumbs';
 import Button from '@mui/material/Button';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -13,6 +14,7 @@ import {
   configOptionIndexByLaunchTargetAtom,
   viewedSubagentAtom,
 } from '../../atoms/backendState.atoms.ts';
+import { sessionHeaderAtom } from '../../atoms/sessionHeader.atoms.ts';
 import {
   cancelSubagentAtomFn,
   respondElicitationAtomFn,
@@ -20,7 +22,13 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
-import { canCancelSubagent, getSubagent, subagentLaunchTarget, subagentTranscriptItems } from '../../host/subagent.ts';
+import {
+  canCancelSubagent,
+  getSubagent,
+  subagentAncestry,
+  subagentLaunchTarget,
+  subagentTranscriptItems,
+} from '../../host/subagent.ts';
 
 import { useChatWidthSx } from './chatWidth.ts';
 import { SubagentDock } from './SubagentDock.tsx';
@@ -51,6 +59,8 @@ const SubagentViewBody: FC<{
   const cancel = useAtomSet(cancelSubagentAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
+  const rootTitle = useAtomValue(sessionHeaderAtom).title;
+  const crumbs = subagentAncestry(snapshot.subagents, viewed.childId);
   const child = getSubagent(snapshot.subagents, viewed.childId);
   // A Spawned subagent session's Pending interactions live on its own launch target; answering there clears the mirror.
   const childLaunchTarget =
@@ -71,6 +81,35 @@ const SubagentViewBody: FC<{
   };
   return (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 }}>
+      <Breadcrumbs aria-label="Subagent path" separator="›" sx={{ px: 1, pt: 1 }}>
+        <Button
+          onClick={() => {
+            setViewed(undefined);
+          }}
+          size="small"
+          sx={{ minWidth: 0, textTransform: 'none' }}
+        >
+          {rootTitle}
+        </Button>
+        {crumbs.map((crumb, index) =>
+          index === crumbs.length - 1 ? (
+            <Typography aria-current="page" key={crumb.sessionId} variant="body2">
+              {crumb.name ?? 'Subagent'}
+            </Typography>
+          ) : (
+            <Button
+              key={crumb.sessionId}
+              onClick={() => {
+                setViewed({ ...viewed, childId: crumb.sessionId });
+              }}
+              size="small"
+              sx={{ minWidth: 0, textTransform: 'none' }}
+            >
+              {crumb.name ?? 'Subagent'}
+            </Button>
+          ),
+        )}
+      </Breadcrumbs>
       <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, p: 1 }}>
         <Button
           onClick={() => {

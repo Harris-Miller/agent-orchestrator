@@ -2,7 +2,7 @@
 import { RegistryContext } from '@effect/atom-react';
 import { assert, describe, it } from '@effect/vitest';
 import { ThemeProvider } from '@mui/material/styles';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { AtomRegistry } from 'effect/reactivity';
 import { afterEach } from 'vitest';
 
@@ -128,5 +128,45 @@ describe('SubagentView dock', () => {
     assert.isNull(screen.queryByRole('textbox'));
     assert.isNull(screen.queryByRole('button', { name: 'Attach images' }));
     assert.isNull(screen.queryByRole('button', { name: 'Send' }));
+  });
+});
+
+describe('SubagentView breadcrumb (nested)', () => {
+  const mountNested = () => {
+    const registry = AtomRegistry.make();
+    updateHarnessSnapshot(registry, CODEX, () =>
+      harness([session('s1')], [subagent('c1', 's1', { name: 'Alpha' }), subagent('g1', 'c1', { name: 'Beta' })]),
+    );
+    registry.set(viewedSubagentAtom, { childId: 'g1', launchTarget: CODEX, rootSessionId: 's1' });
+    render(
+      <RegistryContext.Provider value={registry}>
+        <ThemeProvider theme={theme}>
+          <SubagentView onClientError={() => undefined} />
+        </ThemeProvider>
+      </RegistryContext.Provider>,
+    );
+    return registry;
+  };
+
+  it('shows the path from the session to the viewed child; the last crumb is not a link', () => {
+    mountNested();
+    const nav = screen.getByRole('navigation', { name: 'Subagent path' });
+    assert.deepStrictEqual(
+      within(nav)
+        .getAllByRole('button')
+        .map(button => button.textContent),
+      ['Chat', 'Alpha'],
+    );
+    assert.strictEqual(within(nav).getByText('Beta').getAttribute('aria-current'), 'page');
+  });
+
+  it('opens an ancestor from its crumb, and closes the view from the root crumb', () => {
+    const registry = mountNested();
+    const nav = screen.getByRole('navigation', { name: 'Subagent path' });
+    fireEvent.click(within(nav).getByRole('button', { name: 'Alpha' }));
+    assert.strictEqual(registry.get(viewedSubagentAtom)?.childId, 'c1');
+    const next = screen.getByRole('navigation', { name: 'Subagent path' });
+    fireEvent.click(within(next).getByRole('button', { name: 'Chat' }));
+    assert.isUndefined(registry.get(viewedSubagentAtom));
   });
 });

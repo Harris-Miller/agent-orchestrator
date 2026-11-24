@@ -6,6 +6,7 @@ import { initialBackendHarnessSnapshot, initialSessionSnapshot } from './acpSess
 import { applyLiveSessionUpdate, reconcileConnectionLost } from './harnessStateTransitions.ts';
 import type { PendingPermission } from './pendingInteractions.ts';
 import { resetSubagentsOfRoot } from './subagentRouting.ts';
+import { rootAncestorId } from './subagent.ts';
 
 const CHILD = 'p1:replay-subagent:toolu_A';
 const [spawn, childMessage, done] = fixture;
@@ -107,6 +108,23 @@ describe('applyLiveSessionUpdate on the Subagent tree', () => {
     });
     assert.strictEqual(nested.snapshot.subagents.g1.parentSessionId, CHILD);
     assert.strictEqual(nested.snapshot.subagents[CHILD].transcript.items.length, 1);
+  });
+});
+
+describe('native nesting (#277, fixture only)', () => {
+  it('a native child spawns a native child, three deep: each linked to its direct parent, each with a row', () => {
+    const spawnedChild = applyLiveSessionUpdate(withRoot(), 'p1', spawn.update).snapshot;
+    const announce = (snapshot: typeof spawnedChild, on: string, id: string) =>
+      applyLiveSessionUpdate(snapshot, on, { sessionUpdate: 'subagent_spawned', subagentSessionId: id });
+    const second = announce(spawnedChild, CHILD, 'g1');
+    const third = announce(second.snapshot, 'g1', 'g2');
+    assert.deepStrictEqual(third.linked, { childId: 'g2', parentId: 'g1' });
+    assert.deepStrictEqual(
+      ['g1', 'g2'].map(id => third.snapshot.subagents[id].parentSessionId),
+      [CHILD, 'g1'],
+    );
+    assert.strictEqual(third.snapshot.subagents.g1.transcript.items.length, 1);
+    assert.strictEqual(rootAncestorId(third.snapshot.subagents, 'g2'), 'p1');
   });
 });
 

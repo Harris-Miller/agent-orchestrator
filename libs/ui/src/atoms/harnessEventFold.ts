@@ -39,7 +39,7 @@ import { setSubagentParent } from '../host/sessionRpc.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { onLaunchTargetConnectionLost, spawnedParentOf } from './spawnedSubagent/index.ts';
+import { onLaunchTargetConnectionLost, spawnedMirrorOf } from './spawnedSubagent/index.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
 import { currentUserSettings, modelPickerPrefsOf } from './userSettings/userSettingsDocument.atoms.ts';
 import {
@@ -88,15 +88,16 @@ export const makeHarnessEventFold = ({
       const raised = raise(current);
       return [raised, raised];
     });
-    // A Spawned subagent session is a root here, but the user knows it as a child: name it under its parent's title.
-    const parent = spawnedParentOf(registry, { launchTarget, sessionId });
+    // A Spawned subagent session is a root here, but the user knows it as a child: name it under its direct parent, read
+    // from the snapshot holding its mirror (the Selected session's launch target).
+    const mirrorTarget = spawnedMirrorOf(registry, { launchTarget, sessionId });
     runFork(
-      parent === undefined
+      mirrorTarget === undefined
         ? notifySessionAttention(currentUserSettings(registry), next, launchTarget, sessionId, event)
         : notifySessionAttention(
             currentUserSettings(registry),
-            registry.get(backendHarnessSnapshotAtom(parent.launchTarget)),
-            parent.launchTarget,
+            registry.get(backendHarnessSnapshotAtom(mirrorTarget)),
+            mirrorTarget,
             sessionId,
             event,
           ),

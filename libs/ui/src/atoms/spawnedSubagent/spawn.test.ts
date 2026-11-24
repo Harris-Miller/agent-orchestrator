@@ -510,17 +510,6 @@ describe('startSpawnedSubagent on the parent own launch target (#456)', () => {
           allLinks(registry).map(link => [link.parentSessionId, link.childSessionId]),
           [[SAME_PARENT, SAME_CHILD]],
         );
-
-        const error = yield* Effect.flip(
-          startSpawnedSubagent(registry, {
-            configOptions: { model: 'o1' },
-            description: 'Nested',
-            launchTarget: CODEX,
-            parent: { launchTarget: CODEX, sessionId: SAME_CHILD },
-            task: 'task',
-          }).pipe(Effect.provide(hostLayer)),
-        );
-        assert.include(error.message, 'cannot start subagents of its own');
       }).pipe(Effect.scoped),
   );
 });

@@ -95,6 +95,9 @@ export const subagentNeedsInput = (child: SubagentSnapshot): boolean =>
   child.pendingElicitation !== undefined ||
   child.state?.state === WORK_STATE.requiresAction;
 
+export const isWorking = (child: SubagentSnapshot): boolean =>
+  child.state?.state === WORK_STATE.running || child.state?.state === WORK_STATE.requiresAction;
+
 /** Transcript items to show: a `session/load` replays the task as the child's first user message, which the Subagent task row already shows. */
 export const subagentTranscriptItems = (child: SubagentSnapshot): SessionTranscript['items'] => {
   const [first, ...rest] = child.transcript.items;
@@ -199,22 +202,69 @@ export const resetSubagentLiveState = (child: SubagentSnapshot): SubagentSnapsho
 export const rootAncestorId = (subagents: SubagentRecord, sessionId: string): string =>
   rootAncestor(id => getSubagent(subagents, id)?.parentSessionId, sessionId);
 
-/** A Subagent of `kind` rooted at `sessionId` is `running` or `requires_action`. */
+/** The Subagent sessions below `sessionId`, at any depth (cycle-safe, `sessionId` itself excluded). */
+const descendantSubagents = (subagents: SubagentRecord, sessionId: string): readonly SubagentSnapshot[] => {
+  const seen = new Set<string>([sessionId]);
+  const out: SubagentSnapshot[] = [];
+  const queue = [sessionId];
+  for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+    for (const child of Object.values(subagents)) {
+      if (child.parentSessionId === id && !seen.has(child.sessionId)) {
+        seen.add(child.sessionId);
+        out.push(child);
+        queue.push(child.sessionId);
+      }
+    }
+  }
+  return out;
+};
+
+/**
+ * What a row shows for a child's whole subtree: any descendant that needs input (it wins over the child's own state),
+ * and how many descendants are working (`running` or `requires_action`).
+ */
+export const subagentRollUp = (
+  subagents: SubagentRecord,
+  sessionId: string,
+): { readonly needsInput: boolean; readonly running: number } => {
+  const below = descendantSubagents(subagents, sessionId);
+  return {
+    needsInput: below.some(subagentNeedsInput),
+    running: below.filter(isWorking).length,
+  };
+};
+
+/** The chain from the outermost Subagent below the Selected session down to `sessionId` (inclusive); cycle-safe. */
+export const subagentAncestry = (subagents: SubagentRecord, sessionId: string): readonly SubagentSnapshot[] => {
+  const chain: SubagentSnapshot[] = [];
+  const seen = new Set<string>();
+  for (
+    let child = getSubagent(subagents, sessionId);
+    child !== undefined && !seen.has(child.sessionId);
+    child = getSubagent(subagents, child.parentSessionId)
+  ) {
+    seen.add(child.sessionId);
+    chain.unshift(child);
+  }
+  return chain;
+};
+
+/** A Subagent (of `kind`, or either) rooted at `sessionId`, at any depth, is `running` or `requires_action`. */
 export const hasWorkingSubagent = (
   subagents: SubagentRecord,
   sessionId: string,
-  kind: SubagentSnapshot['kind'],
+  kind?: SubagentSnapshot['kind'],
 ): boolean =>
   Object.values(subagents).some(
     child =>
-      child.kind === kind &&
+      (kind === undefined || child.kind === kind) &&
       rootAncestorId(subagents, child.sessionId) === sessionId &&
-      (child.state?.state === WORK_STATE.running || child.state?.state === WORK_STATE.requiresAction),
+      isWorking(child),
   );
 
 /**
- * Background follow-up (glossary): an active Session with no Pending client request and a native Subagent descendant
- * that is `running` or `requires_action`. The Agent works on its own after its Prompt turn ended (AIR `backgroundSubagents`).
+ * Background follow-up (glossary): an active Session with no Pending client request and a Subagent descendant, native or
+ * Spawned at any depth, that is `running` or `requires_action`. The Agent works on its own after its Prompt turn ended (AIR `backgroundSubagents`).
  */
 export const hasBackgroundActivity = (
   snapshot: { readonly sessions: Readonly<Record<string, SessionSnapshot>>; readonly subagents: SubagentRecord },
@@ -224,7 +274,7 @@ export const hasBackgroundActivity = (
   return (
     session?.status === 'active' &&
     session.pendingClientRequest === undefined &&
-    hasWorkingSubagent(snapshot.subagents, sessionId, 'native')
+    hasWorkingSubagent(snapshot.subagents, sessionId)
   );
 };
 

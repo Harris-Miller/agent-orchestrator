@@ -113,3 +113,41 @@ describe('SubagentItemView restored child', () => {
     assert.isNotNull(screen.getByText('Hello, World!'));
   });
 });
+
+describe('SubagentItemView roll-up over descendants (#277)', () => {
+  const running = { state: { state: 'running' } } as const;
+  const mountTree = (descendants: SubagentSnapshot[]) => {
+    const registry = AtomRegistry.make();
+    updateHarnessSnapshot(registry, CODEX, () =>
+      harness(
+        [session('s1')],
+        [subagent('c1', 's1', { name: 'Parent child', state: { state: 'completed' } }), ...descendants],
+      ),
+    );
+    registry.set(selectedAtom, { _tag: 'Session', sessionId: 's1' });
+    render(
+      <RegistryContext.Provider value={registry}>
+        <ThemeProvider theme={theme}>
+          <SubagentItemView item={{ id: 'subagent:c1', kind: 'subagent', subagentSessionId: 'c1' }} />
+        </ThemeProvider>
+      </RegistryContext.Provider>,
+    );
+  };
+
+  it('counts running descendants of the child', () => {
+    mountTree([subagent('g1', 'c1', running), subagent('g2', 'g1', running)]);
+    assert.isNotNull(screen.getByText('2 subagents running'));
+  });
+
+  it('shows needs input when a descendant has a Pending interaction, over a finished own state', () => {
+    mountTree([subagent('g1', 'c1', { ...running, pendingPermission: { request: {} } as never })]);
+    assert.isNotNull(screen.getByText('Needs input'));
+    assert.isNotNull(screen.getByText('1 subagent running'));
+  });
+
+  it('shows neither with no working descendants', () => {
+    mountTree([subagent('g1', 'c1', { state: { state: 'completed' } })]);
+    assert.isNull(screen.queryByText(/running/));
+    assert.isNull(screen.queryByText('Needs input'));
+  });
+});

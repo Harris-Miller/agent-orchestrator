@@ -56,6 +56,7 @@ import {
   reduceSessionUpdate,
   stampUserMessageTiming,
   upsertSessionFailure,
+  upsertSubagentChatItem,
 } from './sessionUpdateReducer.ts';
 import type { ElicitationSummary, UserMessageImageRef } from './sessionUpdateReducer.ts';
 import {
@@ -684,37 +685,51 @@ export const answerPermission = (
 // like a native child. Mirror and root share a snapshot when the child is on the parent's own launch target (#456).
 // ---------------------------------------------------------------------------------------------------------------------
 
-/** The mirror in the parent's snapshot, running, with its row in the parent's transcript; before the child's first prompt. */
-export const mirrorChildIntoParent = (
-  snapshot: BackendHarnessSnapshot,
-  mirror: {
-    readonly childId: string;
-    readonly launchTarget: AgentLaunchTarget;
-    readonly name: string;
-    readonly parentId: string;
-    /** Exactly the text `beginPromptTurn` appends, so the Subagent view strips it from the transcript. */
-    readonly task: string;
-  },
-): BackendHarnessSnapshot =>
-  withParentChatItem(
-    {
-      ...snapshot,
-      subagents: {
-        ...snapshot.subagents,
-        [mirror.childId]: withSubagentWorkState(
-          {
-            ...initialSpawnedSubagentSnapshot(mirror.childId, mirror.parentId, mirror.launchTarget),
-            capabilities: { cancel: {} },
-            name: mirror.name,
-            task: mirror.task,
-          },
-          { state: 'running' },
-        ),
+type ChildMirror = {
+  readonly childId: string;
+  readonly launchTarget: AgentLaunchTarget;
+  readonly name: string;
+  readonly parentId: string;
+  /** Exactly the text `beginPromptTurn` appends, so the Subagent view strips it from the transcript. */
+  readonly task: string;
+};
+
+/** The mirror alone, running: in the Selected session's snapshot, keyed by the child, parented to its direct parent. */
+export const addChildMirror = (snapshot: BackendHarnessSnapshot, mirror: ChildMirror): BackendHarnessSnapshot => ({
+  ...snapshot,
+  subagents: {
+    ...snapshot.subagents,
+    [mirror.childId]: withSubagentWorkState(
+      {
+        ...initialSpawnedSubagentSnapshot(mirror.childId, mirror.parentId, mirror.launchTarget),
+        capabilities: { cancel: {} },
+        name: mirror.name,
+        task: mirror.task,
       },
+      { state: 'running' },
+    ),
+  },
+});
+
+/**
+ * The child's row in its parent's own root entry transcript (`sessions[parentId]`, created if missing). A nested
+ * child's parent is itself a Spawned subagent session: its mirror's transcript is overwritten from this root entry by
+ * the projection, so the row goes here and reaches the mirror that way (ADR 0015).
+ */
+export const addChildRowToRootEntry = (
+  snapshot: BackendHarnessSnapshot,
+  parentId: string,
+  childId: string,
+): BackendHarnessSnapshot => {
+  const parent = parentId in snapshot.sessions ? snapshot.sessions[parentId] : initialSessionSnapshot(parentId);
+  return {
+    ...snapshot,
+    sessions: {
+      ...snapshot.sessions,
+      [parentId]: { ...parent, transcript: upsertSubagentChatItem(parent.transcript, childId) },
     },
-    mirror.parentId,
-    mirror.childId,
-  );
+  };
+};
 
 const isFinishedResult = (status: KnownSubagentResult['status']): status is 'cancelled' | 'completed' | 'failed' =>
   status !== 'running';

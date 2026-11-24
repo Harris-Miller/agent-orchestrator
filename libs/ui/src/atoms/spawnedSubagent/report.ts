@@ -21,7 +21,7 @@ import type { SubagentResultStatus } from '../../host/subagentResult.ts';
 import { backendHarnessSnapshotAtom } from '../backendState.atoms.ts';
 import { awaitQueuedMessageTaken, hasQueuedMessage } from '../composer.atoms.ts';
 import { awaitTurnEnd, sendPromptTurn, sessionById, sessionIn, steerPromptTurn } from '../promptTurn.ts';
-import { attach, claimHandle, linkOf } from './links.ts';
+import { attach, childRef, claimHandle, linkOf, parentRef } from './links.ts';
 import type { SpawnedLink, SubagentOutcome } from './links.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
@@ -35,12 +35,6 @@ const hasNoFinalMessage = (outcome: SubagentOutcome): boolean =>
 /** The outcome as the agent reads it: a completed turn with no message is `failed` with `NO_FINAL_MESSAGE`. */
 const asAgentOutcome = (outcome: SubagentOutcome): SubagentOutcome =>
   hasNoFinalMessage(outcome) ? { status: 'failed', text: NO_FINAL_MESSAGE } : outcome;
-
-/** The child's session ref, from anything that names it (a `SpawnedLink` or `ChildMeta`). */
-export const childRef = (named: Pick<ChildMeta, 'childLaunchTarget' | 'childSessionId'>): SessionRef => ({
-  launchTarget: named.childLaunchTarget,
-  sessionId: named.childSessionId,
-});
 
 const MAX_REPORTED_TASK_CHARS = 1000;
 
@@ -167,7 +161,7 @@ const attempt = Effect.fnUntraced(function* (
     return 'dropped';
   }
   const snapshot = registry.get(backendHarnessSnapshotAtom(link.parentLaunchTarget));
-  const target = { launchTarget: link.parentLaunchTarget, sessionId: link.parentSessionId };
+  const target = parentRef(link);
   const session = snapshot.sessions[link.parentSessionId];
   if (session.pendingClientRequest === 'prompt') {
     // Mid-turn. Steering when the agent takes it and the turn is not waiting on the user; else wait for the turn end.

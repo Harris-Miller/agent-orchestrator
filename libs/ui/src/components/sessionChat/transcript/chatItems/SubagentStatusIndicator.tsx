@@ -28,8 +28,12 @@ const ICONS: Record<Exclude<SubagentStatus, 'needs_input'>, ReactNode> = {
 };
 
 /** Icon-only status (spinner, check, X) shown left of a subagent's title; only "needs input" is a pill. */
-export const SubagentStatusIndicator: FC<{ readonly child: SubagentSnapshot }> = ({ child }) => {
-  const status = subagentStatus(child);
+export const SubagentStatusIndicator: FC<{
+  readonly child: SubagentSnapshot;
+  /** A descendant needs input: shown as this child's own "needs input". */
+  readonly needsInput?: boolean;
+}> = ({ child, needsInput = false }) => {
+  const status = needsInput ? 'needs_input' : subagentStatus(child);
   if (status === 'needs_input') {
     return (
       <Chip

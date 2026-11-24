@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 
 import type { ProviderView, RuntimeView } from './providerView.ts';
-import { updateRows, updatesSummary } from './updatesView.ts';
+import { isBusyPhase, updateRows, updatesSummary } from './updatesView.ts';
 
 const runtime = (overrides: Partial<RuntimeView> = {}): RuntimeView => ({
   active: '1.0.0',
@@ -35,7 +35,14 @@ describe('updateRows', () => {
       undefined,
     );
     assert.deepStrictEqual(rows, [
-      { from: '1.0.0', id: 'claude-agent-acp', kind: 'provider', phase: 'available', version: '1.1.0' },
+      {
+        error: undefined,
+        from: '1.0.0',
+        id: 'claude-agent-acp',
+        kind: 'provider',
+        phase: 'available',
+        version: '1.1.0',
+      },
     ]);
   });
 
@@ -76,26 +83,63 @@ describe('updateRows', () => {
     );
   });
 
-  it('adds an app row for every non-idle, non-failed app state', () => {
+  it('adds an app row for every active app state, including Failed', () => {
     assert.deepStrictEqual(updateRows([], { _tag: 'Available', version: '2.0.0' }), [
-      { kind: 'app', phase: 'available', version: '2.0.0' },
+      { error: undefined, kind: 'app', phase: 'available', version: '2.0.0' },
     ]);
     assert.strictEqual(updateRows([], { _tag: 'Downloading', version: '2' })[0]?.phase, 'downloading');
     assert.strictEqual(updateRows([], { _tag: 'Ready', version: '2' })[0]?.phase, 'ready');
     assert.strictEqual(updateRows([], { _tag: 'Installing', version: '2' })[0]?.phase, 'installing');
-    assert.deepStrictEqual(updateRows([], { _tag: 'Failed', message: 'x' }), []);
+    assert.deepStrictEqual(updateRows([], { _tag: 'Failed', message: 'x' }), [
+      { error: 'x', kind: 'app', phase: 'failed', version: undefined },
+    ]);
+    assert.deepStrictEqual(updateRows([], { _tag: 'Checking' }), []);
+  });
+
+  it('carries a failed provider job message on its row', () => {
+    const rows = updateRows(
+      [
+        view({
+          runtime: runtime({
+            job: { _tag: 'Failed', detail: 'd', message: 'boom' },
+            latest: { _tag: 'Available', version: '1.1.0' },
+          }),
+        }),
+      ],
+      undefined,
+    );
+    assert.strictEqual(rows[0]?.error, 'boom');
+    assert.strictEqual(rows[0]?.phase, 'available');
   });
 });
 
 describe('updatesSummary', () => {
-  it('counts rows, flags busy, and flags failed latest checks', () => {
+  it('counts pending rows and lists providers whose latest check failed', () => {
     const providers = [
       view({ runtime: runtime({ latest: { _tag: 'Available', version: '1.1.0' } }) }),
       view({ id: 'codex-acp', runtime: runtime({ latest: { _tag: 'Failed', message: 'offline' } }) }),
     ];
     const rows = updateRows(providers, undefined);
-    assert.deepStrictEqual(updatesSummary(rows, providers), { busy: false, checkFailed: true, count: 1 });
-    const busy = updateRows([], { _tag: 'Downloading', version: '2' });
-    assert.deepStrictEqual(updatesSummary(busy, []), { busy: true, checkFailed: false, count: 1 });
+    const summary = updatesSummary(rows, providers);
+    assert.strictEqual(summary.count, 1);
+    assert.isFalse(summary.appFailed);
+    assert.deepStrictEqual(
+      summary.failedProviders.map(p => p.id),
+      ['codex-acp'],
+    );
+  });
+
+  it('counts a failed app update as a warning, not a pending update', () => {
+    const rows = updateRows([], { _tag: 'Failed', message: 'x' });
+    assert.deepStrictEqual(updatesSummary(rows, []), { appFailed: true, count: 0, failedProviders: [] });
+  });
+});
+
+describe('isBusyPhase', () => {
+  it('is true only for downloading and installing', () => {
+    assert.isTrue(isBusyPhase('downloading'));
+    assert.isTrue(isBusyPhase('installing'));
+    assert.isFalse(isBusyPhase('ready'));
+    assert.isFalse(isBusyPhase('failed'));
   });
 });

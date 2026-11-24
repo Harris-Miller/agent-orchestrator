@@ -4,7 +4,13 @@ import { useNavigate } from '@tanstack/react-router';
 import { useContext } from 'react';
 import type { FC } from 'react';
 
-import { appUpdateAtom, checkAppUpdate, downloadAppUpdate, installAppUpdate } from '../atoms/appUpdate.atoms.ts';
+import {
+  appUpdateAtom,
+  checkAppUpdate,
+  downloadAppUpdate,
+  installAppUpdate,
+  retryAppUpdate,
+} from '../atoms/appUpdate.atoms.ts';
 
 /** Desktop wiring for the shared Updates indicator: supplies the App update and the Settings > Providers link. */
 export const UpdatesIndicatorHost: FC = () => {
@@ -22,6 +28,9 @@ export const UpdatesIndicatorHost: FC = () => {
         },
         onInstall: () => {
           installAppUpdate(registry).catch(() => undefined);
+        },
+        onRetry: () => {
+          retryAppUpdate(registry).catch(() => undefined);
         },
         state,
       }}

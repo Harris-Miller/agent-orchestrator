@@ -9,6 +9,7 @@ import { afterEach, vi } from 'vitest';
 
 import type { ProviderView, RuntimeView } from '../../host/providerView.ts';
 import type { AppUpdateView } from '../../host/updatesView.ts';
+import { providerViewsAtom } from '../../atoms/boundHarnessAtoms.ts';
 import { theme } from '../../theme/themes.ts';
 
 import { UpdatesIndicator } from './UpdatesIndicator.tsx';
@@ -70,8 +71,7 @@ const view = (overrides: Partial<ProviderView> = {}): ProviderView => ({
   ...overrides,
 });
 
-const mount = async (providers: readonly ProviderView[], appState?: AppUpdateView) => {
-  const { providerViewsAtom } = await import('../../atoms/boundHarnessAtoms.ts');
+const mount = (providers: readonly ProviderView[], appState?: AppUpdateView, onRetry: () => void = () => undefined) => {
   const registry = AtomRegistry.make();
   registry.set(providerViewsAtom as unknown as Atom.Writable<readonly ProviderView[]>, providers);
   render(
@@ -81,7 +81,13 @@ const mount = async (providers: readonly ProviderView[], appState?: AppUpdateVie
           app={
             appState === undefined
               ? undefined
-              : { onCheck: () => undefined, onDownload: () => undefined, onInstall: () => undefined, state: appState }
+              : {
+                  onCheck: () => undefined,
+                  onDownload: () => undefined,
+                  onInstall: () => undefined,
+                  onRetry,
+                  state: appState,
+                }
           }
           onOpenProviders={() => undefined}
         />
@@ -92,24 +98,46 @@ const mount = async (providers: readonly ProviderView[], appState?: AppUpdateVie
 };
 
 describe('UpdatesIndicator', () => {
-  it('shows a count badge for pending updates', async () => {
-    await mount([view(), view({ id: 'codex-acp' })]);
+  it('shows a count badge for pending updates', () => {
+    mount([view(), view({ id: 'codex-acp' })]);
     assert.isNotNull(screen.queryByText('2'));
   });
 
-  it('shows the empty state when nothing is pending', async () => {
-    await mount([view({ runtime: runtime({ latest: { _tag: 'UpToDate' } }) })]);
+  it('shows the empty state when nothing is pending', () => {
+    mount([view({ runtime: runtime({ latest: { _tag: 'UpToDate' } }) })]);
     assert.isNotNull(screen.queryByText('Everything is up to date.'));
   });
 
-  it('Download requests the download for that provider', async () => {
-    await mount([view()]);
+  it('Download requests the download for that provider', () => {
+    mount([view()]);
     fireEvent.click(screen.getByText('Download v1.1.0'));
     assert.deepStrictEqual(calls.list, ['download:claude-agent-acp']);
   });
 
-  it('labels a Ready app update Restart', async () => {
-    await mount([], { _tag: 'Ready', version: '2.0.0' });
+  it('labels a Ready app update Restart', () => {
+    mount([], { _tag: 'Ready', version: '2.0.0' });
     assert.isNotNull(screen.queryByText('Restart'));
+  });
+
+  it('shows a failed app update with a Retry button that retries', () => {
+    const onRetry = vi.fn();
+    mount([], { _tag: 'Failed', message: 'disk full' }, onRetry);
+    assert.isNotNull(screen.queryByText(/disk full/));
+    fireEvent.click(screen.getByText('Retry'));
+    assert.strictEqual(onRetry.mock.calls.length, 1);
+  });
+
+  it('shows a failed provider job message and keeps the Download button', () => {
+    mount([view({ runtime: runtime({ job: { _tag: 'Failed', detail: 'd', message: 'network down' } }) })]);
+    assert.isNotNull(screen.queryByText('network down'));
+    assert.isNotNull(screen.queryByText('Download v1.1.0'));
+  });
+
+  it('shows versions on ready and busy labels', () => {
+    mount([view({ runtime: runtime({ downloaded: ['1.1.0'] }) })]);
+    assert.isNotNull(screen.queryByText('Install v1.1.0'));
+    cleanup();
+    mount([], { _tag: 'Downloading', version: '2.0.0' });
+    assert.isNotNull(screen.queryByText('Downloading v2.0.0…'));
   });
 });

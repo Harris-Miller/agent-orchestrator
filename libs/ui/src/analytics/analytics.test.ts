@@ -125,6 +125,30 @@ describe('action triggers', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('cancelling a subagent captures subagent_cancelled with the launch target only', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      updateHarnessSnapshot(s.registry, CODEX, current => ({
+        ...current,
+        subagents: {
+          c1: {
+            capabilities: { cancel: {} },
+            kind: 'native',
+            parentSessionId: 's1',
+            sessionId: 'c1',
+            transcript: current.sessions.s1.transcript,
+          },
+        },
+      }));
+      yield* runAtomFn(s.registry, s.chat.cancelSubagentAtomFn, { launchTarget: CODEX, sessionId: 'c1' });
+      assert.deepStrictEqual(summarize(s.events), [
+        { name: 'subagent_cancelled', properties: { launch_target: CODEX } },
+      ]);
+      yield* runAtomFn(s.registry, s.chat.cancelSubagentAtomFn, { launchTarget: CODEX, sessionId: 'missing' });
+      assert.strictEqual(s.events.length, 1);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('skipped actions (nothing to cancel, unusable backend) capture nothing', () =>
     Effect.gen(function* () {
       const s = yield* setup();

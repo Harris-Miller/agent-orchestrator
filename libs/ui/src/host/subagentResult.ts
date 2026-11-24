@@ -44,7 +44,9 @@ const unescapeAttribute = (value: string): string =>
 // Body closing tags are escaped as `<\/subagent` (an existing `<\/subagent` gains another backslash) so the body
 // cannot end the element early; the parser reverses it.
 const escapeBody = (body: string, tag = 'subagent'): string =>
+  // `</tag` preceded by any run of backslashes after `<`: `<\\*/tag` → one more backslash.
   body.replaceAll(new RegExp(`<(\\\\*)/${tag}`, 'g'), `<$1\\/${tag}`);
+// Reverse: `<\\+/tag` → one backslash fewer.
 const unescapeBody = (body: string, tag = 'subagent'): string =>
   body.replaceAll(new RegExp(`<\\\\(\\\\*)/${tag}`, 'g'), `<$1/${tag}`);
 
@@ -144,8 +146,10 @@ const oneLine = (value: string): string => value.replaceAll(/\s*\n\s*/g, ' ');
 export const buildSubagentReportText = (report: SubagentReport): string =>
   `<subagent-report id="${escapeAttribute(report.id)}" status="${report.status}">\nsubagent: ${oneLine(report.description)}\ntask: ${oneLine(report.task)}\n\n${escapeBody(report.body, REPORT_TAG)}\n</subagent-report>`;
 
-const REPORT =
-  /<subagent-report\s+id="([^"]*)"\s+status="([^"]*)"\s*>\nsubagent: ([^\n]*)\ntask: ([^\n]*)\n\n([\s\S]*?)\n<\/subagent-report>/g;
+const REPORT = new RegExp(
+  `<${REPORT_TAG}\\s+id="([^"]*)"\\s+status="([^"]*)"\\s*>\\nsubagent: ([^\\n]*)\\ntask: ([^\\n]*)\\n\\n([\\s\\S]*?)\\n</${REPORT_TAG}>`,
+  'g',
+);
 
 /** Whether `text` contains the opening report tag: such a user message's text is verbatim, never image-lifted. */
 export const opensSubagentReport = (text: string): boolean => text.includes(`<${REPORT_TAG}`);

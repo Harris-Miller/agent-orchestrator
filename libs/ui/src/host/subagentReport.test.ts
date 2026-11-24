@@ -234,6 +234,24 @@ describe('Subagent report on replay', () => {
     assert.strictEqual(bodyOf(s), body);
   });
 
+  it('restores from a report chunk that extends a non-last message by messageId', () => {
+    const text = report('completed', 'the answer');
+    const half = text.indexOf('the answer');
+    const chunk = (t: string, messageId: string) => ({
+      content: { text: t, type: 'text' },
+      messageId,
+      sessionUpdate: 'user_message_chunk',
+    });
+    const s = replay(
+      spawn('running'),
+      chunk(text.slice(0, half), 'm1'),
+      chunk('other', 'm2'),
+      chunk(text.slice(half), 'm1'),
+    );
+    assert.deepStrictEqual(s.subagents.c1.state, { state: 'completed' });
+    assert.strictEqual(bodyOf(s), 'the answer');
+  });
+
   it('still lifts image links out of a normal user message', () => {
     const s = replay({
       content: { text: 'look [@shot](file:///tmp/shot.png) here', type: 'text' },

@@ -44,6 +44,8 @@ _Avoid_: Queued prompt, outbox, Send pending
 
 **Subagent row**:
 One Subagent in a list: status, provider icon, name, Model · Effort, and its latest activity, shown the same for a live child and a Restored subagent. Opens the Subagent view on click; pinned under a collapsed Work region's header (and kept there after the Subagent finishes), and shown in its normal position once the region is expanded.
+A list entry for a Subagent, not a Chat item (the transcript unit).
+_Avoid_: Subagent card, Subagent item
 
 **Background follow-up**:
 A Session's autonomous Work after its Prompt turn ended while a Subagent session still runs (a native one: Claude, AIR `backgroundSubagents`): the Session is active with no Pending client request and a Subagent descendant of either kind, at any depth, is `running` or `requires_action`. The Agent may raise Pending interactions during it. Counts as working for the Work region and the Keep-awake hold; Prompt turn cancel with no turn cancels the Pending interactions and the agent.

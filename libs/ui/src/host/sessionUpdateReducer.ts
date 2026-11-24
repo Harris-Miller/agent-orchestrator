@@ -646,15 +646,18 @@ export const stampUserMessageTiming = (
   items: transcript.items.map(item => (item.id === id && item.kind === 'user_message' ? { ...item, ...patch } : item)),
 });
 
+/** A Harness-sent Subagent report's text is verbatim: lifting would strip image links from its echoed task or body. */
+const liftUserText = (text: string, verbatim: boolean) =>
+  verbatim ? { images: [] as const, text } : liftImageMarkdownLinks(text);
+
 export const appendUserChatMessage = (
   transcript: SessionTranscript,
   text: string,
   images?: readonly UserMessageImageRef[],
   options?: { readonly steering?: true },
 ): SessionTranscript => {
-  // Same lift as session/load `user_message_chunk`: `@` image markdown → top thumbnails. Never for a Harness-sent
-  // Subagent report: its echoed task or body may hold such a link, and the message is hidden whole in the chat.
-  const lifted = opensSubagentReport(text) ? { images: [], text } : liftImageMarkdownLinks(text);
+  // Same lift as session/load `user_message_chunk`: `@` image markdown → top thumbnails (not for a Subagent report).
+  const lifted = liftUserText(text, opensSubagentReport(text));
   const mergedImages = [...(images ?? []), ...lifted.images];
   const steering = options?.steering;
   if (mergedImages.length === 0 && steering === undefined) {
@@ -837,12 +840,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
       const verbatim =
         rawText !== undefined &&
         (opensSubagentReport(rawText) || (existing?.kind === 'user_message' && opensSubagentReport(existing.text)));
-      const lifted =
-        rawText === undefined
-          ? { images: [] as const, text: undefined }
-          : verbatim
-            ? { images: [] as const, text: rawText }
-            : liftImageMarkdownLinks(rawText);
+      const lifted = rawText === undefined ? { images: [] as const, text: undefined } : liftUserText(rawText, verbatim);
       return appendUserMessageChunk(transcript, messageId, lifted.text, [...blockImages, ...lifted.images]);
     }
 

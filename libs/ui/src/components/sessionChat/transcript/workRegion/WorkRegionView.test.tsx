@@ -29,7 +29,7 @@ const items: ChatItem[] = [
   { id: 'subagent:c3', kind: 'subagent', subagentSessionId: 'c3' },
 ];
 
-const mount = (inFlight: boolean) => {
+const mount = (inFlight: boolean, regionItems: ChatItem[] = items) => {
   const registry = AtomRegistry.make();
   updateHarnessSnapshot(registry, CODEX, () =>
     harness(
@@ -52,7 +52,7 @@ const mount = (inFlight: boolean) => {
               id: 'w1',
               isLastInTurn: true,
               isLastTurn: true,
-              items,
+              items: regionItems,
               kind: 'work_region',
               userMessage: { id: 'u1', kind: 'user_message', text: 'go' },
             }}
@@ -78,6 +78,16 @@ describe('WorkRegionView pinned subagents', () => {
     mount(false);
     assert.isNotNull(screen.getByText('Runner'));
     assert.isNull(screen.queryByText('Pondering the plan'));
+  });
+
+  it('shows only the pinned subagents, no preview item, for a collapsed in-flight region of only subagents', () => {
+    const { container } = mount(
+      true,
+      items.filter(item => item.kind === 'subagent'),
+    );
+    assert.isNotNull(screen.getByText('Runner'));
+    assert.isNotNull(screen.getByText('Last'));
+    assert.strictEqual(container.querySelectorAll('ul').length, 1);
   });
 
   it('renders each subagent once when expanded', () => {

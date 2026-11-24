@@ -22,6 +22,7 @@ export const sessionRenamed = onLaunchTarget('session_renamed');
 export const sessionDeleted = onLaunchTarget('session_deleted');
 
 export const promptCancelled = onLaunchTarget('prompt_cancelled');
+export const subagentCancelled = onLaunchTarget('subagent_cancelled');
 
 /** Attachment count and launch target only, never the prompt text. */
 export const promptSent = (input: { readonly attachmentCount: number; readonly launchTarget: AgentLaunchTarget }) =>

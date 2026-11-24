@@ -1007,7 +1007,9 @@ const restoreSubagentsOfReports = (
     return snapshot;
   }
   const transcript = sessionOrSubagentOf(snapshot, sessionId)?.transcript;
-  const item = transcript?.items.at(-1);
+  // The chunk may extend an earlier message (same messageId) with other items appended since: find it by id.
+  const index = typeof update.messageId === 'string' ? transcript?.messageIndices.get(update.messageId) : undefined;
+  const item = index === undefined ? transcript?.items.at(-1) : transcript?.items[index];
   return item?.kind !== 'user_message' || !hasSubagentReport(item.text)
     ? snapshot
     : parseSubagentReports(item.text).reduce(applySubagentReport, snapshot);

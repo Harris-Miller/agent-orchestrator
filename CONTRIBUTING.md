@@ -152,6 +152,7 @@ The full list is in [`AGENTS.md`](./AGENTS.md). The ones reviewers check most:
 - **One theme source.** Every color comes from `libs/ui/src/theme/themes.ts`; components read `theme.palette.*` with no fallbacks.
 - **Telemetry.** New user-facing actions get an Analytics event from the catalog in `libs/ui/src/analytics/catalog.ts`. Never put prompt text, paths, titles or ids in events or unredacted logs.
 - **Cross-platform.** HOA runs on macOS and Windows. Build paths with `join()` / `resolve()`, in tests too.
+- **No migrations yet.** Until Beta, settings and on-disk formats can change without migration code.
 
 ## License
 

@@ -18,4 +18,4 @@ pnpm --filter=@apps/website dev           # hot reload at :5183
 
 `WEBSITE_BASE` sets the path `dist/` is served under (`/<repo>/` on GitHub Pages).
 
-`.github/workflows/website.yml` deploys to GitHub Pages. It is disabled while the repo is private.
+`.github/workflows/website.yml` deploys to GitHub Pages on every push to `main` (each release).

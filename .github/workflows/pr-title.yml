@@ -1,0 +1,31 @@
+# PR titles become the squash commit on `develop`, and semantic-release reads them to pick the next version
+# (release.config.mjs). Format: `<Tag>: <Short description>`. Own workflow so a title edit doesn't re-run local-ci.
+name: PR title
+
+on:
+  pull_request:
+    branches: [develop, main]
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            Breaking
+            Fix
+            Update
+            New
+            Docs
+            Build
+            Upgrade
+            Chore
+          requireScope: false
+          headerPattern: '^(\w+): (.+)$'
+          headerPatternCorrespondence: type, subject

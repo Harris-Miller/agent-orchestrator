@@ -1,6 +1,5 @@
 {
   "name": "hoa",
-  "version": "0.1.0",
   "private": true,
   "description": "",
   "keywords": [],
@@ -21,7 +20,6 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck-root typecheck",
     "typecheck-root": "tsc --noEmit",
-    "version:app": "node scripts/version-app.mjs",
     "vscode:build": "turbo run build --filter=hoa-vscode",
     "vscode:dev": "turbo run watch:main watch:renderer --filter=hoa-vscode",
     "vscode:open": "code --remote-debugging-port=9222 --extensionDevelopmentPath=\"$PWD/apps/vscode\"",
@@ -33,11 +31,13 @@
     "@effect/tsgo": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
+    "conventional-changelog-eslint": "catalog:",
     "effect": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
     "rimraf": "catalog:",
+    "semantic-release": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:"
   },

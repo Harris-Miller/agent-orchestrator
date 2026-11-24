@@ -21,6 +21,8 @@ catalog:
   oxlint-tsgolint: ^7.0.2007
   oxlint-config-harris: ^0.2.0
   rimraf: ^6.1.4
+  semantic-release: ^25.0.9
+  conventional-changelog-eslint: ^6.1.0
   typescript: '^7.0.2'
   turbo: ^2.11.13
   vitest: ^5.0.5

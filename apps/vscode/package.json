@@ -1,7 +1,7 @@
 {
   "name": "hoa-vscode",
   "displayName": "Harness Orchestrating Agents",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
   "description": "Run and orchestrate coding agents from a sidebar in VS Code.",
   "categories": [

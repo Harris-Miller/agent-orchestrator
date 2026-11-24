@@ -2,8 +2,8 @@
 
 ## Top Level Instructions
 
-- Gitflow: default branch is `develop` (feature PRs merge there). `main` is the release branch — only release PRs merge into it. See `docs/gitflow.md`.
-- Product version: only the **repo root** `package.json` is the source of truth. Bump with `pnpm version:app` (syncs Tauri/`Cargo.toml`/VS Code manifests; no git tag — CI tags `vX.Y.Z` on push to `main`).
+- Gitflow: branch from `develop` and open PRs into `develop`; `main` is the release branch (only release PRs from `develop` merge into it). PR titles must be `<Tag>: <Short description>` with a tag from `docs/gitflow.md`; the title is the squash commit and decides the release. See `docs/gitflow.md`.
+- NEVER set or bump a version by hand. Versions come from `v*` git tags (semantic-release in release CI); `apps/desktop` and `apps/vscode` stay at `0.0.0` in git, and the root, `libs/` and `tooling/` have no version. See `apps/desktop/docs/alpha-release.md`.
 - Lint every changed file with Oxlint `--fix` and format it with Oxfmt before work is considered done. Run `pnpm --filter=<pkg> run lint <paths>` (paths relative to the package for Oxlint; repeat per package when changes span packages). Then `pnpm run fmt` to format all files (this should never be per file, it will always apply format fixes to all, which is desired).
 - `pnpm run local-ci` should pass before your current task is considered done.
 - NEVER manually update `pnpm-lock.yaml`. If you do update `package.json` `"dependencies"` or `"devDependencies"`, run `pnpm i` after

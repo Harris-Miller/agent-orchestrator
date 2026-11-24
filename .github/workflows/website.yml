@@ -1,8 +1,10 @@
-# Builds apps/website (VitePress) and deploys it to GitHub Pages at https://<owner>.github.io/<repo>/.
-# Disabled while the repository is private: remove `if: false` from the build job to enable it.
+# Builds apps/website (VitePress) and deploys it to GitHub Pages at https://<owner>.github.io/<repo>/ on every push to
+# `main` (a release). A manual run from any other branch skips the deploy.
 name: Website
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +18,7 @@ concurrency:
 
 jobs:
   build:
-    if: false
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

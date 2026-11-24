@@ -1,6 +1,5 @@
 {
   "name": "@lib/context-services-vscode-webview",
-  "version": "0.1.0",
   "private": true,
   "license": "ISC",
   "type": "module",

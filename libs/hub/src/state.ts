@@ -6,7 +6,7 @@
 import { Deferred, Effect, Option } from 'effect';
 
 import type { ClientKind } from './protocol.ts';
-import { APP_SESSION_ID, sessionAttributes } from './telemetryKeys.ts';
+import { APP_SESSION_ID, HUB_CLIENT_KIND, sessionAttributes } from './telemetryKeys.ts';
 
 export type CallResult = { readonly isError: boolean; readonly text: string };
 
@@ -106,7 +106,7 @@ export const makeHubState = () => {
       const credential = credentials.get(token);
       const client = credential === undefined ? undefined : clients.get(credential.clientId);
       return {
-        ...(client === undefined ? {} : { [APP_SESSION_ID]: client.appSessionId, 'hub.client.kind': client.kind }),
+        ...(client === undefined ? {} : { [APP_SESSION_ID]: client.appSessionId, [HUB_CLIENT_KIND]: client.kind }),
         ...(credential?.binding === undefined
           ? {}
           : sessionAttributes(

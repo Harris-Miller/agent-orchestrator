@@ -1,4 +1,5 @@
 /** Startup hydration: Projects, then per launch target the tracked sessions, pins and config option index. */
+import { annotateLaunchTargetLogs } from '../host/sessionTelemetry.ts';
 import type { HostServices } from '@lib/context-services';
 import { readConfigOptionIndexCache, readPinnedSessions, readProjects, readWorkstreams } from '@lib/hoa-home';
 import { Effect, Option } from 'effect';
@@ -85,7 +86,11 @@ export const hydrateHarnessCaches = (
               if (Option.isSome(config)) registry.set(configOptionIndexAtom(launchTarget), config.value);
             },
           );
-        }).pipe(Effect.catchCause(cause => Effect.logWarning('launch target hydrate failed', launchTarget, cause))),
+        }).pipe(
+          Effect.catchCause(cause =>
+            Effect.logWarning('launch target hydrate failed', cause).pipe(annotateLaunchTargetLogs(launchTarget)),
+          ),
+        ),
       { concurrency: 'unbounded', discard: true },
     );
     return () => {

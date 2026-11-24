@@ -80,7 +80,9 @@ const makeVendorCliAdapterCommand = Effect.fn('makeVendorCliAdapterCommand')(fun
 ) {
   const vendorPath = yield* requireExecutableOnPath(adapter.executable);
   yield* requireVendorCliAuthenticated(adapter.launchTarget, vendorPath);
-  yield* Effect.logDebug(`${adapter.launchTarget} adapter env`, { [adapter.envKey]: Redacted.make(vendorPath) });
+  yield* Effect.logDebug('adapter env', { [adapter.envKey]: Redacted.make(vendorPath) }).pipe(
+    annotateLaunchTargetLogs(adapter.launchTarget),
+  );
   return ChildProcess.make('node', [entry], {
     ...pipedSpawnOptions,
     env: { ...adapter.extraEnv, [adapter.envKey]: vendorPath },

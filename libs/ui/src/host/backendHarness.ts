@@ -177,7 +177,7 @@ export const runBackendHarness = Effect.fnUntraced(
           Effect.catchTag('MissingLaunchPrerequisite', (error: MissingLaunchPrerequisite) =>
             Effect.gen(function* () {
               yield* Effect.logError('ACP harness missing launch prerequisite').pipe(
-                Effect.annotateLogs({ reason: error.message }),
+                Effect.annotateLogs({ reason: error._tag }),
               );
               handlers.onPhase('error', { _tag: 'Failed', message: error.message });
             }),
@@ -185,7 +185,7 @@ export const runBackendHarness = Effect.fnUntraced(
           Effect.catchTag('VendorNotAuthenticated', (error: VendorNotAuthenticated) =>
             Effect.gen(function* () {
               yield* Effect.logError('ACP harness vendor CLI not authenticated').pipe(
-                Effect.annotateLogs({ reason: error.message }),
+                Effect.annotateLogs({ reason: error._tag }),
               );
               handlers.onPhase('error', { _tag: 'NotSignedIn', message: error.message });
             }),

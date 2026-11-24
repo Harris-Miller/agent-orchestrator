@@ -111,7 +111,6 @@ export const setSessionConfigOption = Effect.fn('setSessionConfigOption')(functi
           Cause.hasInterruptsOnly(cause)
             ? Effect.void
             : Effect.logError('Config change failed; reverting', cause).pipe(
-                Effect.annotateLogs({ config_id: change.configId }),
                 annotateSessionLogs(launchTarget, sessionId),
               ),
         ),
@@ -142,7 +141,6 @@ export const applySessionConfigValues = Effect.fn('applySessionConfigValues')(fu
     const exit = yield* Effect.exit(applySessionConfigValue(registry, target, diff));
     if (Exit.isFailure(exit)) {
       yield* Effect.logWarning('Config diff failed; stopping').pipe(
-        Effect.annotateLogs({ config_id: diff.configId }),
         annotateSessionLogs(target.launchTarget, target.sessionId),
       );
       return { stoppedEarly: true };

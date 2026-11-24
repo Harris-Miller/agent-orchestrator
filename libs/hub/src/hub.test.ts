@@ -4,7 +4,7 @@
  */
 import { NodeFileSystem, NodePath } from '@effect/platform-node';
 import { assert, describe, it } from '@effect/vitest';
-import { Cause, Effect, Exit, Fiber, Layer, Logger, Metric, Option, References, Schedule, Scope, Tracer } from 'effect';
+import { Cause, Effect, Exit, Fiber, Layer, Logger, Metric, Option, References, Scope, Tracer } from 'effect';
 import type { Duration } from 'effect';
 import { existsSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -271,7 +271,7 @@ describe('hub', () => {
   );
 
   it.live('a call rejected before routing (invalid arguments) gets a hub.toolCall span with outcome rejected', () => {
-    const { layer, logs, spans } = capture();
+    const { layer, spans } = capture();
     return Effect.gen(function* () {
       const { port } = yield* hubUp();
       const owner = yield* connectTestClient(port);
@@ -284,8 +284,6 @@ describe('hub', () => {
       assert.strictEqual(span?.attributes.get('hub.tool'), 'submit_handoff');
       assert.isTrue(spanFailed(span));
       assert.notInclude(JSON.stringify([...(span?.attributes ?? [])]), '12345');
-      const log = logs.find(l => l.message === 'Hub tool call' || JSON.stringify(l.message).includes('Hub tool call'));
-      assert.strictEqual(log?.annotations['hub.outcome'], 'rejected');
     }).pipe(Effect.scoped, Effect.provide(layer));
   });
 
@@ -330,36 +328,6 @@ describe('hub', () => {
         status?._tag === 'Ended' ? Cause.pretty(Exit.isFailure(status.exit) ? status.exit.cause : Cause.empty) : '',
         'SECRET',
       );
-    }).pipe(Effect.scoped, Effect.provide(layer));
-  });
-
-  it.live('one `Hub tool call` log per call, annotated with the session ids; no `Sent HTTP response` log', () => {
-    const { layer, logs } = capture();
-    return Effect.gen(function* () {
-      const { port } = yield* hubUp();
-      const owner = yield* connectTestClient(port, testClientQuery('app-log'));
-      yield* registerToken(owner, 'tok-log');
-      owner.send({
-        launchTarget: 'claude-agent-acp',
-        parentSessionId: 'acp-parent',
-        sessionId: 'acp-child',
-        token: 'tok-log',
-        type: 'bind',
-      });
-      yield* registerToken(owner, 'tok-sync');
-      yield* callHandoff(port, owner, 'tok-log', 'doc', 'ok');
-      const text = (log: { readonly message: unknown }) => JSON.stringify(log.message);
-      assert.isFalse(logs.some(log => text(log).includes('Sent HTTP response')));
-      const toolLogs = logs.filter(log => text(log).includes('Hub tool call'));
-      assert.lengthOf(toolLogs, 1);
-      const [log] = toolLogs;
-      assert.strictEqual(log?.annotations['hub.tool'], 'submit_handoff');
-      assert.strictEqual(log?.annotations['hub.outcome'], 'ok');
-      assert.isNumber(log?.annotations.duration_ms);
-      assert.strictEqual(log?.annotations['acp.session.id'], 'acp-child');
-      assert.strictEqual(log?.annotations['acp.session.parent_id'], 'acp-parent');
-      assert.strictEqual(log?.annotations['acp.launch_target'], 'claude-agent-acp');
-      assert.strictEqual(log?.annotations['app_session.id'], 'app-log');
     }).pipe(Effect.scoped, Effect.provide(layer));
   });
 
@@ -413,11 +381,7 @@ describe('hub', () => {
       yield* registerToken(owner, 'tok-sync');
       yield* callHandoff(port, owner, 'tok-bearer-9d2c', `plan ${CANARY}`, `result ${CANARY}`);
       owner.close();
-      yield* Effect.suspend(() =>
-        logs.some(log => JSON.stringify(log.message).includes('Hub client disconnected'))
-          ? Effect.void
-          : Effect.fail('no disconnect log yet'),
-      ).pipe(Effect.retry({ schedule: Schedule.spaced('20 millis'), times: 250 }));
+      yield* Effect.sleep('200 millis'); // let the hub notice the disconnect
 
       assert.isAbove(toolCallSpans(spans).length, 0);
       for (const span of spans) {

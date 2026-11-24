@@ -1,4 +1,5 @@
 /** ACP backend harness lifecycle Atoms (mount + restart). */
+import { annotateLaunchTargetLogs } from '../host/sessionTelemetry.ts';
 import type { HostServices } from '@lib/context-services';
 import { Duration, Effect, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
@@ -137,7 +138,9 @@ export const createHarnessAtoms = (
     launchTarget: AgentLaunchTarget,
     registry: AtomRegistry.AtomRegistry,
   ) {
-    yield* Effect.logWarning('Restarting ACP backend harness (awaiting usable)', launchTarget);
+    yield* Effect.logWarning('Restarting ACP backend harness (awaiting usable)').pipe(
+      annotateLaunchTargetLogs(launchTarget),
+    );
     yield* stopAndReconcile(launchTarget, { registry });
     if (registry.get(backendDesiredStateAtom(launchTarget)) === 'stopped') {
       return yield* new BackendRestartFailed({ launchTarget, reason: 'stopped by the user' });
@@ -151,7 +154,7 @@ export const createHarnessAtoms = (
     .fn(
       Effect.fn('stopBackendAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
         yield* Effect.annotateCurrentSpan({ [ACP_LAUNCH_TARGET]: launchTarget });
-        yield* Effect.logWarning('Stopping ACP backend harness', launchTarget);
+        yield* Effect.logWarning('Stopping ACP backend harness').pipe(annotateLaunchTargetLogs(launchTarget));
         get.set(backendDesiredStateAtom(launchTarget), 'stopped');
         yield* stopAndReconcile(launchTarget, get);
       }),
@@ -166,7 +169,7 @@ export const createHarnessAtoms = (
         get: Atom.FnContext,
       ) {
         yield* Effect.annotateCurrentSpan({ [ACP_LAUNCH_TARGET]: launchTarget });
-        yield* Effect.logWarning('Restarting ACP backend harness', launchTarget);
+        yield* Effect.logWarning('Restarting ACP backend harness').pipe(annotateLaunchTargetLogs(launchTarget));
         yield* stopAndReconcile(launchTarget, get);
         startBackend(launchTarget, get);
       }),

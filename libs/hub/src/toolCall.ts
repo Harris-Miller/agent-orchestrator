@@ -31,6 +31,13 @@ const bearerToken = (headers: Headers.Headers): string | undefined => {
   return header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined;
 };
 
+/** What a finished call records on its span and in its one log: the owner's session ids, the tool and the outcome. */
+export const toolCallAttributes = (
+  session: Readonly<Record<string, string>>,
+  tool: string,
+  outcome: HubOutcome,
+): Record<string, string> => ({ ...session, [HUB_OUTCOME]: outcome, [HUB_TOOL]: tool });
+
 const outcomeOf = (exit: Exit.Exit<McpServer.MiddlewareSuccess, unknown>): HubOutcome => {
   if (Exit.isSuccess(exit)) {
     return Predicate.hasProperty(exit.value, 'isError') && exit.value.isError === true ? 'error' : 'ok';
@@ -59,7 +66,7 @@ export const makeToolCallTelemetry = (state: HubState) =>
       const end = yield* Effect.clockWith(clock => clock.currentTimeNanos);
       const durationMs = Duration.toMillis(Duration.nanos(end - start));
       const outcome = outcomeOf(exit);
-      const attributes = { ...session, [HUB_OUTCOME]: outcome, [HUB_TOOL]: tool };
+      const attributes = toolCallAttributes(session, tool, outcome);
       yield* Effect.annotateCurrentSpan(attributes);
       yield* Effect.logInfo('Hub tool call').pipe(Effect.annotateLogs({ ...attributes, duration_ms: durationMs }));
       const tags = { [HUB_OUTCOME]: outcome, [HUB_TOOL]: tool };

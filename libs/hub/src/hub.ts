@@ -13,7 +13,7 @@ import { createServer } from 'node:http';
 
 import { AppSessionId, ClientKind, ClientMessage, HUB_APP_ID, HUB_HOST, PROTOCOL_VERSION } from './protocol.ts';
 import { makeHubState } from './state.ts';
-import { APP_SESSION_ID } from './telemetryKeys.ts';
+import { APP_SESSION_ID, HUB_CLIENT_KIND } from './telemetryKeys.ts';
 import { forwardingHandlers, HubToolkit } from './tools.ts';
 import { makeToolCallTelemetry } from './toolCall.ts';
 
@@ -150,7 +150,7 @@ export const startHub = Effect.fnUntraced(function* (
       });
       yield* disarmIdle;
       yield* Effect.logInfo('Hub client connected').pipe(
-        Effect.annotateLogs({ [APP_SESSION_ID]: appSessionId.value, 'hub.client.kind': kind.value }),
+        Effect.annotateLogs({ [APP_SESSION_ID]: appSessionId.value, [HUB_CLIENT_KIND]: kind.value }),
       );
       yield* Effect.gen(function* () {
         const pull = yield* Socket.readerString(socket);
@@ -168,7 +168,7 @@ export const startHub = Effect.fnUntraced(function* (
         Effect.ensuring(
           Effect.gen(function* () {
             yield* Effect.logInfo('Hub client disconnected').pipe(
-              Effect.annotateLogs({ [APP_SESSION_ID]: appSessionId.value, 'hub.client.kind': kind.value }),
+              Effect.annotateLogs({ [APP_SESSION_ID]: appSessionId.value, [HUB_CLIENT_KIND]: kind.value }),
             );
             yield* state.removeClient(clientId);
             if (state.clientCount() === 0) {

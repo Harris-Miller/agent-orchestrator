@@ -178,12 +178,14 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             ),
           );
           if (Exit.isFailure(seedExit)) {
-            yield* Effect.logWarning('Handoff target seed prompt failed', arg.targetLaunchTarget, targetSessionId);
+            yield* Effect.logWarning('Handoff target seed prompt failed').pipe(
+              annotateSessionLogs(arg.targetLaunchTarget, targetSessionId),
+            );
           } else {
-            yield* Effect.logInfo('Handoff complete', {
-              sourceSessionId: arg.sourceSessionId,
-              targetSessionId,
-            });
+            yield* Effect.logInfo('Handoff complete').pipe(
+              Effect.annotateLogs({ source_session_id: arg.sourceSessionId }),
+              annotateSessionLogs(arg.targetLaunchTarget, targetSessionId),
+            );
           }
         },
         (effect, _arg, get: Atom.FnContext) =>

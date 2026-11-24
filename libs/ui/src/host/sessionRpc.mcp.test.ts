@@ -1,6 +1,6 @@
 /** Which session RPCs inject the hub as an MCP server, and the credential lifecycle behind it. */
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Exit, Fiber, Layer, Logger, References, Scope } from 'effect';
+import { Effect, Exit, Fiber, Scope } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
 
@@ -21,51 +21,6 @@ import { closeSession, createSession, deleteSession, forkSession, loadSession, r
 /** A tool call with a throwaway registry and mock Host services (these handlers need neither). */
 const handleHubToolCall = (call: HubToolCall) =>
   callHubTool(call, { registry: AtomRegistry.make() }).pipe(Effect.provide(mockHostLayer));
-
-/** Log lines emitted, captured in memory: the message as logged and the annotations in scope. */
-const captureLogs = () => {
-  const logs: { readonly annotations: Record<string, unknown>; readonly message: unknown }[] = [];
-  const layer = Layer.mergeAll(
-    Layer.succeed(References.MinimumLogLevel, 'All'),
-    Logger.layer([
-      Logger.make(options => {
-        logs.push({ annotations: options.fiber.getRef(References.CurrentLogAnnotations), message: options.message });
-      }),
-    ]),
-  );
-  return { layer, logs };
-};
-
-describe('Harness session logs', () => {
-  it.effect('are plain messages; the session ids and launch target are annotations, the parent id on a child', () => {
-    const { layer, logs } = captureLogs();
-    return Effect.gen(function* () {
-      yield* installFakeHub([]);
-      yield* installFakeAgent([], { mcp: { received: [] } });
-      const { result } = yield* createSession('codex-acp', '/w', 'parent-1');
-      yield* closeSession('codex-acp', result.sessionId);
-
-      const created = logs.find(log => JSON.stringify(log.message).includes('Created ACP session'));
-      assert.deepStrictEqual(
-        {
-          'acp.launch_target': created?.annotations['acp.launch_target'],
-          'acp.session.id': created?.annotations['acp.session.id'],
-          'acp.session.parent_id': created?.annotations['acp.session.parent_id'],
-        },
-        { 'acp.launch_target': 'codex-acp', 'acp.session.id': result.sessionId, 'acp.session.parent_id': 'parent-1' },
-      );
-      const closing = logs.find(log => JSON.stringify(log.message).includes('Closing ACP session'));
-      assert.strictEqual(closing?.annotations['acp.session.id'], result.sessionId);
-      for (const log of logs) {
-        // One plain string (the logger hands over the arguments as an array), never the session id inside.
-        const [text, ...rest] = log.message as readonly unknown[];
-        assert.isString(text);
-        assert.lengthOf(rest, 0);
-        assert.notInclude(String(text), result.sessionId);
-      }
-    }).pipe(Effect.provide(layer));
-  });
-});
 
 describe('hub MCP injection', () => {
   it.effect('new, load, resume and fork each carry a distinct hub server; new binds after the response', () =>

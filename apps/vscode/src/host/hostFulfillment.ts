@@ -69,6 +69,8 @@ const toNodeStdio = (mode: StdioMode | undefined): 'ignore' | 'inherit' | 'pipe'
  */
 export const makeHostIpcFulfillment = (deps: {
   readonly asAbsolutePath: (relativePath: string) => string;
+  /** Extension Development mode: warns when the webview's env has no OTLP endpoint (export would silently stay off). */
+  readonly isExtensionDevelopment: boolean;
   /** Webview port, for Spawn's stdout/stderr/exit pushes. */
   readonly port: IpcPort;
   readonly tracker: ProcessTracker;
@@ -76,7 +78,7 @@ export const makeHostIpcFulfillment = (deps: {
   /** Read per WorkspaceFolders request. */
   readonly workspaceFolders: () => null | readonly vscode.WorkspaceFolder[] | undefined;
 }): HostIpcFulfillment => {
-  const { asAbsolutePath, port, tracker, webviewId, workspaceFolders } = deps;
+  const { asAbsolutePath, isExtensionDevelopment, port, tracker, webviewId, workspaceFolders } = deps;
   return {
     AppExit: async () => {
       await vscode.commands.executeCommand('workbench.action.closeSidebar');
@@ -236,21 +238,28 @@ export const makeHostIpcFulfillment = (deps: {
       }
       return {};
     },
-    OsSnapshot: () =>
-      Promise.resolve({
-        arch: process.arch,
-        cwd: process.cwd(),
+    OsSnapshot: () => {
+      const env: Record<string, string> = {
+        ...startupOtelEnv,
+        ...stringEnv(),
         // Host markers for the webview's hub client (not passed to spawned children): which Host this is, and the
         // remote kind of a Remote SSH / WSL / container / Codespaces window, whose agents cannot reach a local hub.
-        env: {
-          ...startupOtelEnv,
-          ...stringEnv(),
-          HOA_HOST: 'vscode',
-          ...(vscode.env.remoteName === undefined ? {} : { HOA_VSCODE_REMOTE_NAME: vscode.env.remoteName }),
-        },
+        HOA_HOST: 'vscode',
+        ...(vscode.env.remoteName === undefined ? {} : { HOA_VSCODE_REMOTE_NAME: vscode.env.remoteName }),
+      };
+      if (isExtensionDevelopment && env.OTEL_EXPORTER_OTLP_ENDPOINT === undefined) {
+        console.warn(
+          '[hoa] OTEL_EXPORTER_OTLP_ENDPOINT is missing from the webview env: OTLP export is off in Extension Development. See docs/observability-debugging.md.',
+        );
+      }
+      return Promise.resolve({
+        arch: process.arch,
+        cwd: process.cwd(),
+        env,
         homedir: osHomedir(),
         platform: process.platform,
-      }),
+      });
+    },
     Spawn: async message => {
       const handleId = tracker.allocateHandleId();
       const opts = message.options ?? {};

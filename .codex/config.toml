@@ -13,3 +13,7 @@ url = "http://localhost:3200/api/mcp"
 [mcp_servers.chrome-devtools]
 command = "npx"
 args = ["-y", "chrome-devtools-mcp@latest", "--browser-url=http://127.0.0.1:9222", "--experimental-include-all-pages"]
+
+[mcp_servers.posthog]
+command = "npx"
+args = ["-y", "mcp-remote@latest", "http://localhost:8000/mcp"]

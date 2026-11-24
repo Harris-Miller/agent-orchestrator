@@ -1,1 +1,32 @@
-.cursor/mcp.json
+{
+  "mcpServers": {
+    "tauri": {
+      "command": "npx",
+      "args": ["-y", "@hypothesi/tauri-mcp-server"]
+    },
+    "grafana": {
+      "command": "uvx",
+      "args": ["mcp-grafana"],
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "GRAFANA_URL": "http://localhost:3000"
+      }
+    },
+    "tempo": {
+      "url": "http://localhost:3200/api/mcp"
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--browser-url=http://127.0.0.1:9222",
+        "--experimental-include-all-pages"
+      ]
+    },
+    "posthog": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote@latest", "http://localhost:8000/mcp"]
+    }
+  }
+}

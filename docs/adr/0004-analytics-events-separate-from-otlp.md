@@ -6,7 +6,7 @@ Product **Analytics events** (what users do: a session archived, a prompt sent) 
 
 **Triggers are user-action boundaries, success only.** `trackEvent(event)` is one extra `pipe` stage next to an action's root span and captures once the action succeeded; failures stay in logs and spans (no failure events). Capture is fire-and-forget: forked, bounded to one 5 second attempt, no retry, and a failure is a debug log, so analytics can never fail or block a user action. Exception: where the event needs data computed inside the action (permission / elicitation responded, `prompt_sent`, `session_created`), the action calls `captureEvent` mid-generator instead of the `trackEvent` stage; it is still success-only (called after the last failure point) and the event is still built from the catalog.
 
-**Dev builds only for now, off by default.** Like OTLP, the PostHog env vars (`POSTHOG_HOST`, `POSTHOG_PROJECT_TOKEN`) are read only in dev builds, and an empty token is a silent no-op. The app-session id (#454) is the `distinct_id` until #193 adds a persisted anonymous user id behind the same service. The Hub emits no analytics events (agent tool calls are not user actions). Production export and consent are #453 and #193.
+**Dev builds only for now, off by default.** Like OTLP, `POSTHOG_HOST` is read only in dev builds, `POSTHOG_PROJECT_TOKEN` is fixed at bundle time from the app's gitignored `.env`, only a dev build uses it, and an empty token is a silent no-op. The app-session id (#454) is the `distinct_id` until #193 adds a persisted anonymous user id behind the same service. The Hub emits no analytics events (agent tool calls are not user actions). Production export and consent are #453 and #193.
 
 ## Considered options
 

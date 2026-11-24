@@ -27,7 +27,7 @@ import { VscodeExtensionLive } from './VscodeExtensionLive.ts';
  * Also installs a host {@link ConfigProvider} (Reference — not listed in the
  * Layer ROut type) via {@link ConfigProviderLive}, and OTLP export via
  * {@link ObservabilityLive} in dev builds when host `OTEL_*` config enables it. Analytics is the PostHog Live in dev
- * builds with `POSTHOG_PROJECT_TOKEN` set, else a no-op.
+ * builds with a build-time `POSTHOG_PROJECT_TOKEN` set, else a no-op.
  */
 export type TauriServices = HostServices;
 

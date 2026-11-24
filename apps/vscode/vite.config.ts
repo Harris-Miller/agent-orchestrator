@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => {
       'process.env.HOA_APP_VERSION': JSON.stringify(rootVersion ?? 'unknown'),
       'process.env.HOA_BUILD_TARGET': JSON.stringify(mode === 'development' ? 'dev' : 'prod'),
       'process.env.HOA_CURSOR_BETA': JSON.stringify(env.HOA_CURSOR_BETA || ''),
+      'process.env.POSTHOG_PROJECT_TOKEN': JSON.stringify(env.POSTHOG_PROJECT_TOKEN || ''),
       'process.env.NODE_ENV': JSON.stringify(mode),
     },
     // Prebundle at server start so the first webview client does not trigger

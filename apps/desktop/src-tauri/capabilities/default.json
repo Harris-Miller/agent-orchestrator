@@ -39,6 +39,8 @@
       "allow": [
         { "url": "http://127.0.0.1:4318/**" },
         { "url": "http://localhost:4318/**" },
+        { "url": "http://127.0.0.1:8000/**" },
+        { "url": "http://localhost:8000/**" },
         { "url": "https://dl.google.com/agy-extensions/**" },
         { "url": "https://raw.githubusercontent.com/agentclientprotocol/registry/main/antigravity-acp/agent.json" }
       ]

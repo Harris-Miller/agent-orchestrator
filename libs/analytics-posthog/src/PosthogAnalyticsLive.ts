@@ -1,4 +1,4 @@
-import { Analytics, AnalyticsNoopLive, appSessionId, appVersion, OS } from '@lib/context-services';
+import { Analytics, AnalyticsNoopLive, appSessionId, appVersion, OS, posthogProjectToken } from '@lib/context-services';
 import type { AnalyticsEvent, BuildTarget } from '@lib/context-services';
 import { Config, DateTime, Effect, Layer } from 'effect';
 import { HttpClient, HttpClientRequest } from 'effect/http';
@@ -46,18 +46,19 @@ const send = (
 
 /**
  * PostHog Live for {@link Analytics}: the only code that knows PostHog's wire format. Dev builds only; a prod build
- * returns the no-op without reading any config (the PostHog env vars may exist on a user's machine). In dev, reads
- * `POSTHOG_HOST` (default {@link DEFAULT_HOST}) and `POSTHOG_PROJECT_TOKEN`; an empty or unset token is the no-op,
- * silently. Requires {@link HttpClient}, {@link OS}, and a ConfigProvider (from the Host's `ConfigProviderLive`).
+ * returns the no-op without reading any config. The token is fixed at bundle time ({@link posthogProjectToken}, from
+ * the app's `.env`); an empty token is the no-op, silently. In dev, also reads `POSTHOG_HOST` at runtime (default
+ * {@link DEFAULT_HOST}). Requires {@link HttpClient}, {@link OS}, and a ConfigProvider (from the Host's `ConfigProviderLive`).
  */
 export const makeAnalyticsLive = (
   target: BuildTarget,
   host: AnalyticsHost,
+  projectToken: string = posthogProjectToken,
 ): Layer.Layer<Analytics, never, HttpClient.HttpClient | OS> =>
   target === 'dev'
     ? Layer.unwrap(
         Effect.gen(function* () {
-          const token = (yield* Config.String('POSTHOG_PROJECT_TOKEN').pipe(Config.withDefault(''))).trim();
+          const token = projectToken.trim();
           if (token === '') {
             return AnalyticsNoopLive;
           }

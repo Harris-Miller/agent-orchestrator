@@ -24,7 +24,8 @@ const event = makeAnalyticsEvent('session_archived', { launch_target: 'codex-acp
 /** Captures one event through a Live over a fake fetch; `respond` shapes the fake PostHog. */
 const capture = (
   target: BuildTarget,
-  config: Record<string, string>,
+  token: string,
+  config: Record<string, string> = {},
   respond: () => Promise<Response> = () => Promise.resolve(new Response(null, { status: 200 })),
 ) =>
   Effect.gen(function* () {
@@ -39,7 +40,7 @@ const capture = (
       Deferred.doneUnsafe(sent, Effect.succeed(undefined));
       return respond();
     });
-    const live = makeAnalyticsLive(target, 'desktop').pipe(
+    const live = makeAnalyticsLive(target, 'desktop', token).pipe(
       Layer.provide(FetchHttpClient.layer),
       Layer.provide(fetchLive),
       Layer.provide(osLive),
@@ -55,10 +56,7 @@ const capture = (
 describe('makeAnalyticsLive', () => {
   it.effect('dev with a token posts the PostHog capture body with the common properties', () =>
     Effect.gen(function* () {
-      const { calls, sent } = yield* capture('dev', {
-        POSTHOG_HOST: 'http://localhost:9999/',
-        POSTHOG_PROJECT_TOKEN: 'phc_test',
-      });
+      const { calls, sent } = yield* capture('dev', 'phc_test', { POSTHOG_HOST: 'http://localhost:9999/' });
       yield* Deferred.await(sent);
       assert.strictEqual(calls.length, 1);
       assert.strictEqual(calls[0].url, 'http://localhost:9999/i/v0/e/');
@@ -85,25 +83,25 @@ describe('makeAnalyticsLive', () => {
 
   it.effect('defaults the host to the local PostHog', () =>
     Effect.gen(function* () {
-      const { calls, sent } = yield* capture('dev', { POSTHOG_PROJECT_TOKEN: 'phc_test' });
+      const { calls, sent } = yield* capture('dev', 'phc_test');
       yield* Deferred.await(sent);
       assert.strictEqual(calls[0].url, 'http://localhost:8000/i/v0/e/');
     }),
   );
 
-  it.effect('an empty or unset token sends nothing', () =>
+  it.effect('an empty or blank token sends nothing', () =>
     Effect.gen(function* () {
-      const empty = yield* capture('dev', { POSTHOG_PROJECT_TOKEN: '' });
-      const unset = yield* capture('dev', {});
+      const empty = yield* capture('dev', '');
+      const unset = yield* capture('dev', '  ');
       yield* Effect.yieldNow;
       assert.deepStrictEqual(empty.calls, []);
       assert.deepStrictEqual(unset.calls, []);
     }),
   );
 
-  it.effect('prod sends nothing, even with the env set', () =>
+  it.effect('prod sends nothing, even with a token', () =>
     Effect.gen(function* () {
-      const { calls } = yield* capture('prod', { POSTHOG_PROJECT_TOKEN: 'phc_test' });
+      const { calls } = yield* capture('prod', 'phc_test');
       yield* Effect.yieldNow;
       assert.deepStrictEqual(calls, []);
     }),
@@ -111,7 +109,7 @@ describe('makeAnalyticsLive', () => {
 
   it.effect('a failing send does not fail the caller', () =>
     Effect.gen(function* () {
-      const { calls, sent } = yield* capture('dev', { POSTHOG_PROJECT_TOKEN: 'phc_test' }, () =>
+      const { calls, sent } = yield* capture('dev', 'phc_test', {}, () =>
         Promise.reject(new Error('connection refused')),
       );
       yield* Deferred.await(sent);

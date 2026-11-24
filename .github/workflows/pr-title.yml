@@ -1,5 +1,5 @@
 # PR titles become the squash commit on `develop`, and semantic-release reads them to pick the next version
-# (release.config.mjs). Format: `<Tag>: <Short description>`. Own workflow so a title edit doesn't re-run local-ci.
+# (scripts/release-version.ts). Format: `<Tag>: <Short description>`. Own workflow so a title edit doesn't re-run local-ci.
 name: PR title
 
 on:

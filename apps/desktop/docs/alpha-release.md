@@ -8,9 +8,9 @@ Branching: see [`docs/gitflow.md`](../../../docs/gitflow.md). Release CI runs on
 
 - **Git tags are the source of truth.** The last version is the latest `vX.Y.Z` tag; nothing commits a version back.
 - `apps/desktop/package.json` and `apps/vscode/package.json` hold `"version": "0.0.0"` (dev builds show `0.0.0`). `tauri.conf.json` reads its version from `../package.json`. The root `package.json`, `libs/` and `tooling/` have no version.
-- On push to `main`, `scripts/release-version.mjs` runs semantic-release as a dry run (`release.config.mjs`, ESLint preset). It reads the squash-merged PR titles since the last tag and picks the highest bump. No releasable commit (`New`, `Update`, `Fix`, `Breaking`) → no release, and the later jobs are skipped.
+- On push to `main`, `scripts/release-version.ts` runs semantic-release as a dry run (ESLint preset). It reads the squash-merged PR titles since the last tag and picks the highest bump. No releasable commit (`New`, `Update`, `Fix`, `Breaking`) → no release, and the later jobs are skipped.
 - CI writes the computed version into both apps' `package.json` before it builds. The change is never committed.
-- **Version policy:** Alpha releases are PATCH only (`0.1.x`); the first release is `0.1.0`. Beta releases are MINOR or PATCH, and `1.0.0` ends Beta. The maintainer changes `releaseRules` in `release.config.mjs` by hand at each stage change.
+- **Version policy:** Alpha releases are PATCH only (`0.1.x`); the first release is `0.1.0`. Beta releases are MINOR or PATCH, and `1.0.0` ends Beta. The maintainer changes `releaseRules` in `scripts/release-version.ts` by hand at each stage change.
 - Don't create a `v*` tag by hand: semantic-release treats it as already shipped, so that version would never be built.
 
 ## Release notes

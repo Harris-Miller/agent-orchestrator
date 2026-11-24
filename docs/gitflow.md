@@ -15,7 +15,7 @@ Both branches are protected by rulesets: no direct pushes, no force pushes, and 
 
 ### PR title tags
 
-The tag decides whether the change is released (`release.config.mjs`) and groups it in the release notes.
+The tag decides whether the change is released (`scripts/release-version.ts`) and groups it in the release notes.
 
 | Tag        | Use for                                    | Releases |
 | ---------- | ------------------------------------------ | -------- |

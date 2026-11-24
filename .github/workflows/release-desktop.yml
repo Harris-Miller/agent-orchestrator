@@ -42,7 +42,7 @@ jobs:
         id: version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/release-version.mjs "$RUNNER_TEMP/release-notes.md"
+        run: node scripts/release-version.ts "$RUNNER_TEMP/release-notes.md"
 
       # A draft has no git tag, so semantic-release computes the same version again until the draft is published.
       - name: Fail if the tag or a release already exists

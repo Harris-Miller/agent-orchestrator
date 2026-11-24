@@ -40,12 +40,14 @@ import {
   atMaxSpawnDepth,
   attach,
   capReached,
+  childRef,
   descendantsOf,
   end,
   linkOf,
   MAX_LIVE_CHILDREN,
   MAX_LIVE_DESCENDANTS,
   MAX_SPAWN_DEPTH,
+  parentRef,
   recordFinish,
   reserveSlot,
 } from './links.ts';
@@ -106,14 +108,10 @@ const hasLiveDescendants = (registry: Registry, child: SessionRef): boolean =>
 
 /** Stamp the mirror's Work state from the link's recorded finish, once. */
 const stampMirror = (registry: Registry, link: SpawnedLink, finish: NonNullable<SpawnedLink['finish']>) => {
-  recordFinish(
-    registry,
-    { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId },
-    {
-      ...finish,
-      stamped: true,
-    },
-  );
+  recordFinish(registry, childRef(link), {
+    ...finish,
+    stamped: true,
+  });
   updateHarnessSnapshot(registry, link.mirrorLaunchTarget, current =>
     setMirrorWorkState(current, link.childSessionId, workStateOf(finish.outcome, finish.stopReason)),
   );
@@ -124,18 +122,16 @@ const stampMirror = (registry: Registry, link: SpawnedLink, finish: NonNullable<
  * while it has a live descendant, and gets its finished Work state when the last one is done.
  */
 const stampFinishedAncestors = (registry: Registry, link: SpawnedLink) => {
-  let current = linkOf(registry, { launchTarget: link.parentLaunchTarget, sessionId: link.parentSessionId });
+  let current = linkOf(registry, parentRef(link));
   while (current !== undefined) {
     const { finish } = current;
     if (finish !== undefined && !finish.stamped) {
-      if (
-        hasLiveDescendants(registry, { launchTarget: current.childLaunchTarget, sessionId: current.childSessionId })
-      ) {
+      if (hasLiveDescendants(registry, childRef(current))) {
         return;
       }
       stampMirror(registry, current, finish);
     }
-    current = linkOf(registry, { launchTarget: current.parentLaunchTarget, sessionId: current.parentSessionId });
+    current = linkOf(registry, parentRef(current));
   }
 };
 
@@ -150,7 +146,7 @@ export const settleLink = (registry: Registry, link: SpawnedLink, outcome: Subag
   if (Deferred.isDoneUnsafe(link.outcome)) {
     return;
   }
-  const child = { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId };
+  const child = childRef(link);
   const finish = { outcome, stamped: false, ...(stopReason === undefined ? {} : { stopReason }) };
   recordFinish(registry, child, finish);
   // Work state first: whoever awaits the outcome then reads a finished mirror.
@@ -356,7 +352,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
 
 /** A child ends with its parent: cancelled, its turn cancelled and its session closed (never deleted), the link removed. */
 const endChildWork = Effect.fnUntraced(function* (registry: Registry, link: SpawnedLink, why: string) {
-  const child = { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId };
+  const child = childRef(link);
   // Settled first, so the mirror reads cancelled rather than whatever the cancelled turn reports; a finished child keeps its state.
   settleLink(registry, link, { status: 'cancelled', text: why }, 'cancelled');
   yield* cancelPromptTurn(registry, child).pipe(Effect.ignore);
@@ -391,7 +387,7 @@ const endChildrenOfTarget = Effect.fnUntraced(function* (registry: Registry, lau
   const seen = new Set<SpawnedLink>();
   for (const link of allLinks(registry)) {
     if (link.parentLaunchTarget === launchTarget) {
-      const below = descendantsOf(registry, { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId });
+      const below = descendantsOf(registry, childRef(link));
       for (const doomed of [...below, link]) {
         if (!seen.has(doomed)) {
           seen.add(doomed);

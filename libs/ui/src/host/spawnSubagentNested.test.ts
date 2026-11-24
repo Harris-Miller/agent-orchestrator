@@ -1,6 +1,6 @@
 /** Nested Spawned subagent sessions (#277): a child spawns its own children; limits, mirror placement and routing. */
 import { assert, describe, it } from '@effect/vitest';
-import { Deferred, Effect } from 'effect';
+import { Deferred, Effect, Fiber } from 'effect';
 
 import { backendHarnessSnapshotAtom } from '../atoms/backendState.atoms.ts';
 import { createHostRuntime } from '../createHostRuntime.ts';
@@ -166,6 +166,31 @@ describe('nested lifecycle', () => {
       const closes = h.childCalls.filter(call => call.startsWith('close:'));
       assert.deepStrictEqual(closes, ['close:claude-3', 'close:claude-2', 'close:claude-1']);
       yield* Deferred.succeed(h.release, null);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("cancelling the Selected session's Prompt turn cancels its foreground descendants", () =>
+    Effect.gen(function* () {
+      const h = yield* nestedSetup();
+      h.setParent({ pendingClientRequest: 'prompt' });
+      const first = yield* Effect.forkChild(h.spawn());
+      yield* until(() => h.childCalls.includes('prompt:claude-1'));
+      const second = yield* Effect.forkChild(
+        h.callAs(0, 'spawn_subagent', {
+          configOptions: { model: 'o1' },
+          description: 'Nested',
+          launchTarget: CLAUDE,
+          task: 'Do more',
+        }),
+      );
+      yield* until(() => h.childCalls.includes('prompt:claude-2'));
+
+      h.setParent({ promptCancelRequested: true });
+      yield* until(() => h.childCalls.includes('cancel:claude-1') && h.childCalls.includes('cancel:claude-2'));
+      yield* Deferred.succeed(h.release, null);
+
+      assert.isTrue((yield* Fiber.join(first)).isError);
+      assert.isTrue((yield* Fiber.join(second)).isError);
     }).pipe(Effect.scoped),
   );
 

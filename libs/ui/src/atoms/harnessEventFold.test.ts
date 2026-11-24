@@ -16,7 +16,7 @@ import type { BackendConnectionReports } from '../host/sessionRpc.ts';
 import { getPromptSpan, sendPrompt } from '../host/sessionRpc.ts';
 import { buildSubagentResult } from '../host/subagentResult.ts';
 import type { SubagentResult } from '../host/subagentResult.ts';
-import { mirrorChildIntoParent } from '../host/harnessStateTransitions.ts';
+import { addChildMirror, addChildRowToRootEntry } from '../host/harnessStateTransitions.ts';
 
 import { backendHarnessSnapshotAtom, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
@@ -253,13 +253,17 @@ describe('Harness event fold: Restored subagent', () => {
     Effect.gen(function* () {
       const h = yield* setup();
       updateHarnessSnapshot(h.registry, LT, current =>
-        mirrorChildIntoParent(current, {
-          childId: 'c1',
-          launchTarget: 'claude-agent-acp',
-          name: 'live',
-          parentId: 'p1',
-          task: 'Say hello',
-        }),
+        addChildRowToRootEntry(
+          addChildMirror(current, {
+            childId: 'c1',
+            launchTarget: 'claude-agent-acp',
+            name: 'live',
+            parentId: 'p1',
+            task: 'Say hello',
+          }),
+          'p1',
+          'c1',
+        ),
       );
       replay(h, 't1', 'spawn_subagent', buildSubagentResult(result()));
       replay(h, 't2', 'spawn_subagent', buildSubagentResult(result({ id: 'c2', launchTarget: 'nope' })));

@@ -62,6 +62,18 @@ export interface SubagentLinks {
 
 type LinkMap = ReadonlyMap<string, SpawnedLink>;
 
+/** The child's session ref, from anything that names it (a `SpawnedLink` or `ChildMeta`). */
+export const childRef = (named: Pick<SpawnedLink, 'childLaunchTarget' | 'childSessionId'>): SessionRef => ({
+  launchTarget: named.childLaunchTarget,
+  sessionId: named.childSessionId,
+});
+
+/** The parent's session ref (the direct parent), from a `SpawnedLink`. */
+export const parentRef = (link: Pick<SpawnedLink, 'parentLaunchTarget' | 'parentSessionId'>): SessionRef => ({
+  launchTarget: link.parentLaunchTarget,
+  sessionId: link.parentSessionId,
+});
+
 const linkKey = (session: SessionRef): string => `${session.launchTarget}\u0000${session.sessionId}`;
 
 const linksAtom = Atom.make<LinkMap>(new Map()).pipe(Atom.withLabel('spawnedLinks'), Atom.keepAlive);
@@ -135,7 +147,7 @@ export const depthOf = (registry: Registry, session: SessionRef): number => {
   let link = linkOf(registry, session);
   while (link !== undefined && depth <= MAX_SPAWN_DEPTH + 1) {
     depth += 1;
-    link = linkOf(registry, { launchTarget: link.parentLaunchTarget, sessionId: link.parentSessionId });
+    link = linkOf(registry, parentRef(link));
   }
   return depth;
 };
@@ -162,7 +174,7 @@ export const descendantsOf = (registry: Registry, session: SessionRef): readonly
   const out: SpawnedLink[] = [];
   const visit = (parent: SessionRef, seen: ReadonlySet<string>) => {
     for (const link of childrenOf(registry, parent)) {
-      const child = { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId };
+      const child = childRef(link);
       if (!seen.has(linkKey(child))) {
         visit(child, new Set(seen).add(linkKey(child)));
         out.push(link);

@@ -731,10 +731,6 @@ export const addChildRowToRootEntry = (
   };
 };
 
-/** The mirror in the parent's snapshot, running, with its row in the parent's transcript; before the child's first prompt. */
-export const mirrorChildIntoParent = (snapshot: BackendHarnessSnapshot, mirror: ChildMirror): BackendHarnessSnapshot =>
-  withParentChatItem(addChildMirror(snapshot, mirror), mirror.parentId, mirror.childId);
-
 const isFinishedResult = (status: KnownSubagentResult['status']): status is 'cancelled' | 'completed' | 'failed' =>
   status !== 'running';
 

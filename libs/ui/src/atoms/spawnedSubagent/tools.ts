@@ -18,9 +18,9 @@ import { backendHarnessSnapshotAtom } from '../backendState.atoms.ts';
 import { cancelPromptTurn, sessionById } from '../promptTurn.ts';
 
 import { SpawnSubagentError, startSpawnedSubagent } from './lifecycle.ts';
-import { childrenOf } from './links.ts';
+import { childRef, childrenOf } from './links.ts';
 import type { SubagentOutcome } from './links.ts';
-import { awaitOutcomeEntry, childRef, startReporter, subagentResultText, takeOutcomeAsToolResult } from './report.ts';
+import { awaitOutcomeEntry, startReporter, subagentResultText, takeOutcomeAsToolResult } from './report.ts';
 import type { ChildMeta } from './report.ts';
 
 type Registry = AtomRegistry.AtomRegistry;

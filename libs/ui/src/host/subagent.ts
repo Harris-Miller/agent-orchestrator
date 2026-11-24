@@ -95,6 +95,9 @@ export const subagentNeedsInput = (child: SubagentSnapshot): boolean =>
   child.pendingElicitation !== undefined ||
   child.state?.state === WORK_STATE.requiresAction;
 
+export const isWorking = (child: SubagentSnapshot): boolean =>
+  child.state?.state === WORK_STATE.running || child.state?.state === WORK_STATE.requiresAction;
+
 /** Transcript items to show: a `session/load` replays the task as the child's first user message, which the Subagent task row already shows. */
 export const subagentTranscriptItems = (child: SubagentSnapshot): SessionTranscript['items'] => {
   const [first, ...rest] = child.transcript.items;
@@ -227,9 +230,7 @@ export const subagentRollUp = (
   const below = descendantSubagents(subagents, sessionId);
   return {
     needsInput: below.some(subagentNeedsInput),
-    running: below.filter(
-      child => child.state?.state === WORK_STATE.running || child.state?.state === WORK_STATE.requiresAction,
-    ).length,
+    running: below.filter(isWorking).length,
   };
 };
 
@@ -258,7 +259,7 @@ export const hasWorkingSubagent = (
     child =>
       (kind === undefined || child.kind === kind) &&
       rootAncestorId(subagents, child.sessionId) === sessionId &&
-      (child.state?.state === WORK_STATE.running || child.state?.state === WORK_STATE.requiresAction),
+      isWorking(child),
   );
 
 /**

@@ -11,8 +11,11 @@ import { toolLabel } from './protocol.ts';
 import type { HubState } from './state.ts';
 import { HUB_OUTCOME, HUB_TOOL } from './telemetryKeys.ts';
 
-/** How a hub tool call ended: `rejected` before it was routed (e.g. invalid arguments), `error` when it was routed and the result is an error. */
-export type HubOutcome = 'error' | 'ok' | 'rejected';
+/**
+ * How a hub tool call ended: `rejected` before it was routed (e.g. invalid arguments), `error` when it was routed and the
+ * result is an error, `interrupted` when the agent abandoned it before it finished.
+ */
+export type HubOutcome = 'error' | 'interrupted' | 'ok' | 'rejected';
 
 const toolCalls = Metric.counter('hub.tool_calls', { description: 'Hub tool calls, by tool and outcome.' });
 const toolCallDuration = Metric.histogram('hub.tool_call.duration', {
@@ -59,16 +62,21 @@ export const makeToolCallTelemetry = (state: HubState) =>
     let finished: Exit.Exit<McpServer.MiddlewareSuccess, McpSchema.McpErrorBase> | undefined;
     return Effect.gen(function* () {
       const start = yield* Effect.clockWith(clock => clock.currentTimeNanos);
-      const exit = yield* Effect.exit(effect);
-      const end = yield* Effect.clockWith(clock => clock.currentTimeNanos);
-      const durationMs = Duration.toMillis(Duration.nanos(end - start));
+      const record = (outcome: HubOutcome) =>
+        Effect.gen(function* () {
+          const end = yield* Effect.clockWith(clock => clock.currentTimeNanos);
+          const durationMs = Duration.toMillis(Duration.nanos(end - start));
+          const attributes = toolCallAttributes(session, tool, outcome);
+          yield* Effect.annotateCurrentSpan(attributes);
+          yield* Effect.logInfo('Hub tool call').pipe(Effect.annotateLogs({ ...attributes, duration_ms: durationMs }));
+          const tags = { [HUB_OUTCOME]: outcome, [HUB_TOOL]: tool };
+          yield* Metric.update(Metric.withAttributes(toolCalls, tags), 1);
+          yield* Metric.update(Metric.withAttributes(toolCallDuration, tags), durationMs);
+        });
+      // An abandoned call never reaches the code after its exit, so it is recorded here (and only here) instead.
+      const exit = yield* Effect.exit(effect.pipe(Effect.onInterrupt(() => record('interrupted'))));
       const outcome = outcomeOf(exit);
-      const attributes = toolCallAttributes(session, tool, outcome);
-      yield* Effect.annotateCurrentSpan(attributes);
-      yield* Effect.logInfo('Hub tool call').pipe(Effect.annotateLogs({ ...attributes, duration_ms: durationMs }));
-      const tags = { [HUB_OUTCOME]: outcome, [HUB_TOOL]: tool };
-      yield* Metric.update(Metric.withAttributes(toolCalls, tags), 1);
-      yield* Metric.update(Metric.withAttributes(toolCallDuration, tags), durationMs);
+      yield* record(outcome);
       finished = exit;
       if (outcome !== 'ok') {
         // Failing inside the span gives it an error status; the real exit is restored once the span has ended.

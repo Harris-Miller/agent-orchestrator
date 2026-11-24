@@ -33,6 +33,11 @@ export const makeHubState = () => {
   let nextClientId = 0;
   const clients = new Map<number, Client>();
   const credentials = new Map<string, Credential>();
+  /** A token's credential and the client that owns it; either is `undefined` when unknown or disconnected. */
+  const ownerOf = (token: string) => {
+    const credential = credentials.get(token);
+    return { client: credential === undefined ? undefined : clients.get(credential.clientId), credential };
+  };
   const inFlight = new Map<string, InFlight>();
 
   return {
@@ -103,8 +108,7 @@ export const makeHubState = () => {
      * session and client kind, and the bound ACP session, its launch target and parent. Empty for an unknown token.
      */
     describe: (token: string): Record<string, string> => {
-      const credential = credentials.get(token);
-      const client = credential === undefined ? undefined : clients.get(credential.clientId);
+      const { client, credential } = ownerOf(token);
       return {
         ...(client === undefined ? {} : { [APP_SESSION_ID]: client.appSessionId, [HUB_CLIENT_KIND]: client.kind }),
         ...(credential?.binding === undefined
@@ -123,8 +127,7 @@ export const makeHubState = () => {
      */
     route: (token: string, tool: string, args: unknown): Effect.Effect<CallResult> =>
       Effect.gen(function* () {
-        const credential = credentials.get(token);
-        const client = credential === undefined ? undefined : clients.get(credential.clientId);
+        const { client, credential } = ownerOf(token);
         if (credential === undefined || client === undefined) {
           return toolError('The Harness client that owns this session is no longer connected.');
         }

@@ -351,6 +351,34 @@ describe('hub', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live('an abandoned (interrupted) call is recorded once with outcome interrupted', () => {
+    const { layer, spans } = capture();
+    const interruptedCount = Effect.map(Metric.snapshot, snapshot =>
+      snapshot
+        .filter(metric => metric.id === 'hub.tool_calls' && metric.attributes?.['hub.outcome'] === 'interrupted')
+        .reduce((sum, metric) => sum + Number((metric.state as { count: number | bigint }).count), 0),
+    );
+    return Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-int');
+      const { sessionId } = yield* mcpInitialize(mcpUrl(port), 'tok-int');
+      const before = yield* interruptedCount;
+      const call = yield* Effect.forkChild(
+        mcpCallTool(mcpUrl(port), 'tok-int', sessionId, 'submit_handoff', { document: 'doc' }),
+      );
+      yield* Effect.promise(() => owner.waitFor(m => m.type === 'toolCall'));
+      yield* Fiber.interrupt(call);
+      yield* Effect.repeat(Effect.sleep('10 millis'), {
+        until: () => toolCallSpans(spans).some(span => span.attributes.get('hub.outcome') === 'interrupted'),
+      }).pipe(Effect.timeout('5 seconds'));
+      const interrupted = toolCallSpans(spans).filter(span => span.attributes.get('hub.outcome') === 'interrupted');
+      assert.lengthOf(interrupted, 1);
+      const after = yield* interruptedCount;
+      assert.strictEqual(after - before, 1);
+    }).pipe(Effect.scoped, Effect.provide(layer));
+  });
+
   it.live('routes the call with the hub.toolCall span’s trace context', () => {
     const { layer, spans } = capture();
     return Effect.gen(function* () {

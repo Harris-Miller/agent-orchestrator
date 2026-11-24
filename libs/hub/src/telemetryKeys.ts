@@ -26,7 +26,7 @@ export const APP_SESSION_ID = 'app_session.id';
 export const HUB_CLIENT_KIND = 'hub.client.kind';
 /** The hub tool a call is for: one of `HUB_TOOL_NAMES`, else `unknown`. */
 export const HUB_TOOL = 'hub.tool';
-/** How a hub tool call ended: `ok` | `error` | `rejected`. */
+/** How a hub tool call ended: `ok` | `error` | `rejected` | `interrupted`. */
 export const HUB_OUTCOME = 'hub.outcome';
 
 /** Span attributes / log annotations naming a session: launch target and ACP session id, plus the parent's when a child. */

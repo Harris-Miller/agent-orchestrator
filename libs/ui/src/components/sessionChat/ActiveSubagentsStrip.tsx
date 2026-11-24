@@ -1,7 +1,6 @@
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import { useState } from 'react';
 import type { FC } from 'react';
 
 import {
@@ -9,35 +8,23 @@ import {
   selectedSessionLaunchTargetAtom,
   selectedSubagentAtom,
 } from '../../atoms/backendState.atoms.ts';
-import { cancelSubagentAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import { canCancelSubagent, isWorking } from '../../host/subagent.ts';
-import { SubagentRow } from './transcript/chatItems/SubagentItemView.tsx';
+import { SubagentRow } from './transcript/chatItems/SubagentRow.tsx';
+import { useCancelSubagent } from './useCancelSubagent.ts';
 
 const StripRow: FC<{ readonly childId: string; readonly onClientError: (error: unknown) => void }> = ({
   childId,
   onClientError,
 }) => {
-  const [cancelRequested, setCancelRequested] = useState(false);
   const child = useAtomValue(selectedSubagentAtom(childId));
   const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
-  const cancel = useAtomSet(cancelSubagentAtomFn, { mode: 'promise' });
+  const { cancel, cancelRequested } = useCancelSubagent(launchTarget, childId, onClientError);
   const cancellable = child !== undefined && launchTarget !== undefined && isWorking(child) && canCancelSubagent(child);
   return (
     <SubagentRow
       action={
         cancellable ? (
-          <Button
-            color="warning"
-            disabled={cancelRequested}
-            onClick={() => {
-              setCancelRequested(true);
-              cancel({ launchTarget, sessionId: childId }).catch((error: unknown) => {
-                setCancelRequested(false);
-                onClientError(error);
-              });
-            }}
-            size="small"
-          >
+          <Button color="warning" disabled={cancelRequested} onClick={cancel} size="small">
             Cancel
           </Button>
         ) : undefined

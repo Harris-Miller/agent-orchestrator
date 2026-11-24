@@ -19,9 +19,8 @@ import type { RuntimeJob } from '../host/providerView.ts';
 import {
   getSubagent,
   hasBackgroundActivity,
-  isWorking,
+  isSubagentActive,
   rootAncestorId,
-  subagentNeedsInput,
   subagentRollUp,
 } from '../host/subagent.ts';
 
@@ -254,8 +253,9 @@ export const selectedSubagentRollUpAtom = Atom.family((childId: string) =>
 );
 
 /**
- * Ids of the Selected session's Subagents (native or Spawned, any depth) that are working or need input, in record
- * order. Compared by value, so subscribers re-render only when membership changes.
+ * Ids of the Selected session's Subagents (native or Spawned, any depth) that are running or need input (including one
+ * that has not reported a state), in record order. Compared by value, so subscribers re-render only when membership
+ * changes.
  */
 export const selectedActiveSubagentIdsAtom = Atom.make(get => {
   const subagents = get(selectedSubagentsRecordAtom);
@@ -263,10 +263,7 @@ export const selectedActiveSubagentIdsAtom = Atom.make(get => {
   return subagents === undefined || rootId === undefined
     ? ([] as readonly string[])
     : Object.values(subagents)
-        .filter(
-          child =>
-            rootAncestorId(subagents, child.sessionId) === rootId && (isWorking(child) || subagentNeedsInput(child)),
-        )
+        .filter(child => rootAncestorId(subagents, child.sessionId) === rootId && isSubagentActive(child))
         .map(child => child.sessionId);
 }).pipe(Atom.withEquality<readonly string[]>((a, b) => a.length === b.length && a.every((id, i) => id === b[i])));
 

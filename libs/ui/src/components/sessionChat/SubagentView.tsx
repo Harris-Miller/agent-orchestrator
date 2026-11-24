@@ -5,7 +5,6 @@ import Button from '@mui/material/Button';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
 import type { FC } from 'react';
 
 import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
@@ -15,11 +14,7 @@ import {
   viewedSubagentAtom,
 } from '../../atoms/backendState.atoms.ts';
 import { sessionHeaderAtom } from '../../atoms/sessionHeader.atoms.ts';
-import {
-  cancelSubagentAtomFn,
-  respondElicitationAtomFn,
-  respondPermissionAtomFn,
-} from '../../atoms/boundHarnessAtoms.ts';
+import { respondElicitationAtomFn, respondPermissionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import {
@@ -31,6 +26,7 @@ import {
 } from '../../host/subagent.ts';
 
 import { useChatWidthSx } from './chatWidth.ts';
+import { useCancelSubagent } from './useCancelSubagent.ts';
 import { SubagentDock } from './SubagentDock.tsx';
 import { ChatItemView } from './transcript/ChatItemView.tsx';
 import { PendingElicitationCard } from './pendingInteractions/PendingElicitationCard.tsx';
@@ -51,12 +47,11 @@ const SubagentViewBody: FC<{
     readonly rootSessionId: string;
   };
 }> = ({ onClientError, viewed }) => {
-  const [cancelRequested, setCancelRequested] = useState(false);
   const setViewed = useAtomSet(viewedSubagentAtom);
   const snapshot = useAtomValue(backendHarnessSnapshotAtom(viewed.launchTarget));
   const configOptionIndexes = useAtomValue(configOptionIndexByLaunchTargetAtom);
   const chatWidthSx = useChatWidthSx();
-  const cancel = useAtomSet(cancelSubagentAtomFn, { mode: 'promise' });
+  const { cancel, cancelRequested } = useCancelSubagent(viewed.launchTarget, viewed.childId, onClientError);
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
   const rootTitle = useAtomValue(sessionHeaderAtom).title;
@@ -122,18 +117,7 @@ const SubagentViewBody: FC<{
         <SubagentStatusIndicator child={child} />
         <Typography sx={{ fontWeight: 600 }}>{child.name ?? 'Subagent'}</Typography>
         {running && canCancelSubagent(child) ? (
-          <Button
-            color="warning"
-            disabled={cancelRequested}
-            onClick={() => {
-              setCancelRequested(true);
-              cancel({ launchTarget: viewed.launchTarget, sessionId: child.sessionId }).catch((error: unknown) => {
-                setCancelRequested(false);
-                onClientError(error);
-              });
-            }}
-            size="small"
-          >
+          <Button color="warning" disabled={cancelRequested} onClick={cancel} size="small">
             Cancel
           </Button>
         ) : null}

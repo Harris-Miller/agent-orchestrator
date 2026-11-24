@@ -46,7 +46,7 @@ _Avoid_: Queued prompt, outbox, Send pending
 One Subagent in a list: status, provider icon, name, Model · Effort, and its latest activity, shown the same for a live child and a Restored subagent. Opens the Subagent view on click; appears in a Work region and in the Active subagents strip.
 
 **Active subagents strip**:
-The always-visible list, just above the Composer, of the Selected session's Subagents (native or Spawned, any depth) that are `running` or `requires_action`, whether or not a Prompt turn is in flight. Each is a Subagent row, flagged when it needs input, with a cancel action where the Subagent grants cancel. A Subagent leaves it once it finishes or reaches a terminal state. Not shown in the Subagent view.
+The always-visible list, just above the Composer, of the Selected session's Subagents (native or Spawned, any depth) that are running or need input, including one that has not reported a state yet, whether or not a Prompt turn is in flight. Each is a Subagent row, flagged when it needs input, with a cancel action where the Subagent grants cancel. A Subagent leaves it once it finishes, reaches a terminal state, or its state is unknown. Not shown in the Subagent view.
 
 **Background follow-up**:
 A Session's autonomous Work after its Prompt turn ended while a Subagent session still runs (a native one: Claude, AIR `backgroundSubagents`): the Session is active with no Pending client request and a Subagent descendant of either kind, at any depth, is `running` or `requires_action`. The Agent may raise Pending interactions during it. Counts as working for the Work region and the Keep-awake hold; Prompt turn cancel with no turn cancels the Pending interactions and the agent.

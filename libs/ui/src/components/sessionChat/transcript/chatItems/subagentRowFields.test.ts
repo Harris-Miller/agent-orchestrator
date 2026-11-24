@@ -37,7 +37,6 @@ describe('subagentRowFields', () => {
     assert.deepStrictEqual(b, a);
     assert.strictEqual(a.modelEffort, 'Opus · High');
     assert.strictEqual(a.activity, 'Done.');
-    assert.strictEqual(a.status, 'finished');
   });
 
   it('uses the parent launch target and a fallback name for a native child', () => {

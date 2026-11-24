@@ -24,6 +24,8 @@ afterEach(cleanup);
 const running = { state: { state: 'running' } } as const;
 const cancellable = { capabilities: { cancel: {} } } as const;
 
+const stalePermission = { request: {} } as never;
+
 const setup = (children: SubagentSnapshot[], sessionPatch = {}) => {
   const registry = AtomRegistry.make();
   updateHarnessSnapshot(registry, CODEX, () => harness([session('s1', sessionPatch)], children));
@@ -46,10 +48,23 @@ describe('selectedActiveSubagentIdsAtom', () => {
       subagent('c1', 's1', running),
       subagent('g1', 'c1', { state: { state: 'requires_action' } }),
       subagent('c2', 's1', { state: { state: 'completed' } }),
-      subagent('c3', 's1', { pendingPermission: { request: {} } as never, state: { state: 'idle' } }),
+      subagent('c3', 's1', { pendingPermission: stalePermission, state: { state: 'idle' } }),
+      subagent('c4', 's1'),
+      subagent('c5', 's1', { stateUnconfirmed: true }),
       subagent('x1', 'other', running),
     ]);
-    assert.deepStrictEqual(registry.get(selectedActiveSubagentIdsAtom), ['c1', 'g1', 'c3']);
+    assert.deepStrictEqual(registry.get(selectedActiveSubagentIdsAtom), ['c1', 'g1', 'c4']);
+  });
+
+  it('removes a child once it goes from running to completed', () => {
+    const registry = setup([subagent('c1', 's1', running)]);
+    registry.mount(selectedActiveSubagentIdsAtom);
+    assert.deepStrictEqual(registry.get(selectedActiveSubagentIdsAtom), ['c1']);
+    updateHarnessSnapshot(registry, CODEX, current => ({
+      ...current,
+      subagents: { c1: subagent('c1', 's1', { state: { state: 'completed' } }) },
+    }));
+    assert.deepStrictEqual(registry.get(selectedActiveSubagentIdsAtom), []);
   });
 
   it('keeps the same reference when membership is unchanged', () => {

@@ -55,7 +55,8 @@ export * from './components/HubMount.tsx';
 export * from './components/KeepAwakeMount.tsx';
 export * from './components/LucideMuiIcon.tsx';
 export * from './components/PersistUserSettingsToast.tsx';
-export * from './components/providers/ProviderUpdateNotice.tsx';
+export * from './components/providers/ProviderUpdateCheckMount.tsx';
+export * from './components/updates/UpdatesIndicator.tsx';
 export * from './components/providers/ProvidersSettingsPane.tsx';
 export * from './components/providers/ProvidersStartupMount.tsx';
 export * from './components/providers/VscodeExtensionUpdateDialog.tsx';
@@ -104,6 +105,7 @@ export * from './host/sessionListScope.ts';
 export * from './host/sessionMaterialize.ts';
 export * from './host/sessionRpc.ts';
 export * from './host/sessionUpdateReducer.ts';
+export * from './host/updatesView.ts';
 export * from './host/vendorCliAuth.ts';
 export * from './host/writeTextToClipboard.ts';
 export {

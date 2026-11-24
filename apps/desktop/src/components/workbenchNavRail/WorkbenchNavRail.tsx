@@ -41,9 +41,9 @@ import { FolderPlus, PanelLeftClose, Pin, Settings, SquarePen } from 'lucide-rea
 import { useState } from 'react';
 import type { FC } from 'react';
 
+import { UpdatesIndicatorHost } from '../UpdatesIndicatorHost.tsx';
 import { AppTitle } from './AppTitle.tsx';
 import { PageTitle } from './PageTitle.tsx';
-import { UpdatesIndicator } from '../updatesPrototype/UpdatesIndicator.tsx'; // PROTOTYPE #457
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
 import { ProjectGroup } from './ProjectGroup.tsx';
 
@@ -270,7 +270,7 @@ export const WorkbenchNavRail: FC<{
                   navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
                 }}
               />
-              <UpdatesIndicator compact={false} />
+              <UpdatesIndicatorHost />
             </Box>
           </>
         )}

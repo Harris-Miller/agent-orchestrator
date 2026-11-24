@@ -1,19 +1,11 @@
 import { HarnessMounts, HarnessPrerequisites, VscodeExtensionUpdateDialog } from '@lib/ui';
-import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
+import { createRootRoute, Outlet } from '@tanstack/react-router';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { useEffect } from 'react';
 import type { FC } from 'react';
 
-import { PrototypeSwitcher } from '../components/updatesPrototype/PrototypeSwitcher.tsx'; // PROTOTYPE #457
-import { checkForAppUpdate } from '../checkForAppUpdate.ts';
+import { AppUpdateCheckMount } from '../components/AppUpdateCheckMount.tsx';
 
 const RootComponent: FC = () => {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    checkForAppUpdate().catch(() => undefined);
-  }, []);
-
   return (
     <HarnessPrerequisites
       onExit={() => {
@@ -22,14 +14,10 @@ const RootComponent: FC = () => {
           .catch(() => undefined);
       }}
     >
-      <HarnessMounts
-        onOpenProviders={() => {
-          navigate({ params: { category: 'providers' }, to: '/settings/$category' }).catch(() => undefined);
-        }}
-      >
+      <HarnessMounts>
+        <AppUpdateCheckMount />
         <VscodeExtensionUpdateDialog />
         <Outlet />
-        <PrototypeSwitcher />
       </HarnessMounts>
     </HarnessPrerequisites>
   );

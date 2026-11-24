@@ -8,7 +8,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { Layers, MessagesSquare, Settings } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 
-import { UpdatesIndicator } from './updatesPrototype/UpdatesIndicator.tsx'; // PROTOTYPE #457
+import { UpdatesIndicatorHost } from './UpdatesIndicatorHost.tsx';
 
 const PAGES = [
   { icon: MessagesSquare, label: 'Sessions Page', page: 'sessions', to: '/' },
@@ -53,7 +53,7 @@ export const PagesShell: FC<{ readonly children: ReactNode; readonly page: Page 
             </Tooltip>
           ))}
           <Box sx={{ mt: 'auto' }}>
-            <UpdatesIndicator compact />
+            <UpdatesIndicatorHost />
           </Box>
           <Tooltip placement="right" title="Settings">
             <IconButton

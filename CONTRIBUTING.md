@@ -121,7 +121,7 @@ CI runs `local-ci` and builds the website on every PR. If you changed `package.j
 
 ### Pull request title
 
-The PR title becomes the squash commit on `develop`, and release CI reads it to decide the next version and write the release notes. It must look like:
+The PR title becomes the squash commit on `develop`, and release CI reads it to decide the next version and write the release notes. Only the PR title follows this convention; commits on your branch are free-form (no tag, no issue suffix) because they are squashed away. The title must look like:
 
 ```
 <Tag>: <Short description>
@@ -138,7 +138,7 @@ The PR title becomes the squash commit on `develop`, and release CI reads it to 
 | `Upgrade`  | Dependency upgrades                        | no                 |
 | `Chore`    | Refactors, tests, and other internal work  | no                 |
 
-For example: `Fix: Keep queued prompts after a turn is cancelled`. The `PR title` check fails until the title matches. Link the issue in the PR body (`Closes #123`).
+If the PR closes issues (`Closes #123` in the PR body), end the title with ` (#123)`, or ` (#123, #456)` for several, in ascending order. For example: `Fix: Keep queued prompts after a turn is cancelled (#123)`. A PR with no issue needs no suffix. The `PR title` check fails until the `<Tag>: <Short description>` part matches; the issue suffix is a convention it does not check. GitHub appends the PR number itself on squash.
 
 Never bump a version yourself: versions come from git tags at release time ([`apps/desktop/docs/alpha-release.md`](./apps/desktop/docs/alpha-release.md)).
 

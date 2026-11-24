@@ -147,6 +147,9 @@ export const buildSubagentReportText = (report: SubagentReport): string =>
 const REPORT =
   /<subagent-report\s+id="([^"]*)"\s+status="([^"]*)"\s*>\nsubagent: ([^\n]*)\ntask: ([^\n]*)\n\n([\s\S]*?)\n<\/subagent-report>/g;
 
+/** Whether `text` contains the opening report tag: such a user message's text is verbatim, never image-lifted. */
+export const opensSubagentReport = (text: string): boolean => text.includes(`<${REPORT_TAG}`);
+
 /** Whether `text` holds an opening and a closing report tag: a cheap gate so partial streamed text is not parsed. */
 export const hasSubagentReport = (text: string): boolean =>
   text.includes(`<${REPORT_TAG}`) && text.includes(`</${REPORT_TAG}`);

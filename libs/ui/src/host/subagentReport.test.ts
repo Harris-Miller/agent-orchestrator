@@ -5,7 +5,7 @@ import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import { applyLiveSessionUpdate } from './harnessStateTransitions.ts';
 import { initialSpawnedSubagentSnapshot } from './subagent.ts';
-import { buildSubagentResult, hasSubagentReport, parseSubagentReports } from './subagentResult.ts';
+import { buildSubagentResult, hasSubagentReport, opensSubagentReport, parseSubagentReports } from './subagentResult.ts';
 
 const report = (status: 'cancelled' | 'completed' | 'failed', text: string, task = 't') =>
   buildSubagentReport({ description: 'd', id: 'c1', outcome: { status, text }, task });
@@ -50,6 +50,15 @@ describe('parseSubagentReports', () => {
       [],
     );
     assert.deepStrictEqual(parseSubagentReports('plain'), []);
+  });
+});
+
+describe('opensSubagentReport', () => {
+  it('is true once the opening tag appears, even unclosed', () => {
+    assert.isTrue(opensSubagentReport('<subagent-report id="c1" status="completed">'));
+    assert.isTrue(opensSubagentReport('hi <subagent-report'));
+    assert.isFalse(opensSubagentReport('x</subagent-report>'));
+    assert.isFalse(opensSubagentReport('plain'));
   });
 });
 
@@ -196,8 +205,43 @@ describe('Subagent report on replay', () => {
     assert.deepStrictEqual(s.subagents.c1.state, replay(spawn('running')).subagents.c1.state);
   });
 
-  it('upgrades with image markdown in the report body', () => {
-    const s = replay(spawn('running'), userMessage(report('completed', 'see ![x](a.png) done')));
+  const bodyOf = (s: BackendHarnessSnapshot) => (s.subagents.c1.transcript.items.at(-1) as { text: string }).text;
+
+  it('restores the body byte-for-byte with image links', () => {
+    const body = 'see [@shot](file:///tmp/shot.png) and ![x](data:image/png;base64,AAAA) done';
+    const s = replay(spawn('running'), userMessage(report('completed', body)));
     assert.deepStrictEqual(s.subagents.c1.state, { state: 'completed' });
+    assert.strictEqual(bodyOf(s), body);
+  });
+
+  it('restores the body with an image link split across chunks', () => {
+    const body = 'before [@shot](file:///tmp/shot.png) after';
+    const text = report('completed', body);
+    const start = text.indexOf('[@shot]');
+    const end = text.indexOf(')', start) + 1;
+    const chunk = (t: string) => ({
+      content: { text: t, type: 'text' },
+      messageId: 'm1',
+      sessionUpdate: 'user_message_chunk',
+    });
+    const s = replay(
+      spawn('running'),
+      chunk(text.slice(0, start)),
+      chunk(text.slice(start, end)),
+      chunk(text.slice(end)),
+    );
+    assert.deepStrictEqual(s.subagents.c1.state, { state: 'completed' });
+    assert.strictEqual(bodyOf(s), body);
+  });
+
+  it('still lifts image links out of a normal user message', () => {
+    const s = replay({
+      content: { text: 'look [@shot](file:///tmp/shot.png) here', type: 'text' },
+      messageId: 'm1',
+      sessionUpdate: 'user_message_chunk',
+    });
+    const item = s.sessions.p1.transcript.items.at(-1) as { images?: readonly unknown[]; text: string };
+    assert.strictEqual(item.images?.length, 1);
+    assert.notInclude(item.text, 'shot.png');
   });
 });

@@ -27,6 +27,7 @@ import {
   unifiedSessionHistoryAtom,
 } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { spawnedChildrenSnapshotAtom, wasSpawnedChildIn } from './spawnedSubagent/links.ts';
 import { untrackSession } from './trackedSessions.ts';
 import { activateSession } from './sessionLifecycle.ts';
 import { trackSession } from './trackSession.ts';
@@ -42,10 +43,13 @@ export const importStateAtom = Atom.make<ImportState>(initialImportState(undefin
   Atom.keepAlive,
 );
 
-/** Rows the open Import lists: not yet tracked (archived tracked ones included), newest Last prompt time first. */
-export const importRowsAtom = Atom.make(get =>
-  importableRows(get(importStateAtom), get(unifiedSessionHistoryAtom)),
-).pipe(Atom.keepAlive);
+/** Rows the open Import lists: not yet tracked (archived tracked ones included) and never a Spawned subagent session, newest Last prompt time first. */
+export const importRowsAtom = Atom.make(get => {
+  const children = get(spawnedChildrenSnapshotAtom);
+  return importableRows(get(importStateAtom), get(unifiedSessionHistoryAtom)).filter(
+    ({ launchTarget, sessionId }) => !wasSpawnedChildIn(children, { launchTarget, sessionId }),
+  );
+}).pipe(Atom.keepAlive);
 
 export const createImportSessionsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 'atomRuntime'>) => {
   /** Fetches the next page of each given target in parallel; one target's failure stays in that target. */

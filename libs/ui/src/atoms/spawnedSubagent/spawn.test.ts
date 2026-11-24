@@ -417,7 +417,7 @@ describe('a Spawned subagent session pending interaction', () => {
 });
 
 describe('Session History of a Spawned subagent session', () => {
-  it.effect('is hidden while linked, even after a session/list refresh, and appears titled once the link ends', () =>
+  it.effect('is hidden while linked, after a session/list refresh, and after the link ends', () =>
     Effect.gen(function* () {
       const h = yield* setup();
       const started = yield* h.start();
@@ -432,13 +432,17 @@ describe('Session History of a Spawned subagent session', () => {
       }));
       assert.deepStrictEqual(childRows(), []);
 
-      // Without a refresh, a closed child must still appear with a title.
-      updateHarnessSnapshot(h.registry, CLAUDE, current => ({ ...current, sessionHistory: [] }));
+      // Ending the link adds no row and keeps the list-refresh row hidden.
       yield* endLink(h.registry, { launchTarget: CLAUDE, sessionId: CHILD });
-      assert.deepStrictEqual(
-        childRows().map(entry => [entry.launchTarget, entry.title]),
-        [[CLAUDE, 'Review the diff']],
-      );
+      assert.deepStrictEqual(childRows(), []);
+      updateHarnessSnapshot(h.registry, CLAUDE, current => ({ ...current, sessionHistory: [] }));
+      assert.deepStrictEqual(childRows(), []);
+      // A later list refresh still cannot reveal it.
+      updateHarnessSnapshot(h.registry, CLAUDE, current => ({
+        ...current,
+        sessionHistory: [{ cwd: '/w', sessionId: CHILD, title: 'Again' }],
+      }));
+      assert.deepStrictEqual(childRows(), []);
     }).pipe(Effect.scoped),
   );
 });

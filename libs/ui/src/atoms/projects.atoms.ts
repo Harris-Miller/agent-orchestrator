@@ -15,6 +15,7 @@ import type { ProjectMembership } from '../host/projectSessions.ts';
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { hydrateTrackedSessions } from './trackedSessions.ts';
+import { isChildIn, subagentLinksAtom } from './spawnedSubagent/links.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 export const projectsAtom = Atom.make<readonly string[]>([]).pipe(Atom.withLabel('projects'), Atom.keepAlive);
@@ -32,8 +33,9 @@ export const projectDisplayAtom = Atom.family((cwd: string) =>
 
 /** Membership of a Project: its active sessions (what Stop tracking closes) and whether Selected / the Bound Virtual belong to it. */
 export const projectMembershipAtom = Atom.family((cwd: string) =>
-  Atom.make((get): ProjectMembership =>
-    projectMembership(
+  Atom.make((get): ProjectMembership => {
+    const links = get(subagentLinksAtom);
+    return projectMembership(
       MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
         launchTarget,
         snapshot: get(backendHarnessSnapshotAtom(launchTarget)),
@@ -41,8 +43,9 @@ export const projectMembershipAtom = Atom.family((cwd: string) =>
       get(virtualSessionAtom),
       get(selectedAtom),
       cwd,
-    ),
-  ).pipe(Atom.keepAlive),
+      session => isChildIn(links, session),
+    );
+  }).pipe(Atom.keepAlive),
 );
 
 /**

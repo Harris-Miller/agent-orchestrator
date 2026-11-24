@@ -43,7 +43,7 @@ In the Composer: shown as one row above the editor with an Edit action that move
 _Avoid_: Queued prompt, outbox, Send pending
 
 **Background follow-up**:
-A Session's autonomous Work after its Prompt turn ended while a native Subagent still runs (Claude, AIR `backgroundSubagents`): the Session is active with no Pending client request and a native Subagent descendant is `running` or `requires_action`. The Agent may raise Pending interactions during it. Counts as working for the Work region and the Keep-awake hold; Prompt turn cancel with no turn cancels the Pending interactions and the agent.
+A Session's autonomous Work after its Prompt turn ended while a Subagent session still runs (a native one: Claude, AIR `backgroundSubagents`): the Session is active with no Pending client request and a Subagent descendant of either kind, at any depth, is `running` or `requires_action`. The Agent may raise Pending interactions during it. Counts as working for the Work region and the Keep-awake hold; Prompt turn cancel with no turn cancels the Pending interactions and the agent.
 
 **Prompt turn**:
 The Harness side of one ACP Turn the user starts on a Session, by Send or by Handoff: the user message with its turn timing, the Pending client request while the Turn runs, Steering into it, Prompt turn cancel of it, and an Attention event when it ends. Starts only when the Composer action's rule would offer Send for that Session (a running Handoff's own lock aside) and Bootstrap is `usable` (or `ready`); a refused start leaves the transcript as it was. It ends with the Agent's stop reason, or with a Request error when the Agent answers the prompt with an error response; either way the user message stays.

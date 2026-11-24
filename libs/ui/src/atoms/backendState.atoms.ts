@@ -20,7 +20,7 @@ import { getSubagent, hasBackgroundActivity, rootAncestorId } from '../host/suba
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
-import { isChildIn, subagentLinksAtom } from './spawnedSubagent/links.ts';
+import { spawnedChildrenSnapshotAtom, wasSpawnedChildIn } from './spawnedSubagent/links.ts';
 import {
   showArchivedAtom,
   unwrapUserSettings,
@@ -109,13 +109,13 @@ export const requireLaunchTargetUsable = (get: AtomGetter, launchTarget: AgentLa
   return undefined;
 };
 
-/** Every launch target's Session History rows, except Spawned subagent sessions while their link is live (ADR 0011). */
+/** Every launch target's Session History rows, except Spawned subagent sessions, which are never listed while this app run knows them, live or after their link ends (ADR 0011). Not durable across a restart. */
 export const unifiedSessionHistoryAtom = Atom.make(get => {
-  const links = get(subagentLinksAtom);
+  const children = get(spawnedChildrenSnapshotAtom);
   const entries: UnifiedHistoryEntry[] = [];
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     for (const entry of get(backendHarnessSnapshotAtom(launchTarget)).sessionHistory) {
-      if (!isChildIn(links, { launchTarget, sessionId: entry.sessionId })) {
+      if (!wasSpawnedChildIn(children, { launchTarget, sessionId: entry.sessionId })) {
         entries.push({ ...entry, launchTarget });
       }
     }

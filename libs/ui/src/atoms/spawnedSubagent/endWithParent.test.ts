@@ -8,13 +8,14 @@ import { answer, CHILD, childIndex, PARENT, setup, until } from '../../host/spaw
 import { getSubagent } from '../../host/subagent.ts';
 import { parseSubagentResults } from '../../host/subagentResult.ts';
 
-import { backendHarnessSnapshotAtom, configOptionIndexAtom } from '../backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, configOptionIndexAtom, unifiedSessionHistoryAtom } from '../backendState.atoms.ts';
 import { createChatAtoms } from '../chat.atoms.ts';
 import { CODEX } from '../fakeAgent.testing.ts';
 import { makeHarnessEventFold } from '../harnessEventFold.ts';
 import { mockHostLayer } from '../mockHostLayer.testing.ts';
 import { runAtomFn } from '../runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from '../sessionLifecycle.atoms.ts';
+import { updateHarnessSnapshot } from '../harnessSnapshot.ts';
 import { allLinks } from './links.ts';
 
 const SECOND = 'claude-2';
@@ -47,6 +48,15 @@ describe('ending a parent ends its children', () => {
   it.effect('closing the parent cancels and closes every child and removes the links', () =>
     Effect.gen(function* () {
       const h = yield* twoChildren();
+      // A session/list refresh returns both children's rows on their launch target.
+      updateHarnessSnapshot(h.registry, 'claude-agent-acp', current => ({
+        ...current,
+        sessionHistory: [
+          ...current.sessionHistory,
+          { cwd: '/w', sessionId: CHILD, title: 'First' },
+          { cwd: '/w', sessionId: SECOND, title: 'Second' },
+        ],
+      }));
 
       yield* runAtomFn(h.registry, h.lifecycle.deactivateSessionAtomFn, { launchTarget: CODEX, sessionId: PARENT });
 
@@ -56,6 +66,11 @@ describe('ending a parent ends its children', () => {
       assert.deepStrictEqual(h.mirrors(), ['cancelled', 'cancelled']);
       const child = h.registry.get(backendHarnessSnapshotAtom('claude-agent-acp')).sessions[CHILD];
       assert.strictEqual(child.status, 'inactive');
+      // The closed child never becomes a top-level Session.
+      assert.deepStrictEqual(
+        h.registry.get(unifiedSessionHistoryAtom).filter(entry => [CHILD, SECOND].includes(entry.sessionId)),
+        [],
+      );
       assert.isTrue((yield* Fiber.join(h.foreground)).isError);
       yield* Deferred.succeed(h.release, null);
       // Nothing is reported to a parent that is gone.

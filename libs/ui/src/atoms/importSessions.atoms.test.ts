@@ -10,6 +10,7 @@ import { createImportSessionsAtoms, importRowsAtom, importStateAtom } from './im
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.testing.ts';
+import { end, reserveSlot } from './spawnedSubagent/links.ts';
 
 type Page = { readonly nextCursor?: string; readonly sessions: readonly Record<string, unknown>[] } | 'fail';
 
@@ -105,6 +106,29 @@ describe('Import paging', () => {
 
       yield* runAtomFn(registry, atoms.openImportAtomFn, '/proj');
       assert.deepStrictEqual(ids(), [`${CODEX}:b`]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('never offers a Spawned subagent session, while linked or after its link ends', () =>
+    Effect.gen(function* () {
+      const { atoms, ids, registry } = yield* setup();
+      yield* connectFakeAgent(
+        CODEX,
+        pagedAgent({ '': { sessions: [row('a', '2026-01-01T00:00:00Z'), row('kid', '2026-01-02T00:00:00Z')] } }, []),
+      );
+      advertise(registry, CODEX, {});
+      const child = { launchTarget: CODEX, sessionId: 'kid' };
+      reserveSlot(registry, { launchTarget: CLAUDE, sessionId: 'p' })?.register({
+        child,
+        description: 'd',
+        task: 't',
+      });
+
+      yield* runAtomFn(registry, atoms.openImportAtomFn, '/proj');
+      assert.deepStrictEqual(ids(), [`${CODEX}:a`]);
+
+      yield* end(registry, child);
+      assert.deepStrictEqual(ids(), [`${CODEX}:a`]);
     }).pipe(Effect.scoped),
   );
 });

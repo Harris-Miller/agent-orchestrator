@@ -43,8 +43,12 @@ const unescapeAttribute = (value: string): string =>
 
 // Body closing tags are escaped as `<\/subagent` (an existing `<\/subagent` gains another backslash) so the body
 // cannot end the element early; the parser reverses it.
-const escapeBody = (body: string): string => body.replaceAll(/<(\\*)\/subagent/g, '<$1\\/subagent');
-const unescapeBody = (body: string): string => body.replaceAll(/<\\(\\*)\/subagent/g, '<$1/subagent');
+const escapeBody = (body: string, tag = 'subagent'): string =>
+  // `</tag` preceded by any run of backslashes after `<`: `<\\*/tag` → one more backslash.
+  body.replaceAll(new RegExp(`<(\\\\*)/${tag}`, 'g'), `<$1\\/${tag}`);
+// Reverse: `<\\+/tag` → one backslash fewer.
+const unescapeBody = (body: string, tag = 'subagent'): string =>
+  body.replaceAll(new RegExp(`<\\\\(\\\\*)/${tag}`, 'g'), `<$1/${tag}`);
 
 export const buildSubagentResult = (result: SubagentResult): string => {
   const attributes = Object.entries({
@@ -118,3 +122,54 @@ const HUB_SUBAGENT_TOOL = new RegExp(
 );
 
 export const isHubSubagentToolTitle = (title: string): boolean => HUB_SUBAGENT_TOOL.test(title);
+
+export type SubagentReportStatus = Exclude<SubagentResultStatus, 'running'>;
+
+/** A parsed Subagent report: the second persisted contract, the user message that hands a background child's outcome to its parent. */
+export type SubagentReport = {
+  readonly body: string;
+  readonly description: string;
+  readonly id: string;
+  readonly status: SubagentReportStatus;
+  readonly task: string;
+};
+
+const isReportStatus = (status: string): status is SubagentReportStatus =>
+  status === 'cancelled' || status === 'completed' || status === 'failed';
+
+const REPORT_TAG = 'subagent-report';
+
+/** One line: a newline would blur where the header ends and the body begins. */
+const oneLine = (value: string): string => value.replaceAll(/\s*\n\s*/g, ' ');
+
+/** The Subagent report text; built and parsed only here. Description and task are flattened to one line. */
+export const buildSubagentReportText = (report: SubagentReport): string =>
+  `<subagent-report id="${escapeAttribute(report.id)}" status="${report.status}">\nsubagent: ${oneLine(report.description)}\ntask: ${oneLine(report.task)}\n\n${escapeBody(report.body, REPORT_TAG)}\n</subagent-report>`;
+
+const REPORT = new RegExp(
+  `<${REPORT_TAG}\\s+id="([^"]*)"\\s+status="([^"]*)"\\s*>\\nsubagent: ([^\\n]*)\\ntask: ([^\\n]*)\\n\\n([\\s\\S]*?)\\n</${REPORT_TAG}>`,
+  'g',
+);
+
+/** Whether `text` contains the opening report tag: such a user message's text is verbatim, never image-lifted. */
+export const opensSubagentReport = (text: string): boolean => text.includes(`<${REPORT_TAG}`);
+
+/** Whether `text` holds an opening and a closing report tag: a cheap gate so partial streamed text is not parsed. */
+export const hasSubagentReport = (text: string): boolean =>
+  text.includes(`<${REPORT_TAG}`) && text.includes(`</${REPORT_TAG}`);
+
+/** Every well-formed Subagent report in `text`, in order; malformed ones or other statuses are skipped. CRLF is tolerated. */
+export const parseSubagentReports = (text: string): readonly SubagentReport[] =>
+  [...text.replaceAll('\r\n', '\n').matchAll(REPORT)].flatMap(([, id, status, description, task, body]) =>
+    isReportStatus(status)
+      ? [
+          {
+            body: unescapeBody(body, REPORT_TAG),
+            description,
+            id: unescapeAttribute(id),
+            status,
+            task,
+          },
+        ]
+      : [],
+  );

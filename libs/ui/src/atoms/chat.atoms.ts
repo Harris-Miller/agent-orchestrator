@@ -5,7 +5,7 @@ import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 import { sessionAttributes } from '@lib/hub/telemetryKeys';
 
-import { elicitationResponded, permissionResponded, promptCancelled } from '../analytics/catalog.ts';
+import { elicitationResponded, permissionResponded, promptCancelled, subagentCancelled } from '../analytics/catalog.ts';
 import { captureEvent, trackEvent } from '../analytics/trackEvent.ts';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget, SessionRef } from '../host/agentLaunchTarget.ts';
@@ -61,19 +61,23 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           yield* Effect.annotateCurrentSpan(sessionAttributes(arg.launchTarget, arg.sessionId));
           const child = getSubagent(get(backendHarnessSnapshotAtom(arg.launchTarget)).subagents, arg.sessionId);
           if (child === undefined) {
-            return;
+            return false;
           }
           // A Spawned subagent session is a root on its own launch target: its Prompt turn cancel (soft-cancel, Pending
           // interactions resolved) does the work, not a raw `session/cancel`.
           if (child.kind === 'spawned') {
-            yield* cancelPromptTurn(get.registry, { launchTarget: child.launchTarget, sessionId: child.sessionId });
-            return;
+            return yield* cancelPromptTurn(get.registry, {
+              launchTarget: child.launchTarget,
+              sessionId: child.sessionId,
+            });
           }
           if (!canCancelSubagent(child)) {
-            return;
+            return false;
           }
           yield* cancelSession(arg.launchTarget, arg.sessionId);
+          return true;
         },
+        (self, arg) => self.pipe(trackEvent(subagentCancelled(arg.launchTarget), Boolean)),
         Effect.withSpan('cancelSubagentAtomFn', arg => {
           const parent = getPromptSpan(arg.launchTarget, arg.sessionId);
           return parent !== undefined ? { parent } : { root: true };

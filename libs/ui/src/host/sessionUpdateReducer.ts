@@ -19,7 +19,7 @@ import { isSkillCommand, sessionFailureOf } from './airMeta.ts';
 import { findMarkdownLinks } from './draftToContentBlocks.ts';
 import { knownLaunchTarget } from './agentLaunchTarget.ts';
 import { WINDOWS_DRIVE } from './openChatLink.ts';
-import { isHubSubagentToolTitle, parseSubagentResults } from './subagentResult.ts';
+import { isHubSubagentToolTitle, opensSubagentReport, parseSubagentResults } from './subagentResult.ts';
 import type { KnownSubagentResult } from './subagentResult.ts';
 
 export type PlanEntry = {
@@ -646,14 +646,18 @@ export const stampUserMessageTiming = (
   items: transcript.items.map(item => (item.id === id && item.kind === 'user_message' ? { ...item, ...patch } : item)),
 });
 
+/** A Harness-sent Subagent report's text is verbatim: lifting would strip image links from its echoed task or body. */
+const liftUserText = (text: string, verbatim: boolean) =>
+  verbatim ? { images: [] as const, text } : liftImageMarkdownLinks(text);
+
 export const appendUserChatMessage = (
   transcript: SessionTranscript,
   text: string,
   images?: readonly UserMessageImageRef[],
   options?: { readonly steering?: true },
 ): SessionTranscript => {
-  // Same lift as session/load `user_message_chunk`: `@` image markdown → top thumbnails.
-  const lifted = liftImageMarkdownLinks(text);
+  // Same lift as session/load `user_message_chunk`: `@` image markdown → top thumbnails (not for a Subagent report).
+  const lifted = liftUserText(text, opensSubagentReport(text));
   const mergedImages = [...(images ?? []), ...lifted.images];
   const steering = options?.steering;
   if (mergedImages.length === 0 && steering === undefined) {
@@ -829,13 +833,15 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
     case 'user_message_chunk': {
       const rawText = extractTextFromContent(update.content);
       const blockImages = extractImageRefsFromContent(update.content);
-      const lifted = rawText === undefined ? { images: [] as const, text: undefined } : liftImageMarkdownLinks(rawText);
-      return appendUserMessageChunk(
-        transcript,
-        typeof update.messageId === 'string' ? update.messageId : undefined,
-        lifted.text,
-        [...blockImages, ...lifted.images],
-      );
+      const messageId = typeof update.messageId === 'string' ? update.messageId : undefined;
+      const existingIndex = messageId === undefined ? undefined : transcript.messageIndices.get(messageId);
+      const existing = existingIndex === undefined ? undefined : transcript.items[existingIndex];
+      // A replayed Subagent report is verbatim: lifting would strip image links from its body.
+      const verbatim =
+        rawText !== undefined &&
+        (opensSubagentReport(rawText) || (existing?.kind === 'user_message' && opensSubagentReport(existing.text)));
+      const lifted = rawText === undefined ? { images: [] as const, text: undefined } : liftUserText(rawText, verbatim);
+      return appendUserMessageChunk(transcript, messageId, lifted.text, [...blockImages, ...lifted.images]);
     }
 
     case 'session_message':

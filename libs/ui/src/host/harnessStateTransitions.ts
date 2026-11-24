@@ -80,7 +80,8 @@ import {
   withParentChatItem,
 } from './subagentRouting.ts';
 import { withoutUndefined } from '../optionalFields.ts';
-import type { KnownSubagentResult } from './subagentResult.ts';
+import { hasSubagentReport, parseSubagentReports } from './subagentResult.ts';
+import type { KnownSubagentResult, SubagentReport } from './subagentResult.ts';
 
 export const markHistoryUnavailable = (history: readonly HistoryEntry[]): readonly HistoryEntry[] =>
   history.map(entry => ({ ...entry, unavailable: true }));
@@ -971,6 +972,49 @@ const applyRootSessionUpdate = (
   };
 };
 
+/**
+ * Fold a Subagent report (ADR 0013) into a Restored subagent still in an unknown state: it gets the body as its final
+ * message and the report's finished state. A no-op for an unknown child, a live mirror or one already finished.
+ */
+export const applySubagentReport = (
+  snapshot: BackendHarnessSnapshot,
+  report: SubagentReport,
+): BackendHarnessSnapshot => {
+  const existing = getSubagent(snapshot.subagents, report.id);
+  if (existing?.kind !== 'spawned' || existing.restored === undefined || isSubagentTerminal(existing.state)) {
+    return snapshot;
+  }
+  const upgraded = withSubagentWorkState(
+    {
+      ...existing,
+      transcript: reduceSessionUpdate(emptySessionTranscript(), {
+        content: { text: report.body, type: 'text' },
+        sessionUpdate: 'agent_message_chunk',
+      }),
+    },
+    report.status === 'failed' ? { error: report.body, state: 'failed' } : { state: report.status },
+  );
+  return { ...snapshot, subagents: { ...snapshot.subagents, [report.id]: upgraded } };
+};
+
+/** A user message chunk whose accumulated text now holds Subagent reports upgrades the Restored subagents they name. */
+const restoreSubagentsOfReports = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  update: unknown,
+): BackendHarnessSnapshot => {
+  if (!Predicate.isObject(update) || update.sessionUpdate !== 'user_message_chunk') {
+    return snapshot;
+  }
+  const transcript = sessionOrSubagentOf(snapshot, sessionId)?.transcript;
+  // The chunk may extend an earlier message (same messageId) with other items appended since: find it by id.
+  const index = typeof update.messageId === 'string' ? transcript?.messageIndices.get(update.messageId) : undefined;
+  const item = index === undefined ? transcript?.items.at(-1) : transcript?.items[index];
+  return item?.kind !== 'user_message' || !hasSubagentReport(item.text)
+    ? snapshot
+    : parseSubagentReports(item.text).reduce(applySubagentReport, snapshot);
+};
+
 /** A Hub subagent tool call that now carries Subagent results restores each child they name (ADR 0013). */
 const restoreSubagentsOfToolCall = (
   snapshot: BackendHarnessSnapshot,
@@ -1003,5 +1047,9 @@ export const applyLiveSessionUpdate = (
     return routed;
   }
   const next = applyRootSessionUpdate(snapshot, sessionId, update);
-  return { snapshot: next === snapshot ? snapshot : restoreSubagentsOfToolCall(next, sessionId, update) };
+  if (next === snapshot) {
+    return { snapshot };
+  }
+  const withToolCallChildren = restoreSubagentsOfToolCall(next, sessionId, update);
+  return { snapshot: restoreSubagentsOfReports(withToolCallChildren, sessionId, update) };
 };

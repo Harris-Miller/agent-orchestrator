@@ -24,8 +24,6 @@ const WorkItemPreview: FC<{ item: ChatItem }> = ({ item }) => {
   switch (item.kind) {
     case 'tool_call':
       return <ToolCallView item={item} preview />;
-    case 'subagent':
-      return <SubagentItemView item={item} />;
     case 'session_failure':
       return <SessionFailureRow item={item} />;
     case 'agent_thought':
@@ -113,7 +111,8 @@ export const WorkRegionView: FC<{
     if (open && prevSegmentCount === 1) setFirstSegmentOpen(true);
   }
   const firstSegmentId = segments.find(entry => entry.kind === 'work_segment')?.id;
-  const latest = region.items.at(-1);
+  const latest = region.items.findLast(item => item.kind !== 'subagent');
+  const subagents = region.items.filter(item => item.kind === 'subagent');
   return (
     // No top padding on the region: the header's natural top is the region's top, so any gap means it is stuck.
     <ListItem ref={regionRef} sx={{ display: 'block', pb: 0.5, pt: 0 }}>
@@ -140,6 +139,13 @@ export const WorkRegionView: FC<{
           </Typography>
         </DisclosureButton>
       </Box>
+      {!open && subagents.length > 0 ? (
+        <List dense disablePadding sx={{ pl: 1 }}>
+          {subagents.map(item => (
+            <SubagentItemView item={item} key={item.id} />
+          ))}
+        </List>
+      ) : null}
       {inFlight && !open && latest !== undefined ? (
         <List dense disablePadding sx={{ pl: 1 }}>
           <WorkItemPreview item={latest} />

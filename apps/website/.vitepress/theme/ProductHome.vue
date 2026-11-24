@@ -72,14 +72,14 @@ const providers = [
   <div class="ph">
     <!-- HERO -->
     <section class="hero">
-      <p class="pill">Pre-alpha · built on the Agent Client Protocol</p>
+      <p class="pill">Alpha · built on the Agent Client Protocol</p>
       <h1>Every coding agent.<br /><span>One harness.</span></h1>
       <p class="lede">
         HOA runs Codex, Claude and more side by side in one desktop app — one Session History, one composer, and one
         place to answer every permission prompt.
       </p>
       <div class="ctas">
-        <a class="btn primary" :href="withBase('/guide/getting-started')">Build it from source</a>
+        <a class="btn primary" :href="withBase('/guide/getting-started')">Get started</a>
         <a class="btn" :href="REPO" target="_blank" rel="noreferrer">View on GitHub</a>
       </div>
 
@@ -188,12 +188,11 @@ const providers = [
     <!-- CTA -->
     <section class="cta">
       <h2>Try it today</h2>
-      <p>No installers yet. You need Node ≥ 22, pnpm and the Tauri prerequisites.</p>
-      <pre><code>git clone {{ REPO }}.git
-cd agent-orchestrator
-pnpm install
-pnpm run tauri:dev</code></pre>
-      <a class="btn primary" :href="withBase('/guide/getting-started')">Full getting-started guide</a>
+      <p>Download the macOS or Windows installer. HOA needs Node ≥ 22 and npm to run agents.</p>
+      <div class="ctas">
+        <a class="btn primary" :href="`${REPO}/releases`" target="_blank" rel="noreferrer">Download</a>
+        <a class="btn" :href="withBase('/guide/getting-started')">Getting-started guide</a>
+      </div>
     </section>
   </div>
 </template>

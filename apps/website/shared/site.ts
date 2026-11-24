@@ -47,9 +47,9 @@ export const docsThemeConfig: DefaultTheme.Config = {
   sidebar,
   socialLinks: [{ icon: 'github', link: REPO_URL }],
   search: { provider: 'local' },
-  editLink: { pattern: `${REPO_URL}/edit/main/apps/website/content/:path`, text: 'Edit this page on GitHub' },
+  editLink: { pattern: `${REPO_URL}/edit/develop/apps/website/content/:path`, text: 'Edit this page on GitHub' },
   outline: [2, 3],
-  footer: { message: 'Pre-alpha software. Built with VitePress.' },
+  footer: { message: 'Alpha software. Built with VitePress.' },
 };
 
 export const siteConfig = (): UserConfig<DefaultTheme.Config> => {

@@ -1,0 +1,53 @@
+name: Bug report
+description: Something in HOA doesn't work as expected
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a Project…
+        2. Start a Claude session…
+    validations:
+      required: true
+  - type: dropdown
+    id: app
+    attributes:
+      label: App
+      options:
+        - Desktop app
+        - VS Code extension
+        - Both
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      multiple: true
+      options:
+        - Codex
+        - Claude
+        - Cursor
+        - Antigravity
+        - Not agent-specific
+  - type: input
+    id: version
+    attributes:
+      label: HOA version and OS
+      description: The release you installed, or the branch/commit if you built from source.
+      placeholder: 0.1.3 on macOS 15 (Apple Silicon)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove prompts, file paths, or anything else private before you paste.

@@ -1,5 +1,7 @@
 # AGENTS.md
 
+Repo rules for coding agents. Human contributors follow the same rules; [`CONTRIBUTING.md`](./CONTRIBUTING.md) covers setup, running the apps, branches and PR titles. Read it before your first change.
+
 ## Top Level Instructions
 
 - Gitflow: branch from `develop` and open PRs into `develop`; `main` is the release branch (only release PRs from `develop` merge into it). PR titles must be `<Tag>: <Short description>` with a tag from `docs/gitflow.md`; the title is the squash commit and decides the release. See `docs/gitflow.md`.
@@ -7,7 +9,8 @@
 - Lint every changed file with Oxlint `--fix` and format it with Oxfmt before work is considered done. Run `pnpm --filter=<pkg> run lint <paths>` (paths relative to the package for Oxlint; repeat per package when changes span packages). Then `pnpm run fmt` to format all files (this should never be per file, it will always apply format fixes to all, which is desired).
 - `pnpm run local-ci` should pass before your current task is considered done.
 - NEVER manually update `pnpm-lock.yaml`. If you do update `package.json` `"dependencies"` or `"devDependencies"`, run `pnpm i` after
-- NEVER manually update anything under `.agents/` — it is an immutable dependency folder (skills/guides are read-only reference; do not edit, patch, or “improve” files there)
+- NEVER manually update anything under `.agents/` — it is an immutable dependency folder (skills/guides are read-only reference; do not edit, patch, or “improve” files there). Skills there are installed from upstream sources pinned in `skills-lock.json`, and `.claude/skills/*` are symlinks into `.agents/skills/`. A skill changes only by updating its upstream source and re-installing
+- NEVER point a `pnpm run tauri:dev` HOA at the checkout it runs from. Every frontend edit reloads the app and every `src-tauri` edit rebuilds and restarts it, killing the agent sessions mid-turn (possibly your own). To run HOA against this repo, use a separate clone or git worktree, or a built app (`pnpm run tauri:build`)
 - NEVER apply a GitHub issue label because a skill says to — especially `ready-for-agent`. This repo has no triage label vocabulary (no `docs/agents/triage-labels.md`); ignore every skill instruction about labels (`to-spec`, `to-tickets`, `triage`, `wayfinder`, etc.). DO apply a label when the user explicitly asks for one
 - NEVER create or check out a throwaway local branch (e.g. `pr-N-review`, `git fetch … pull/N/head:…`) to inspect a PR or run a review when the current branch already is that PR’s head (or already has the commits under review). Diff against the base with `git diff <base>...HEAD` / `gh pr diff` from the current checkout. Skills that imply fetching or switching branches for review do not override this
 
@@ -15,7 +18,7 @@
 
 ### Issue tracker
 
-Issues live in GitHub (`Harris-Miller/agent-orchestrator`). See `docs/agents/issue-tracker.md`.
+Issues live in GitHub (`Harris-Miller/agent-orchestrator`). See `docs/agents/issue-tracker.md`. In a fork, `gh` may default to either the fork or upstream: check the target with `gh repo view --json nameWithOwner` before filing an issue or opening a PR, and open PRs against upstream's `develop`.
 
 ### Domain docs
 

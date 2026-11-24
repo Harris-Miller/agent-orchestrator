@@ -145,6 +145,7 @@ export const isChildIn = (links: SubagentLinks, session: SessionRef): boolean =>
 export const depthOf = (registry: Registry, session: SessionRef): number => {
   let depth = 0;
   let link = linkOf(registry, session);
+  // Cycle/runaway guard: bound the walk just past the max depth.
   while (link !== undefined && depth <= MAX_SPAWN_DEPTH + 1) {
     depth += 1;
     link = linkOf(registry, parentRef(link));

@@ -9,11 +9,11 @@ import type {
   RequestPermissionRequest,
   RequestPermissionResponse,
 } from '@libs/effect-acp';
-import { Clock, Effect, identity } from 'effect';
+import { Clock, Effect, Predicate } from 'effect';
+import { ACP_PARENT_SESSION_ID, sessionAttributes } from '@lib/hub/telemetryKeys';
 
 import {
   elicitationTelemetry,
-  PARENT_SESSION_ATTRIBUTE,
   permissionTelemetry,
   sessionUpdateTelemetry,
   summarizeSessionUpdate,
@@ -22,6 +22,7 @@ import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { sessionIdFromElicitationRequest } from './pendingInteractions.ts';
 import { recordAwaitingUser, recordSessionUpdate, recordToolCall } from './promptTurnTelemetry.ts';
 import { getPromptTurn } from './sessionRpc.ts';
+import { annotateLaunchTargetLogs, annotateSessionLogs } from './sessionTelemetry.ts';
 
 export type ClientHandlerCallbacks = {
   readonly onElicitationCreate: (
@@ -44,19 +45,18 @@ export const withTurnCorrelatedSpan = <A, E, R>(
 ): Effect.Effect<A, E, R> => {
   const parent = sessionId !== undefined ? getPromptTurn(launchTarget, sessionId)?.span : undefined;
   // A Spawned subagent session's turn names its parent session; the spans and logs it correlates carry it too.
-  const parentSessionId =
-    parent !== undefined && 'attributes' in parent ? parent.attributes.get(PARENT_SESSION_ATTRIBUTE) : undefined;
+  const parentAttribute =
+    parent !== undefined && 'attributes' in parent ? parent.attributes.get(ACP_PARENT_SESSION_ID) : undefined;
+  const parentSessionId = Predicate.isString(parentAttribute) ? parentAttribute : undefined;
   return effect.pipe(
-    parentSessionId === undefined ? identity : Effect.annotateLogs(PARENT_SESSION_ATTRIBUTE, parentSessionId),
+    sessionId === undefined
+      ? annotateLaunchTargetLogs(launchTarget)
+      : annotateSessionLogs(launchTarget, sessionId, parentSessionId),
     Effect.withSpan(name, {
       ...(parent !== undefined ? { parent } : { root: true }),
       ...(sessionId !== undefined
         ? {
-            attributes: {
-              'acp.agent': launchTarget,
-              'acp.sessionId': sessionId,
-              ...(parentSessionId === undefined ? {} : { [PARENT_SESSION_ATTRIBUTE]: parentSessionId }),
-            },
+            attributes: sessionAttributes(launchTarget, sessionId, parentSessionId),
           }
         : {}),
     }),
@@ -106,7 +106,9 @@ export const makeClientHandlers = (
               return { action: 'cancel' as const };
             }
             yield* Effect.annotateCurrentSpan(elicitationTelemetry(request));
-            yield* Effect.logInfo('elicitation/create awaiting UI', sessionId, elicitationTelemetry(request));
+            yield* Effect.logInfo('elicitation/create awaiting UI').pipe(
+              Effect.annotateLogs(elicitationTelemetry(request)),
+            );
             const response = yield* awaitingUser(
               launchTarget,
               sessionId,
@@ -119,7 +121,7 @@ export const makeClientHandlers = (
             );
             const outcome = elicitationTelemetry(request, response);
             yield* Effect.annotateCurrentSpan(outcome);
-            yield* Effect.logInfo('elicitation/create answered', sessionId, outcome);
+            yield* Effect.logInfo('elicitation/create answered').pipe(Effect.annotateLogs(outcome));
             return response;
           }),
         );
@@ -133,10 +135,8 @@ export const makeClientHandlers = (
           request.sessionId,
           Effect.gen(function* () {
             yield* Effect.annotateCurrentSpan(permissionTelemetry(request));
-            yield* Effect.logInfo(
-              'session/request_permission awaiting UI',
-              request.sessionId,
-              permissionTelemetry(request),
+            yield* Effect.logInfo('session/request_permission awaiting UI').pipe(
+              Effect.annotateLogs(permissionTelemetry(request)),
             );
             const response = yield* awaitingUser(
               launchTarget,
@@ -150,7 +150,7 @@ export const makeClientHandlers = (
             );
             const outcome = permissionTelemetry(request, response);
             yield* Effect.annotateCurrentSpan(outcome);
-            yield* Effect.logInfo('session/request_permission answered', request.sessionId, outcome);
+            yield* Effect.logInfo('session/request_permission answered').pipe(Effect.annotateLogs(outcome));
             return response;
           }),
         ),

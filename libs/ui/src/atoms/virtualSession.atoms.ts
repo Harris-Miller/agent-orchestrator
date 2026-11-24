@@ -27,6 +27,7 @@ import type { HostServices } from '@lib/context-services';
 import { Deferred, Effect, Exit, Redacted } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
+import { ACP_LAUNCH_TARGET, ACP_SESSION_ID } from '@lib/hub/telemetryKeys';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
@@ -64,6 +65,7 @@ import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.
 import { applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
 import { trackSession } from './trackSession.ts';
 import { adoptIntoWorkstream, pendingWorkstreamAtom } from './workstreams.atoms.ts';
+import { annotateLaunchTargetLogs, annotateSessionLogs } from '../host/sessionTelemetry.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -346,18 +348,21 @@ const releaseBoundInBackground = Effect.fn('releaseBoundInBackground')(function*
 /** One Bind attempt: `session/new` + sessions-map upsert; discards (tears down) its session when superseded. */
 const runBind = Effect.fn('runBind')(function* (registry: Registry, bind: VirtualBind) {
   const { cwd, launchTarget } = bind;
-  yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
-  yield* Effect.logInfo('UI runBind', launchTarget, { cwd: Redacted.make(cwd) });
+  yield* Effect.annotateCurrentSpan({ [ACP_LAUNCH_TARGET]: launchTarget });
+  yield* Effect.logInfo('UI runBind').pipe(
+    Effect.annotateLogs({ cwd: Redacted.make(cwd) }),
+    annotateLaunchTargetLogs(launchTarget),
+  );
 
   const createExit = yield* Effect.exit(createSession(launchTarget, cwd));
   if (Exit.isFailure(createExit)) {
-    yield* Effect.logError('runBind session/new failed', launchTarget, createExit.cause);
+    yield* Effect.logError('runBind session/new failed', createExit.cause).pipe(annotateLaunchTargetLogs(launchTarget));
     return undefined;
   }
 
   const { cwd: createdCwd, result } = createExit.value;
   const boundSessionId = result.sessionId;
-  yield* Effect.annotateCurrentSpan('acp.sessionId', boundSessionId);
+  yield* Effect.annotateCurrentSpan(ACP_SESSION_ID, boundSessionId);
 
   updateHarnessSnapshot(registry, launchTarget, current => bindSession(current, { cwd: createdCwd, result }));
 
@@ -368,7 +373,7 @@ const runBind = Effect.fn('runBind')(function* (registry: Registry, bind: Virtua
     return undefined;
   }
   setBlob(registry, { ...latest, sessionId: boundSessionId });
-  yield* Effect.logInfo('UI runBind complete', launchTarget, boundSessionId);
+  yield* Effect.logInfo('UI runBind complete').pipe(annotateSessionLogs(launchTarget, boundSessionId));
   return boundSessionId;
 });
 
@@ -623,20 +628,25 @@ const materialize = Effect.fn('materialize')(
   function* (registry: Registry, target: BoundVirtualTarget) {
     const { attachments, configValues, cwd, draft, launchTarget, sessionId } = target;
     registry.set(writableMaterializingAtom, true);
-    yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
-    yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
-    yield* Effect.logInfo('UI materialize', launchTarget, { cwd: Redacted.make(cwd), sessionId });
+    yield* Effect.annotateCurrentSpan({ [ACP_LAUNCH_TARGET]: launchTarget });
+    yield* Effect.annotateCurrentSpan(ACP_SESSION_ID, sessionId);
+    yield* Effect.logInfo('UI materialize').pipe(
+      Effect.annotateLogs({ cwd: Redacted.make(cwd) }),
+      annotateSessionLogs(launchTarget, sessionId),
+    );
 
     const liveSnapshot = registry.get(backendHarnessSnapshotAtom(launchTarget));
     if (!isLiveActive(liveSnapshot, sessionId)) {
-      yield* Effect.logError('materialize missing Bound session', launchTarget, sessionId);
+      yield* Effect.logError('materialize missing Bound session').pipe(annotateSessionLogs(launchTarget, sessionId));
       return undefined;
     }
     const liveSession = liveSnapshot.sessions[sessionId];
 
     const afterOverrides = yield* applySessionConfigValues(registry, { launchTarget, sessionId }, configValues);
     if (afterOverrides.stoppedEarly) {
-      yield* Effect.logWarning('materialize Config diffs stopped early', launchTarget, sessionId);
+      yield* Effect.logWarning('materialize Config diffs stopped early').pipe(
+        annotateSessionLogs(launchTarget, sessionId),
+      );
     }
 
     // The connection may have died during the RPCs: keep the blob (draft, attachments) and only forget the dead id.

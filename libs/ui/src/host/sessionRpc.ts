@@ -9,6 +9,8 @@ import type { AcpAgentConnection, ContentBlock, StopReason } from '@libs/effect-
 import { Clock, Effect, Exit, Predicate, Redacted, Schedule, Schema } from 'effect';
 import type { Scope, Tracer } from 'effect';
 
+import { ACP_FORK_SOURCE_SESSION_ID, sessionAttributes } from '@lib/hub/telemetryKeys';
+
 import { promptResponseTelemetry } from './acpTelemetry.ts';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
@@ -25,6 +27,7 @@ import {
   takeDueTurnAlarms,
 } from './promptTurnTelemetry.ts';
 import type { ListSessionsPayload } from './sessionListScope.ts';
+import { annotateLaunchTargetLogs, annotateNewSessionLogs, annotateSessionLogs } from './sessionTelemetry.ts';
 
 /** What a Backend connection reports to its owner (the Harness event fold). */
 export type BackendConnectionReports = {
@@ -133,6 +136,12 @@ const isTransportFailure = (error: unknown): boolean =>
   Predicate.isTagged(error, 'TransportError') ||
   Predicate.isTagged(error, 'BackendNotConnected');
 
+/** Log a typed failure of an RPC. Not `tapCause`: that also fires on interruption, and a user cancel is not an error. */
+const logFailure =
+  (label: string) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(Effect.tapError(error => Effect.logError(label, error)));
+
 const requireBackendConnection = (
   launchTarget: AgentLaunchTarget,
 ): Effect.Effect<BackendConnection, BackendNotConnected> => {
@@ -150,46 +159,55 @@ export const listSessionsPage = Effect.fn('listSessionsPage')(
     return yield* listSessionPage(agent, payload, cursor);
   },
   Effect.tap(() => Effect.logDebug('session/list ok')),
-  Effect.tapError(error => Effect.logError('session/list failed', error)),
+  (effect, launchTarget) => effect.pipe(logFailure('session/list failed'), annotateLaunchTargetLogs(launchTarget)),
 );
 
-export const createSession = Effect.fn('createSession')(
-  function* (launchTarget: AgentLaunchTarget, cwd: string, parentSessionId?: string) {
+const createSessionTraced = Effect.fn('createSession')(
+  function* (launchTarget: AgentLaunchTarget, cwd: string, parentSessionId: string | undefined) {
     const { agent, mcpHttp, onConfigIndexEvent } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Creating ACP session', { cwd: Redacted.make(cwd) });
+    yield* Effect.logInfo('Creating ACP session').pipe(Effect.annotateLogs({ cwd: Redacted.make(cwd) }));
     const mcp = yield* beginMcp(launchTarget, mcpHttp, parentSessionId);
     const result = yield* agent['session/new']({ cwd, ...mcp.params }).pipe(Effect.onError(() => mcp.abandon));
     yield* mcp.bind(result.sessionId);
-    yield* Effect.logInfo('Created ACP session', { sessionId: result.sessionId });
+    yield* Effect.logInfo('Created ACP session').pipe(
+      annotateSessionLogs(launchTarget, result.sessionId, parentSessionId),
+    );
     onConfigIndexEvent({ _tag: 'SessionNew', response: result });
     return { cwd, result };
   },
-  Effect.tapError(error => Effect.logError('session/new failed', error)),
+  (effect, launchTarget, _cwd, parentSessionId) =>
+    effect.pipe(logFailure('session/new failed'), annotateNewSessionLogs(launchTarget, parentSessionId)),
 );
+
+/** `session/new`; `parentSessionId` is set for a Spawned subagent session. The failure log runs inside the span. */
+export const createSession = (launchTarget: AgentLaunchTarget, cwd: string, parentSessionId?: string) =>
+  createSessionTraced(launchTarget, cwd, parentSessionId);
 
 /** Unstable `session/fork`. Caller owns any UI materialize of the response. */
 export const forkSession = Effect.fn('forkSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
     const { mcpHttp, sessionFork } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Forking ACP session', sessionId, { cwd: Redacted.make(cwd) });
+    yield* Effect.logInfo('Forking ACP session').pipe(Effect.annotateLogs({ cwd: Redacted.make(cwd) }));
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
     const result = yield* sessionFork({ cwd, ...mcp.params, sessionId }).pipe(Effect.onError(() => mcp.abandon));
     // Some agents answer without an id (the caller then skips the fork); the credential has no session to bind to.
     yield* (result.sessionId as string | undefined) === undefined ? mcp.abandon : mcp.bind(result.sessionId);
-    yield* Effect.logInfo('Forked ACP session', {
-      forkedSessionId: result.sessionId,
-      parentSessionId: sessionId,
-    });
+    yield* Effect.logInfo('Forked ACP session').pipe(
+      Effect.annotateLogs({
+        ...sessionAttributes(launchTarget, result.sessionId),
+        [ACP_FORK_SOURCE_SESSION_ID]: sessionId,
+      }),
+    );
     return result;
   },
-  (effect, _launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/fork failed', sessionId, error))),
+  (effect, launchTarget, sessionId) =>
+    effect.pipe(logFailure('session/fork failed'), annotateSessionLogs(launchTarget, sessionId)),
 );
 
 export const loadSession = Effect.fn('loadSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
     const { agent, mcpHttp } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Loading ACP session', sessionId, { cwd: Redacted.make(cwd) });
+    yield* Effect.logInfo('Loading ACP session').pipe(Effect.annotateLogs({ cwd: Redacted.make(cwd) }));
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
     const result = yield* agent['session/load']({ cwd, ...mcp.params, sessionId }).pipe(
       Effect.onError(() => mcp.abandon),
@@ -197,14 +215,14 @@ export const loadSession = Effect.fn('loadSession')(
     yield* mcp.bind(sessionId);
     return result;
   },
-  (effect, _launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/load failed', sessionId, error))),
+  (effect, launchTarget, sessionId) =>
+    effect.pipe(logFailure('session/load failed'), annotateSessionLogs(launchTarget, sessionId)),
 );
 
 export const resumeSession = Effect.fn('resumeSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
     const { agent, mcpHttp } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Resuming ACP session', sessionId, { cwd: Redacted.make(cwd) });
+    yield* Effect.logInfo('Resuming ACP session').pipe(Effect.annotateLogs({ cwd: Redacted.make(cwd) }));
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
     const result = yield* agent['session/resume']({ cwd, ...mcp.params, sessionId }).pipe(
       Effect.onError(() => mcp.abandon),
@@ -212,78 +230,77 @@ export const resumeSession = Effect.fn('resumeSession')(
     yield* mcp.bind(sessionId);
     return result;
   },
-  (effect, _launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/resume failed', sessionId, error))),
+  (effect, launchTarget, sessionId) =>
+    effect.pipe(logFailure('session/resume failed'), annotateSessionLogs(launchTarget, sessionId)),
 );
 
 export const closeSession = Effect.fn('closeSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
     const { agent } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Closing ACP session', sessionId);
+    yield* Effect.logInfo('Closing ACP session');
     yield* revokeSessionMcp(launchTarget, sessionId);
     yield* agent['session/close']({ sessionId });
   },
-  (effect, _launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/close failed', sessionId, error))),
+  (effect, launchTarget, sessionId) =>
+    effect.pipe(logFailure('session/close failed'), annotateSessionLogs(launchTarget, sessionId)),
 );
 
 export const archiveSession = Effect.fn('archiveSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
     const { sessionArchive } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Archiving ACP session', sessionId);
+    yield* Effect.logInfo('Archiving ACP session');
     yield* sessionArchive({ sessionId });
   },
-  (effect, _launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('_session/archive failed', sessionId, error))),
+  (effect, launchTarget, sessionId) =>
+    effect.pipe(logFailure('_session/archive failed'), annotateSessionLogs(launchTarget, sessionId)),
 );
 
 export const unarchiveSession = Effect.fn('unarchiveSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
     const { sessionUnarchive } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Unarchiving ACP session', sessionId);
+    yield* Effect.logInfo('Unarchiving ACP session');
     yield* sessionUnarchive({ sessionId });
   },
-  (effect, _launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('_session/unarchive failed', sessionId, error))),
+  (effect, launchTarget, sessionId) =>
+    effect.pipe(logFailure('_session/unarchive failed'), annotateSessionLogs(launchTarget, sessionId)),
 );
 
 export const renameSession = Effect.fn('renameSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, title: string) {
     const { sessionRename } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Renaming ACP session', sessionId);
+    yield* Effect.logInfo('Renaming ACP session');
     yield* sessionRename({ sessionId, title });
   },
-  (effect, _launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('_session/rename failed', sessionId, error))),
+  (effect, launchTarget, sessionId) =>
+    effect.pipe(logFailure('_session/rename failed'), annotateSessionLogs(launchTarget, sessionId)),
 );
 
 export const deleteSession = Effect.fn('deleteSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
     const { agent } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Deleting ACP session', sessionId);
+    yield* Effect.logInfo('Deleting ACP session');
     yield* revokeSessionMcp(launchTarget, sessionId);
     yield* agent['session/delete']({ sessionId });
   },
-  (effect, _launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/delete failed', sessionId, error))),
+  (effect, launchTarget, sessionId) =>
+    effect.pipe(logFailure('session/delete failed'), annotateSessionLogs(launchTarget, sessionId)),
 );
 
 /** Warn while a turn is silent too long or ignores a cancel: a hung turn never ends its span, so this is its only trace. */
-const checkPromptTurn = Effect.fnUntraced(function* (sessionId: string, turn: PromptTurn) {
+const checkPromptTurn = Effect.fnUntraced(function* (turn: PromptTurn) {
   for (const alarm of takeDueTurnAlarms(turn, yield* Clock.currentTimeMillis)) {
     yield* alarm._tag === 'Silent'
-      ? Effect.logWarning('Prompt turn silent', sessionId, {
-          openToolCalls: alarm.openToolCalls,
-          silentMs: alarm.silentMs,
-        })
-      : Effect.logWarning('Prompt turn unresolved after session/cancel', sessionId, {
-          sinceCancelMs: alarm.sinceCancelMs,
-        });
+      ? Effect.logWarning('Prompt turn silent').pipe(
+          Effect.annotateLogs({ open_tool_calls: alarm.openToolCalls, silent_ms: alarm.silentMs }),
+        )
+      : Effect.logWarning('Prompt turn unresolved after session/cancel').pipe(
+          Effect.annotateLogs({ since_cancel_ms: alarm.sinceCancelMs }),
+        );
   }
 });
 
-const watchPromptTurn = (sessionId: string, turn: PromptTurn) =>
-  checkPromptTurn(sessionId, turn).pipe(Effect.repeat(Schedule.spaced('5 seconds')), Effect.withParentSpan(turn.span));
+const watchPromptTurn = (turn: PromptTurn) =>
+  checkPromptTurn(turn).pipe(Effect.repeat(Schedule.spaced('5 seconds')), Effect.withParentSpan(turn.span));
 
 /** Record the turn's tally and stop reason on its span, close orphaned tool calls, and forget the turn. */
 const endPromptTurn = Effect.fnUntraced(function* (
@@ -309,16 +326,15 @@ const endPromptTurn = Effect.fnUntraced(function* (
 export const sendPrompt = Effect.fn('sendPrompt')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, prompt: readonly ContentBlock[]) {
     const { agent, promptTurns } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.annotateCurrentSpan({
-      'acp.agent': launchTarget,
-      'acp.sessionId': sessionId,
-    });
+    yield* Effect.annotateCurrentSpan(sessionAttributes(launchTarget, sessionId));
     const span = yield* Effect.currentSpan;
     const turn = makePromptTurn(span, yield* Clock.currentTimeMillis);
     promptTurns.set(sessionId, turn);
     const textChars = prompt.reduce((sum, block) => sum + (block.type === 'text' ? block.text.length : 0), 0);
-    yield* Effect.logDebug('session/prompt', sessionId, { blocks: prompt.length, textChars });
-    yield* Effect.forkScoped(watchPromptTurn(sessionId, turn));
+    yield* Effect.logDebug('session/prompt').pipe(
+      Effect.annotateLogs({ blocks: prompt.length, text_chars: textChars }),
+    );
+    yield* Effect.forkScoped(watchPromptTurn(turn));
     return yield* agent['session/prompt']({
       prompt: [...prompt],
       sessionId,
@@ -326,7 +342,7 @@ export const sendPrompt = Effect.fn('sendPrompt')(
   },
   Effect.scoped,
   (effect, launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/prompt failed', launchTarget, sessionId, error))),
+    effect.pipe(logFailure('session/prompt failed'), annotateSessionLogs(launchTarget, sessionId)),
 );
 
 /**
@@ -336,11 +352,8 @@ export const sendPrompt = Effect.fn('sendPrompt')(
 export const steerSession = Effect.fn('steerSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, prompt: readonly ContentBlock[]) {
     const { sessionSteering } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.annotateCurrentSpan({
-      'acp.agent': launchTarget,
-      'acp.sessionId': sessionId,
-    });
-    yield* Effect.logDebug('_session/steering', sessionId, { blocks: prompt.length });
+    yield* Effect.annotateCurrentSpan(sessionAttributes(launchTarget, sessionId));
+    yield* Effect.logDebug('_session/steering').pipe(Effect.annotateLogs({ blocks: prompt.length }));
     return yield* sessionSteering({
       _meta: { steering: { idleBehavior: 'promptRequired' } },
       prompt: [...prompt],
@@ -348,18 +361,15 @@ export const steerSession = Effect.fn('steerSession')(
     });
   },
   (effect, launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('_session/steering failed', launchTarget, sessionId, error))),
+    effect.pipe(logFailure('_session/steering failed'), annotateSessionLogs(launchTarget, sessionId)),
 );
 
 /** ACP Client→Agent notification (no JSON-RPC id). Must use transport.notify, not RpcClient. */
 export const cancelSession = Effect.fn('cancelSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
     const { notify, promptTurns } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.annotateCurrentSpan({
-      'acp.agent': launchTarget,
-      'acp.sessionId': sessionId,
-    });
-    yield* Effect.logDebug('session/cancel', sessionId);
+    yield* Effect.annotateCurrentSpan(sessionAttributes(launchTarget, sessionId));
+    yield* Effect.logDebug('session/cancel');
     const turn = promptTurns.get(sessionId);
     if (turn !== undefined) {
       recordCancelRequested(turn, yield* Clock.currentTimeMillis);
@@ -367,7 +377,7 @@ export const cancelSession = Effect.fn('cancelSession')(
     yield* notify('session/cancel', { sessionId });
   },
   (effect, launchTarget, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/cancel failed', launchTarget, sessionId, error))),
+    effect.pipe(logFailure('session/cancel failed'), annotateSessionLogs(launchTarget, sessionId)),
 );
 
 export const setConfigOption = Effect.fn('setConfigOption')(
@@ -380,7 +390,7 @@ export const setConfigOption = Effect.fn('setConfigOption')(
       | { readonly type: 'select'; readonly value: string },
   ) {
     const { agent, onConfigIndexEvent } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logDebug('session/set_config_option', sessionId, configId, optionValue);
+    yield* Effect.logDebug('session/set_config_option').pipe(Effect.annotateLogs({ option_type: optionValue.type }));
     const call =
       optionValue.type === 'boolean'
         ? agent['session/set_config_option']({ configId, sessionId, type: 'boolean', value: optionValue.value })
@@ -404,8 +414,6 @@ export const setConfigOption = Effect.fn('setConfigOption')(
       ),
     );
   },
-  (effect, _launchTarget, sessionId, configId) =>
-    effect.pipe(
-      Effect.tapError(error => Effect.logError('session/set_config_option failed', sessionId, configId, error)),
-    ),
+  (effect, launchTarget, sessionId) =>
+    effect.pipe(logFailure('session/set_config_option failed'), annotateSessionLogs(launchTarget, sessionId)),
 );

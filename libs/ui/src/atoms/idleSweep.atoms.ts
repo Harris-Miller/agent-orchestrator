@@ -2,6 +2,7 @@
  * Idle session sweep (glossary): one app-wide periodic pass that closes idle Sessions. Lives in `@lib/ui` so desktop and
  * VS Code behave identically. Closing is the Deactivate verb; re-selecting a closed Session re-activates it.
  */
+import { annotateSessionLogs } from '../host/sessionTelemetry.ts';
 import { Cause, Clock, Duration, Effect, Schedule } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
@@ -46,10 +47,12 @@ export const sweepIdleSessions = Effect.fn('sweepIdleSessions')(function* (regis
     for (const sessionId of idle) {
       const target = { launchTarget, sessionId };
       if (canCloseTargetNow(registry, target)) {
-        yield* Effect.logInfo('Idle session sweep closing', launchTarget, sessionId);
+        yield* Effect.logInfo('Idle session sweep closing').pipe(annotateSessionLogs(launchTarget, sessionId));
         yield* close(target).pipe(
           Effect.catchCause(cause =>
-            Effect.logError('Idle session sweep close failed', launchTarget, sessionId, Cause.pretty(cause)),
+            Effect.logError('Idle session sweep close failed', Cause.pretty(cause)).pipe(
+              annotateSessionLogs(launchTarget, sessionId),
+            ),
           ),
         );
       }

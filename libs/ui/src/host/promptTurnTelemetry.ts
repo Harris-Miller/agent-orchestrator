@@ -7,6 +7,7 @@ import { Clock, Effect, Exit, Schema } from 'effect';
 import type { Tracer } from 'effect';
 
 import type { StopReason } from '@libs/effect-acp';
+import { ACP_SESSION_ID } from '@lib/hub/telemetryKeys';
 
 import type { AcpTelemetry, SessionUpdateSummary } from './acpTelemetry.ts';
 import { promptTurnTelemetry, sessionUpdateTelemetry } from './acpTelemetry.ts';
@@ -159,7 +160,7 @@ export const recordToolCall = Effect.fnUntraced(function* (
   let toolCall = turn.toolCalls.get(key);
   if (toolCall === undefined) {
     const span = yield* Effect.makeSpan('acp.toolCall', {
-      attributes: { 'acp.sessionId': sessionId, ...sessionUpdateTelemetry(summary) },
+      attributes: { [ACP_SESSION_ID]: sessionId, ...sessionUpdateTelemetry(summary) },
       parent: turn.span,
     });
     toolCall = { span, startedAtMs: nowMs, toolCallId: summary.toolCallId };
@@ -198,6 +199,10 @@ export const closeOrphanedToolCalls = Effect.fnUntraced(function* (
   turn.toolCalls.clear();
   // A cancelled turn routinely leaves tool calls unfinished.
   yield* stopReason === 'cancelled'
-    ? Effect.logDebug('Tool calls unfinished at turn end', { orphans, stopReason })
-    : Effect.logWarning('Tool calls unfinished at turn end', { orphans, stopReason: stopReason ?? 'none' });
+    ? Effect.logDebug('Tool calls unfinished at turn end').pipe(
+        Effect.annotateLogs({ orphans, stop_reason: stopReason }),
+      )
+    : Effect.logWarning('Tool calls unfinished at turn end').pipe(
+        Effect.annotateLogs({ orphans, stop_reason: stopReason ?? 'none' }),
+      );
 });

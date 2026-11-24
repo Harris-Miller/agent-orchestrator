@@ -3,9 +3,10 @@
  * calls in flight. Nothing here outlives the process or needs persisting: clients re-register what they own after a
  * hub restart.
  */
-import { Deferred, Effect } from 'effect';
+import { Deferred, Effect, Option } from 'effect';
 
 import type { ClientKind } from './protocol.ts';
+import { APP_SESSION_ID, HUB_CLIENT_KIND, sessionAttributes } from './telemetryKeys.ts';
 
 export type CallResult = { readonly isError: boolean; readonly text: string };
 
@@ -32,6 +33,11 @@ export const makeHubState = () => {
   let nextClientId = 0;
   const clients = new Map<number, Client>();
   const credentials = new Map<string, Credential>();
+  /** A token's credential and the client that owns it; either is `undefined` when unknown or disconnected. */
+  const ownerOf = (token: string) => {
+    const credential = credentials.get(token);
+    return { client: credential === undefined ? undefined : clients.get(credential.clientId), credential };
+  };
   const inFlight = new Map<string, InFlight>();
 
   return {
@@ -98,40 +104,46 @@ export const makeHubState = () => {
     isRegistered: (token: string): boolean => credentials.has(token),
 
     /**
-     * Forward one tool call to the client owning `token` and wait for its answer. The span and logs carry allowlisted
-     * attributes only (root ADR 0002): never args, results or the token.
+     * The allowlisted attributes naming who is calling (ids and discriminators only, root ADR 0002): the owning app
+     * session and client kind, and the bound ACP session, its launch target and parent. Empty for an unknown token.
+     */
+    telemetryAttributes: (token: string): Record<string, string> => {
+      const { client, credential } = ownerOf(token);
+      return {
+        ...(client === undefined ? {} : { [APP_SESSION_ID]: client.appSessionId, [HUB_CLIENT_KIND]: client.kind }),
+        ...(credential?.binding === undefined
+          ? {}
+          : sessionAttributes(
+              credential.binding.launchTarget,
+              credential.binding.sessionId,
+              credential.binding.parentSessionId,
+            )),
+      };
+    },
+
+    /**
+     * Forward one tool call to the client owning `token` and wait for its answer. Runs inside the call's `hub.toolCall`
+     * span, whose trace context goes to the client with the call.
      */
     route: (token: string, tool: string, args: unknown): Effect.Effect<CallResult> =>
-      Effect.suspend(() => {
-        const credential = credentials.get(token);
-        const client = credential === undefined ? undefined : clients.get(credential.clientId);
-        const attributes = {
-          'hub.tool': tool,
-          ...(client === undefined ? {} : { 'app_session.id': client.appSessionId, 'hub.client.kind': client.kind }),
-          ...(credential?.binding === undefined
-            ? {}
-            : {
-                'acp.agent': credential.binding.launchTarget,
-                'acp.sessionId': credential.binding.sessionId,
-                ...(credential.binding.parentSessionId === undefined
-                  ? {}
-                  : { 'acp.parentSessionId': credential.binding.parentSessionId }),
-              }),
-        };
-        const call =
-          credential === undefined || client === undefined
-            ? Effect.succeed(toolError('The Harness client that owns this session is no longer connected.'))
-            : Effect.gen(function* () {
-                const requestId = crypto.randomUUID();
-                const reply = yield* Deferred.make<CallResult>();
-                inFlight.set(requestId, { clientId: credential.clientId, reply });
-                yield* client.send({ args, requestId, token, tool, type: 'toolCall' });
-                // Also cleans up when the agent abandons the request (interrupt).
-                return yield* Deferred.await(reply).pipe(
-                  Effect.ensuring(Effect.sync(() => inFlight.delete(requestId))),
-                );
-              });
-        return call.pipe(Effect.annotateLogs(attributes), Effect.withSpan('hub.toolCall', { attributes }));
+      Effect.gen(function* () {
+        const { client, credential } = ownerOf(token);
+        if (credential === undefined || client === undefined) {
+          return toolError('The Harness client that owns this session is no longer connected.');
+        }
+        const requestId = crypto.randomUUID();
+        const reply = yield* Deferred.make<CallResult>();
+        inFlight.set(requestId, { clientId: credential.clientId, reply });
+        const span = yield* Effect.option(Effect.currentSpan);
+        const trace = Option.match(span, {
+          onNone: () => ({}),
+          onSome: current => ({
+            trace: { sampled: current.sampled, spanId: current.spanId, traceId: current.traceId },
+          }),
+        });
+        yield* client.send({ args, requestId, token, tool, type: 'toolCall', ...trace });
+        // Also cleans up when the agent abandons the request (interrupt).
+        return yield* Deferred.await(reply).pipe(Effect.ensuring(Effect.sync(() => inFlight.delete(requestId))));
       }),
 
     /** A client's answer; ignored unless that client was asked. */

@@ -4,14 +4,13 @@
  */
 import { NodeFileSystem, NodePath } from '@effect/platform-node';
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Exit, Fiber, Layer, Logger, References, Schedule, Scope, Tracer } from 'effect';
+import { Cause, Effect, Exit, Fiber, Layer, Logger, Metric, Option, References, Schedule, Scope, Tracer } from 'effect';
 import type { Duration } from 'effect';
 import { existsSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { startHub } from './hub.ts';
-import { makeHubState } from './state.ts';
 import { runHubProcess } from './hubProcess.ts';
 import { clientsQuery, HUB_APP_ID, HUB_TOOL_NAMES, MAX_HANDOFF_DOCUMENT_CHARS, PROTOCOL_VERSION } from './protocol.ts';
 import type { TestClient } from './testing.ts';
@@ -57,11 +56,14 @@ const capture = () => {
 };
 
 const TOOL_CALL_ATTRIBUTE_ALLOWLIST = [
-  'acp.agent',
-  'acp.parentSessionId',
-  'acp.sessionId',
+  'acp.launch_target',
+  'acp.session.id',
+  'acp.session.parent_id',
   'app_session.id',
+  // Inherited from the MCP request span's annotations (allowlisted there too).
+  'gen_ai.tool.name',
   'hub.client.kind',
+  'hub.outcome',
   'hub.tool',
 ];
 
@@ -99,7 +101,31 @@ const callHandoff = Effect.fnUntraced(function* (
   yield* Fiber.join(call);
 });
 
+const spanFailed = (span: Tracer.NativeSpan | undefined) =>
+  span?.status._tag === 'Ended' && Exit.isFailure(span.status.exit);
+
 const toolCallSpans = (spans: readonly Tracer.NativeSpan[]) => spans.filter(span => span.name === 'hub.toolCall');
+
+/** The global `hub.tool_calls` count for a tool and outcome (the registry is process-wide: compare before / after). */
+const callCount = (tool: string, outcome: string) =>
+  Effect.map(Metric.snapshot, snapshot =>
+    snapshot
+      .filter(
+        metric =>
+          metric.id === 'hub.tool_calls' &&
+          metric.attributes?.['hub.tool'] === tool &&
+          metric.attributes['hub.outcome'] === outcome,
+      )
+      .reduce((sum, metric) => sum + ('count' in metric.state ? Number(metric.state.count) : 0), 0),
+  );
+
+/** The global `hub.tool_call.duration` observation count for an outcome. */
+const durationCount = (outcome: string) =>
+  Effect.map(Metric.snapshot, snapshot =>
+    snapshot
+      .filter(metric => metric.id === 'hub.tool_call.duration' && metric.attributes?.['hub.outcome'] === outcome)
+      .reduce((sum, metric) => sum + ('count' in metric.state ? Number(metric.state.count) : 0), 0),
+  );
 
 describe('hub', () => {
   it('declares exactly the tools the protocol names', () => {
@@ -153,10 +179,12 @@ describe('hub', () => {
 
       const [span] = toolCallSpans(spans);
       assert.deepStrictEqual(Object.fromEntries(span?.attributes ?? []), {
-        'acp.agent': 'claude-agent-acp',
-        'acp.sessionId': 'acp-s1',
+        'acp.launch_target': 'claude-agent-acp',
+        'acp.session.id': 'acp-s1',
         'app_session.id': 'app-run-1',
+        'gen_ai.tool.name': 'submit_handoff',
         'hub.client.kind': 'test',
+        'hub.outcome': 'ok',
         'hub.tool': 'submit_handoff',
       });
     }).pipe(Effect.scoped, Effect.provide(layer));
@@ -179,8 +207,8 @@ describe('hub', () => {
       yield* callHandoff(port, owner, 'tok-child', 'doc', 'ok');
 
       const [span] = toolCallSpans(spans);
-      assert.strictEqual(span?.attributes.get('acp.sessionId'), 'acp-child');
-      assert.strictEqual(span?.attributes.get('acp.parentSessionId'), 'acp-parent');
+      assert.strictEqual(span?.attributes.get('acp.session.id'), 'acp-child');
+      assert.strictEqual(span?.attributes.get('acp.session.parent_id'), 'acp-parent');
       for (const key of span?.attributes.keys() ?? []) {
         assert.include(TOOL_CALL_ATTRIBUTE_ALLOWLIST, key);
       }
@@ -195,20 +223,31 @@ describe('hub', () => {
       yield* registerToken(owner, 'tok-pending');
       yield* callHandoff(port, owner, 'tok-pending', 'doc', 'ok');
       const [span] = toolCallSpans(spans);
-      assert.isFalse(span?.attributes.has('acp.sessionId'));
-      assert.isFalse(span?.attributes.has('acp.agent'));
+      assert.isFalse(span?.attributes.has('acp.session.id'));
+      assert.isFalse(span?.attributes.has('acp.launch_target'));
       assert.strictEqual(span?.attributes.get('app_session.id'), 'test-app-session');
     }).pipe(Effect.scoped, Effect.provide(layer));
   });
 
-  it.live('a call for a token whose owner is gone still produces a hub.toolCall span with the tool', () => {
+  it.live('a call whose owner disconnects before answering ends with outcome error and an error span status', () => {
     const { layer, spans } = capture();
     return Effect.gen(function* () {
-      const result = yield* makeHubState().route('no-such-token', 'submit_handoff', {});
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-gone');
+      const { sessionId } = yield* mcpInitialize(mcpUrl(port), 'tok-gone');
+      const call = yield* Effect.forkChild(
+        mcpCallTool(mcpUrl(port), 'tok-gone', sessionId, 'submit_handoff', { document: 'doc' }),
+      );
+      yield* Effect.promise(() => owner.waitFor(m => m.type === 'toolCall'));
+      owner.close();
+      const result = yield* Fiber.join(call);
       assert.isTrue(result.isError);
       const [span] = toolCallSpans(spans);
-      assert.deepStrictEqual(Object.fromEntries(span?.attributes ?? []), { 'hub.tool': 'submit_handoff' });
-    }).pipe(Effect.provide(layer));
+      assert.strictEqual(span?.attributes.get('hub.outcome'), 'error');
+      assert.strictEqual(span?.attributes.get('hub.tool'), 'submit_handoff');
+      assert.strictEqual(spanFailed(span), true);
+    }).pipe(Effect.scoped, Effect.provide(layer));
   });
 
   it.live('each call span carries its own owner’s app session id', () => {
@@ -225,6 +264,143 @@ describe('hub', () => {
         toolCallSpans(spans).map(span => span.attributes.get('app_session.id')),
         ['app-one', 'app-two'],
       );
+    }).pipe(Effect.scoped, Effect.provide(layer));
+  });
+
+  it.live(
+    'every call is its own trace: hub.toolCall and the MCP spans are roots even under a long-lived hub span',
+    () => {
+      const { layer, spans } = capture();
+      return Effect.gen(function* () {
+        const { port } = yield* hubUp();
+        const owner = yield* connectTestClient(port);
+        yield* registerToken(owner, 'tok-root-1');
+        yield* registerToken(owner, 'tok-root-2');
+        yield* callHandoff(port, owner, 'tok-root-1', 'doc', 'ok');
+        yield* callHandoff(port, owner, 'tok-root-2', 'doc', 'ok');
+        const calls = toolCallSpans(spans);
+        assert.lengthOf(calls, 2);
+        for (const span of spans.filter(
+          s => s.name === 'hub.toolCall' || s.name.startsWith('tools/call') || s.name === 'initialize',
+        )) {
+          assert.isTrue(Option.isNone(span.parent), `${span.name} has a parent`);
+        }
+        assert.notStrictEqual(calls[0]?.traceId, calls[1]?.traceId);
+        assert.isFalse(spanFailed(calls[0]));
+      }).pipe(Effect.withSpan('runHubProcess'), Effect.scoped, Effect.provide(layer));
+    },
+  );
+
+  it.live('a call rejected before routing (invalid arguments) gets a hub.toolCall span with outcome rejected', () => {
+    const { layer, spans } = capture();
+    return Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-bad');
+      const { sessionId } = yield* mcpInitialize(mcpUrl(port), 'tok-bad');
+      yield* mcpCallTool(mcpUrl(port), 'tok-bad', sessionId, 'submit_handoff', { document: 12_345 });
+      assert.isUndefined(owner.received.find(m => m.type === 'toolCall'));
+      const [span] = toolCallSpans(spans);
+      assert.strictEqual(span?.attributes.get('hub.outcome'), 'rejected');
+      assert.strictEqual(span?.attributes.get('hub.tool'), 'submit_handoff');
+      assert.isTrue(spanFailed(span));
+      assert.notInclude(JSON.stringify([...(span?.attributes ?? [])]), '12345');
+    }).pipe(Effect.scoped, Effect.provide(layer));
+  });
+
+  it.live('an unknown tool name never reaches hub.tool', () => {
+    const { layer, spans } = capture();
+    return Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-unk');
+      const { sessionId } = yield* mcpInitialize(mcpUrl(port), 'tok-unk');
+      yield* mcpCallTool(mcpUrl(port), 'tok-unk', sessionId, 'free text tool <name>', {});
+      for (const span of toolCallSpans(spans)) {
+        assert.strictEqual(span.attributes.get('hub.tool'), 'unknown');
+      }
+    }).pipe(Effect.scoped, Effect.provide(layer));
+  });
+
+  it.live('a tool result with isError ends with outcome error; the result text stays off the span', () => {
+    const { layer, spans } = capture();
+    return Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-err');
+      const { sessionId } = yield* mcpInitialize(mcpUrl(port), 'tok-err');
+      const call = yield* Effect.forkChild(
+        mcpCallTool(mcpUrl(port), 'tok-err', sessionId, 'submit_handoff', { document: 'doc' }),
+      );
+      const routed = yield* Effect.promise(() => owner.waitFor(m => m.type === 'toolCall'));
+      owner.send({ isError: true, requestId: routed.requestId, text: 'SECRET-RESULT-TEXT', type: 'toolResult' });
+      const result = yield* Fiber.join(call);
+      assert.isTrue(result.isError);
+      const [span] = toolCallSpans(spans);
+      assert.strictEqual(span?.attributes.get('hub.outcome'), 'error');
+      assert.isTrue(spanFailed(span));
+      assert.notInclude(
+        JSON.stringify({ attributes: [...(span?.attributes ?? [])], status: span?.status._tag }),
+        'SECRET',
+      );
+      assert.notInclude(JSON.stringify(span?.events), 'SECRET');
+      const status = span?.status;
+      assert.notInclude(
+        status?._tag === 'Ended' ? Cause.pretty(Exit.isFailure(status.exit) ? status.exit.cause : Cause.empty) : '',
+        'SECRET',
+      );
+    }).pipe(Effect.scoped, Effect.provide(layer));
+  });
+
+  it.live('records hub.tool_calls and hub.tool_call.duration by tool and outcome', () =>
+    Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-metric');
+      const before = yield* callCount('submit_handoff', 'ok');
+      const beforeDurations = yield* durationCount('ok');
+      yield* callHandoff(port, owner, 'tok-metric', 'doc', 'ok');
+      assert.strictEqual((yield* callCount('submit_handoff', 'ok')) - before, 1);
+      assert.strictEqual((yield* durationCount('ok')) - beforeDurations, 1);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('an abandoned (interrupted) call is recorded once with outcome interrupted', () => {
+    const { layer, spans } = capture();
+    const interruptedCount = callCount('submit_handoff', 'interrupted');
+    return Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-int');
+      const { sessionId } = yield* mcpInitialize(mcpUrl(port), 'tok-int');
+      const before = yield* interruptedCount;
+      const call = yield* Effect.forkChild(
+        mcpCallTool(mcpUrl(port), 'tok-int', sessionId, 'submit_handoff', { document: 'doc' }),
+      );
+      yield* Effect.promise(() => owner.waitFor(m => m.type === 'toolCall'));
+      yield* Fiber.interrupt(call);
+      yield* Effect.repeat(Effect.sleep('10 millis'), {
+        until: () => toolCallSpans(spans).some(span => span.attributes.get('hub.outcome') === 'interrupted'),
+      }).pipe(Effect.timeout('5 seconds'));
+      const interrupted = toolCallSpans(spans).filter(span => span.attributes.get('hub.outcome') === 'interrupted');
+      assert.lengthOf(interrupted, 1);
+      assert.strictEqual(interrupted[0]?.status._tag, 'Ended');
+      assert.isFalse(spanFailed(interrupted[0]));
+      const after = yield* interruptedCount;
+      assert.strictEqual(after - before, 1);
+    }).pipe(Effect.scoped, Effect.provide(layer));
+  });
+
+  it.live('routes the call with the hub.toolCall span’s trace context', () => {
+    const { layer, spans } = capture();
+    return Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-trace');
+      yield* callHandoff(port, owner, 'tok-trace', 'doc', 'ok');
+      const routed = owner.received.find(m => m.type === 'toolCall');
+      const [span] = toolCallSpans(spans);
+      assert.deepStrictEqual(routed?.trace, { sampled: span?.sampled, spanId: span?.spanId, traceId: span?.traceId });
     }).pipe(Effect.scoped, Effect.provide(layer));
   });
 
@@ -245,11 +421,11 @@ describe('hub', () => {
       yield* registerToken(owner, 'tok-sync');
       yield* callHandoff(port, owner, 'tok-bearer-9d2c', `plan ${CANARY}`, `result ${CANARY}`);
       owner.close();
-      yield* Effect.suspend(() =>
-        logs.some(log => JSON.stringify(log.message).includes('Hub client disconnected'))
-          ? Effect.void
-          : Effect.fail('no disconnect log yet'),
-      ).pipe(Effect.retry({ schedule: Schedule.spaced('20 millis'), times: 250 }));
+      // The hub has processed the disconnect once the owner's token stops authenticating.
+      yield* mcpPost(mcpUrl(port), 'tok-bearer-9d2c', listTools).pipe(
+        Effect.repeat({ until: ({ response }) => response.status === 401, schedule: Schedule.spaced('10 millis') }),
+        Effect.timeout('5 seconds'),
+      );
 
       assert.isAbove(toolCallSpans(spans).length, 0);
       for (const span of spans) {

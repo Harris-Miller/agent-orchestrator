@@ -3,6 +3,7 @@ import type { CreateElicitationResponseBody } from '@libs/effect-acp';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
+import { sessionAttributes } from '@lib/hub/telemetryKeys';
 
 import { elicitationResponded, permissionResponded, promptCancelled } from '../analytics/catalog.ts';
 import { captureEvent, trackEvent } from '../analytics/trackEvent.ts';
@@ -57,10 +58,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     .fn(
       Effect.fnUntraced(
         function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {
-          yield* Effect.annotateCurrentSpan({
-            'acp.agent': arg.launchTarget,
-            'acp.sessionId': arg.sessionId,
-          });
+          yield* Effect.annotateCurrentSpan(sessionAttributes(arg.launchTarget, arg.sessionId));
           const child = getSubagent(get(backendHarnessSnapshotAtom(arg.launchTarget)).subagents, arg.sessionId);
           if (child === undefined) {
             return;
@@ -93,10 +91,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     .fn(
       Effect.fnUntraced(
         function* (arg: RespondElicitationArg, get: Atom.FnContext) {
-          yield* Effect.annotateCurrentSpan({
-            'acp.agent': arg.launchTarget,
-            'acp.sessionId': arg.sessionId,
-          });
+          yield* Effect.annotateCurrentSpan(sessionAttributes(arg.launchTarget, arg.sessionId));
           const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
           const pending = sessionOrSubagentOf(snapshot, arg.sessionId)?.pendingElicitation;
           if (pending === undefined) {
@@ -134,10 +129,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           },
           get: Atom.FnContext,
         ) {
-          yield* Effect.annotateCurrentSpan({
-            'acp.agent': arg.launchTarget,
-            'acp.sessionId': arg.sessionId,
-          });
+          yield* Effect.annotateCurrentSpan(sessionAttributes(arg.launchTarget, arg.sessionId));
           const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
           const pending = sessionOrSubagentOf(snapshot, arg.sessionId)?.pendingPermission;
           if (pending === undefined) {
@@ -178,10 +170,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         if (sessionId === undefined) {
           return;
         }
-        yield* Effect.annotateCurrentSpan({
-          'acp.agent': arg.launchTarget,
-          'acp.sessionId': sessionId,
-        });
+        yield* Effect.annotateCurrentSpan(sessionAttributes(arg.launchTarget, sessionId));
         const change: ConfigValueDiff =
           arg.type === 'boolean'
             ? { configId: arg.configId, type: 'boolean', value: arg.value }

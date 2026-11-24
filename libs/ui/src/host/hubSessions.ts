@@ -244,7 +244,8 @@ export const forgetAllMcpTokens = (): void => {
 
 export type HubToolCall = { readonly args: unknown; readonly token: string; readonly tool: string };
 
-const isHubToolName = (tool: string): tool is HubToolName => (HUB_TOOL_NAMES as readonly string[]).includes(tool);
+export const isHubToolName = (tool: string): tool is HubToolName =>
+  (HUB_TOOL_NAMES as readonly string[]).includes(tool);
 
 /** Run one tool call routed from the hub, as the session that owns `call.token`. */
 export const handleHubToolCall = (

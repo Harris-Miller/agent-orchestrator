@@ -2,6 +2,7 @@
  * Provider runtimes under `~/.hoa/providers/<id>/`: resolve the latest version, download in the background,
  * clean up, and resolve the active runtime for launch. State lives in `current.json` (see `@lib/hoa-home`).
  */
+import { annotateLaunchTargetLogs } from './sessionTelemetry.ts';
 import {
   beginRuntimeAttempt,
   cleanupTargets,
@@ -528,7 +529,11 @@ export const runStartupRuntimeCleanup = Effect.fn('runStartupRuntimeCleanup')(fu
     launchTargets.filter(isManagedProvider),
     launchTarget =>
       cleanupProviderRuntimes(launchTarget).pipe(
-        Effect.catchCause(cause => Effect.logWarning('provider runtime startup cleanup failed', launchTarget, cause)),
+        Effect.catchCause(cause =>
+          Effect.logWarning('provider runtime startup cleanup failed', cause).pipe(
+            annotateLaunchTargetLogs(launchTarget),
+          ),
+        ),
       ),
     { concurrency: 'unbounded', discard: true },
   );

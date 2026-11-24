@@ -7,6 +7,7 @@ import { Notifier } from '@lib/context-services';
 import type { HostServices } from '@lib/context-services';
 import { Deferred, Effect, Fiber, Layer, Logger, References, Tracer } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
+import { ACP_CHILD_SESSION_ID, ACP_PARENT_SESSION_ID, ACP_SESSION_ID } from '@lib/hub/telemetryKeys';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../../host/acpSessionBootstrap.ts';
@@ -101,20 +102,20 @@ const assertLinkedToParent = (
   const attribute = (span: Tracer.NativeSpan, key: string) => span.attributes.get(key);
   const spawn = telemetry.spans.find(span => span.name === 'startSpawnedSubagent');
   assert.isDefined(spawn);
-  assert.strictEqual(attribute(spawn, 'acp.sessionId'), ids.parent);
-  assert.strictEqual(attribute(spawn, 'acp.childSessionId'), ids.child);
+  assert.strictEqual(attribute(spawn, ACP_SESSION_ID), ids.parent);
+  assert.strictEqual(attribute(spawn, ACP_CHILD_SESSION_ID), ids.child);
   const childTurn = telemetry.spans.find(
-    span => span.name === 'sendPromptTurn' && attribute(span, 'acp.sessionId') === ids.child,
+    span => span.name === 'sendPromptTurn' && attribute(span, ACP_SESSION_ID) === ids.child,
   );
   assert.isDefined(childTurn);
-  assert.strictEqual(attribute(childTurn, 'acp.parentSessionId'), ids.parent);
+  assert.strictEqual(attribute(childTurn, ACP_PARENT_SESSION_ID), ids.parent);
   // The child's turn runs in the spawn's trace; the attribute is what a query filters on.
   assert.strictEqual(childTurn.traceId, spawn.traceId);
-  assert.isTrue(telemetry.logs.some(log => log.annotations['acp.parentSessionId'] === ids.parent));
-  // The link points one way: spans carrying the parent's own `acp.sessionId` never name a parent of their own.
+  assert.isTrue(telemetry.logs.some(log => log.annotations[ACP_PARENT_SESSION_ID] === ids.parent));
+  // The link points one way: spans carrying the parent's own `acp.session.id` never name a parent of their own.
   assert.isFalse(
     telemetry.spans.some(
-      span => attribute(span, 'acp.sessionId') === ids.parent && attribute(span, 'acp.parentSessionId') !== undefined,
+      span => attribute(span, ACP_SESSION_ID) === ids.parent && attribute(span, ACP_PARENT_SESSION_ID) !== undefined,
     ),
   );
 };
@@ -227,7 +228,7 @@ describe('startSpawnedSubagent', () => {
       }).pipe(Effect.provide(telemetry.layer));
       assertLinkedToParent(telemetry, { child: CHILD, parent: PARENT });
       const correlated = telemetry.spans.find(span => span.name === 'session/update');
-      assert.strictEqual(correlated?.attributes.get('acp.parentSessionId'), PARENT);
+      assert.strictEqual(correlated?.attributes.get(ACP_PARENT_SESSION_ID), PARENT);
     }).pipe(Effect.scoped),
   );
 
@@ -248,8 +249,8 @@ describe('startSpawnedSubagent', () => {
         assert.include(error.message, 'config options');
       }).pipe(Effect.provide(telemetry.layer));
       const spawn = telemetry.spans.find(span => span.name === 'startSpawnedSubagent');
-      assert.strictEqual(spawn?.attributes.get('acp.sessionId'), PARENT);
-      assert.strictEqual(spawn?.attributes.get('acp.childSessionId'), CHILD);
+      assert.strictEqual(spawn?.attributes.get(ACP_SESSION_ID), PARENT);
+      assert.strictEqual(spawn?.attributes.get(ACP_CHILD_SESSION_ID), CHILD);
     }).pipe(Effect.scoped),
   );
 
@@ -497,7 +498,7 @@ describe('startSpawnedSubagent on the parent own launch target (#456)', () => {
           task: 'task',
         }).pipe(Effect.provide(hostLayer), Effect.provide(telemetry.layer));
         const outcome = yield* Deferred.await(started.outcome);
-        // Same launch target, so `acp.agent` cannot tell them apart: the session ids link them.
+        // Same launch target, so `acp.launch_target` cannot tell them apart: the session ids link them.
         assertLinkedToParent(telemetry, { child: SAME_CHILD, parent: SAME_PARENT });
 
         assert.strictEqual(started.childSessionId, SAME_CHILD);

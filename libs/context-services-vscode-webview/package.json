@@ -18,6 +18,7 @@
   "dependencies": {
     "@lib/analytics-posthog": "workspace:^",
     "@lib/context-services": "workspace:^",
+    "@lib/hub": "workspace:^",
     "effect": "catalog:"
   },
   "devDependencies": {

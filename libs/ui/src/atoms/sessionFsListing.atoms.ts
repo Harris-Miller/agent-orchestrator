@@ -1,4 +1,5 @@
 /** Session-scoped recursive `fd` listing cache (keyed by sessionId + cwd). */
+import { ACP_SESSION_ID } from '@lib/hub/telemetryKeys';
 import { Effect, Exit, Redacted } from 'effect';
 import { Atom } from 'effect/reactivity';
 
@@ -64,7 +65,9 @@ export const createSessionFsListingAtoms = (
           listRecursiveEntries(arg.cwd, alwaysHiddenGlobs).pipe(Effect.onInterrupt(() => resetLoading)),
         );
         if (Exit.isFailure(exit)) {
-          yield* Effect.logWarning('session fs listing failed', arg.sessionId, Redacted.make(arg.cwd), exit.cause);
+          yield* Effect.logWarning('session fs listing failed', exit.cause).pipe(
+            Effect.annotateLogs({ cwd: Redacted.make(arg.cwd), [ACP_SESSION_ID]: arg.sessionId }),
+          );
           if (get(sessionFsListingAtom(key)).status === 'loading') {
             get.set(sessionFsListingAtom(key), emptyListing(arg.cwd));
           }

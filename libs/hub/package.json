@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./protocol": "./src/protocol.ts",
+    "./telemetryKeys": "./src/telemetryKeys.ts",
     "./testing": "./src/testing.ts"
   },
   "scripts": {

@@ -1,5 +1,5 @@
 /**
- * Hub process entry (bundled as `hub.mjs`): `hub.mjs [--port <n>] [--idle-grace-ms <ms>] [--build-target dev|prod]`. Normally started detached by
+ * Hub process entry (bundled as `hub.mjs`): `hub.mjs [--port <n>] [--idle-grace-ms <ms>] [--build-target dev|prod] [--service-version <v>]`. Normally started detached by
  * `launcher.ts`, never by a client directly.
  */
 import { NodeFileSystem, NodePath, NodeRuntime } from '@effect/platform-node';
@@ -7,7 +7,7 @@ import { Effect, Layer } from 'effect';
 import { parseArgs } from 'node:util';
 
 import { hubHome } from './home.ts';
-import { makeHubObservabilityLive } from './observability.ts';
+import { hubServiceVersion, makeHubObservabilityLive } from './observability.ts';
 import { runHubProcess } from './hubProcess.ts';
 import { DEFAULT_HUB_PORT } from './protocol.ts';
 
@@ -16,6 +16,7 @@ const { values } = parseArgs({
     'build-target': { type: 'string' },
     'idle-grace-ms': { default: '30000', type: 'string' },
     port: { type: 'string' },
+    'service-version': { type: 'string' },
   },
 });
 
@@ -32,7 +33,13 @@ const program = Effect.gen(function* () {
   yield* Effect.logInfo('Hub idle; exiting');
 }).pipe(
   Effect.scoped,
-  Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, makeHubObservabilityLive(buildTarget))),
+  Effect.provide(
+    Layer.mergeAll(
+      NodeFileSystem.layer,
+      NodePath.layer,
+      makeHubObservabilityLive(buildTarget, hubServiceVersion(values['service-version'])),
+    ),
+  ),
 );
 
 NodeRuntime.runMain(program);

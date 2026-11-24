@@ -6,6 +6,13 @@
  */
 import { Duration, Effect, Exit, Redacted, Semaphore } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
+import {
+  ACP_FORK_SOURCE_SESSION_ID,
+  ACP_FORKED_SESSION_ID,
+  ACP_SESSION_LOAD_MODE,
+  sessionAttributes,
+} from '@lib/hub/telemetryKeys';
+import { annotateLaunchTargetLogs, annotateSessionLogs } from '../host/sessionTelemetry.ts';
 
 import {
   applySessionInfoTitle,
@@ -89,10 +96,12 @@ export type RestartBackend = (
 
 /** Logs a verb's failure with its Session; the verb still fails. */
 export const logSessionFailure = (label: string, target: SessionTarget) =>
-  Effect.tapError((error: unknown) => Effect.logError(`${label} failed`, target.launchTarget, target.sessionId, error));
+  Effect.tapError((error: unknown) =>
+    Effect.logError(`${label} failed`, error).pipe(annotateSessionLogs(target.launchTarget, target.sessionId)),
+  );
 
 const sessionSpan = (target: SessionTarget) =>
-  Effect.annotateCurrentSpan({ 'acp.agent': target.launchTarget, 'acp.sessionId': target.sessionId });
+  Effect.annotateCurrentSpan(sessionAttributes(target.launchTarget, target.sessionId));
 
 const usableHarness = (registry: Registry, launchTarget: AgentLaunchTarget) => {
   const snapshot = registry.get(backendHarnessSnapshotAtom(launchTarget));
@@ -107,7 +116,7 @@ const usableHarnessOrSkip = Effect.fnUntraced(function* (
 ) {
   const snapshot = usableHarness(registry, launchTarget);
   if (snapshot === undefined) {
-    yield* Effect.logWarning(`${action} skipped; backend not usable`, launchTarget);
+    yield* Effect.logWarning(`${action} skipped; backend not usable`).pipe(annotateLaunchTargetLogs(launchTarget));
   }
   return snapshot;
 });
@@ -173,7 +182,9 @@ export const activateSession = Effect.fn('activateSession')(function* (
     updateHarnessSnapshot(registry, arg.launchTarget, current => setSessionArchived(current, arg.sessionId, false));
     if (snapshot.agentCapabilities.sessionArchive) {
       yield* unarchiveOnAgent(arg.launchTarget, arg.sessionId).pipe(
-        Effect.catchCause(cause => Effect.logWarning('session/unarchive failed', arg.launchTarget, cause)),
+        Effect.catchCause(cause =>
+          Effect.logWarning('session/unarchive failed', cause).pipe(annotateLaunchTargetLogs(arg.launchTarget)),
+        ),
       );
     }
   }
@@ -186,12 +197,16 @@ export const activateSession = Effect.fn('activateSession')(function* (
   // Fresh session/new already materializes an active local snapshot. Re-entering via
   // session/load (empty transcript ⇒ load) breaks Codex ("no rollout found for thread id").
   if (existingSession !== undefined && isSessionActiveOrActivating(existingSession.status)) {
-    yield* Effect.logInfo('activateSession skipped; already active/activating', arg.launchTarget, arg.sessionId);
+    yield* Effect.logInfo('activateSession skipped; already active/activating').pipe(
+      annotateSessionLogs(arg.launchTarget, arg.sessionId),
+    );
     return;
   }
 
   if (cwd === undefined) {
-    yield* Effect.logError('Session activation failed; session cwd missing', arg.launchTarget, arg.sessionId);
+    yield* Effect.logError('Session activation failed; session cwd missing').pipe(
+      annotateSessionLogs(arg.launchTarget, arg.sessionId),
+    );
     updateHarnessSnapshot(registry, arg.launchTarget, current => markActivationCwdMissing(current, arg.sessionId));
     return;
   }
@@ -199,10 +214,10 @@ export const activateSession = Effect.fn('activateSession')(function* (
   // ADR 0004 heuristic, only when the Agent capabilities permit resume (never for Cursor, ADR 0013).
   const hasHistory = existingSession !== undefined && existingSession.transcript.items.length > 0;
   const useResume = snapshot.agentCapabilities.sessionResume && hasHistory;
-  yield* Effect.logInfo('Activating session', arg.launchTarget, arg.sessionId, {
-    cwd: Redacted.make(cwd),
-    mode: useResume ? 'resume' : 'load',
-  });
+  yield* Effect.logInfo('Activating session').pipe(
+    Effect.annotateLogs({ cwd: Redacted.make(cwd), [ACP_SESSION_LOAD_MODE]: useResume ? 'resume' : 'load' }),
+    annotateSessionLogs(arg.launchTarget, arg.sessionId),
+  );
 
   const previousTranscript = existingSession?.transcript;
   updateHarnessSnapshot(registry, arg.launchTarget, current =>
@@ -214,7 +229,7 @@ export const activateSession = Effect.fn('activateSession')(function* (
   );
 
   if (Exit.isFailure(exit)) {
-    yield* Effect.logError('Session activation failed', arg.launchTarget, arg.sessionId);
+    yield* Effect.logError('Session activation failed').pipe(annotateSessionLogs(arg.launchTarget, arg.sessionId));
     // The RPC wire log's latest failure data, else the cause's defects.
     const defects = defectsFromActivationFailure(registry.get(rpcWireLogAtom(arg.launchTarget)), exit.cause);
     updateHarnessSnapshot(registry, arg.launchTarget, current =>
@@ -238,10 +253,12 @@ export const activateSession = Effect.fn('activateSession')(function* (
     ),
   );
   if (reset.stoppedEarly) {
-    yield* Effect.logWarning('Session config reset failed during activation', arg.launchTarget, arg.sessionId);
+    yield* Effect.logWarning('Session config reset failed during activation').pipe(
+      annotateSessionLogs(arg.launchTarget, arg.sessionId),
+    );
   }
   updateHarnessSnapshot(registry, arg.launchTarget, current => finishActivation(current, arg.sessionId));
-  yield* Effect.logInfo('Session activated', arg.launchTarget, arg.sessionId);
+  yield* Effect.logInfo('Session activated').pipe(annotateSessionLogs(arg.launchTarget, arg.sessionId));
 });
 
 /**
@@ -266,7 +283,7 @@ export const deactivateSession = Effect.fn('deactivateSession')(
     // Children the Harness started for this session end with it (a Prompt turn cancel alone spares background ones).
     yield* endSpawnedChildren(registry, arg);
 
-    yield* Effect.logInfo('Deactivating session', arg.launchTarget, arg.sessionId);
+    yield* Effect.logInfo('Deactivating session').pipe(annotateSessionLogs(arg.launchTarget, arg.sessionId));
     yield* closeOnAgent(snapshot.agentCapabilities, arg.launchTarget, arg.sessionId);
 
     updateHarnessSnapshot(registry, arg.launchTarget, current => markSessionInactive(current, arg.sessionId));
@@ -307,17 +324,19 @@ export const deleteSession = Effect.fn('deleteSession')(
     );
 
     if (!usable) {
-      yield* Effect.logWarning('deleteSession untracked only; backend not usable', arg.launchTarget);
+      yield* Effect.logWarning('deleteSession untracked only; backend not usable').pipe(
+        annotateLaunchTargetLogs(arg.launchTarget),
+      );
       return;
     }
 
     // An active session is closed on the agent whether or not it advertises `session/delete`.
     if (needsClose) {
-      yield* Effect.logInfo('Closing session before delete', arg.launchTarget, arg.sessionId);
+      yield* Effect.logInfo('Closing session before delete').pipe(annotateSessionLogs(arg.launchTarget, arg.sessionId));
       yield* closeOnAgent(snapshot.agentCapabilities, arg.launchTarget, arg.sessionId).pipe(Effect.ignore);
     }
     if (snapshot.agentCapabilities.sessionDelete) {
-      yield* Effect.logInfo('Deleting session', arg.launchTarget, arg.sessionId);
+      yield* Effect.logInfo('Deleting session').pipe(annotateSessionLogs(arg.launchTarget, arg.sessionId));
       yield* deleteOnAgent(arg.launchTarget, arg.sessionId);
     }
   },
@@ -345,12 +364,14 @@ export const forkSession = Effect.fn('forkSession')(
       return false;
     }
     const forkedSessionId = result.sessionId;
-    yield* Effect.annotateCurrentSpan('acp.forkedSessionId', forkedSessionId);
+    yield* Effect.annotateCurrentSpan(ACP_FORKED_SESSION_ID, forkedSessionId);
 
     const parentEntry = snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId);
     const createdEntry = historyEntryFromNew(result, arg.cwd);
     if (createdEntry === undefined) {
-      yield* Effect.logError('forkSession skipped; fork result missing sessionId', arg.launchTarget);
+      yield* Effect.logError('forkSession skipped; fork result missing sessionId').pipe(
+        annotateLaunchTargetLogs(arg.launchTarget),
+      );
       return false;
     }
     const historyEntry =
@@ -358,10 +379,10 @@ export const forkSession = Effect.fn('forkSession')(
 
     yield* trackSession(registry, arg.launchTarget, historyEntry);
     yield* activateSession(registry, { launchTarget: arg.launchTarget, sessionId: forkedSessionId });
-    yield* Effect.logInfo('UI forkSession complete', arg.launchTarget, {
-      forkedSessionId,
-      parentSessionId: arg.sessionId,
-    });
+    yield* Effect.logInfo('UI forkSession complete').pipe(
+      Effect.annotateLogs({ [ACP_FORK_SOURCE_SESSION_ID]: arg.sessionId }),
+      annotateSessionLogs(arg.launchTarget, forkedSessionId),
+    );
     return true;
   },
   (effect, _registry, arg) => effect.pipe(logSessionFailure('forkSession', arg)),
@@ -374,7 +395,7 @@ export const forkSession = Effect.fn('forkSession')(
 export const archiveSession = Effect.fn('archiveSession')(
   function* (registry: Registry, arg: SessionTarget) {
     yield* sessionSpan(arg);
-    yield* Effect.logInfo('Archiving session', arg.launchTarget, arg.sessionId);
+    yield* Effect.logInfo('Archiving session').pipe(annotateSessionLogs(arg.launchTarget, arg.sessionId));
     yield* updateAndClearSelection(registry, arg.launchTarget, arg.sessionId, current =>
       setSessionArchived(current, arg.sessionId, true),
     );
@@ -389,7 +410,7 @@ export const archiveSession = Effect.fn('archiveSession')(
 export const unarchiveSession = Effect.fn('unarchiveSession')(
   function* (registry: Registry, arg: SessionTarget) {
     yield* sessionSpan(arg);
-    yield* Effect.logInfo('Unarchiving session', arg.launchTarget, arg.sessionId);
+    yield* Effect.logInfo('Unarchiving session').pipe(annotateSessionLogs(arg.launchTarget, arg.sessionId));
     updateHarnessSnapshot(registry, arg.launchTarget, current => setSessionArchived(current, arg.sessionId, false));
     if (canCallArchive(registry, arg.launchTarget)) {
       yield* unarchiveOnAgent(arg.launchTarget, arg.sessionId);
@@ -490,7 +511,9 @@ const reactivateTargetGroup = Effect.fnUntraced(function* (
     Effect.catch(error => Effect.succeed(error)),
   );
   if (restartError !== undefined) {
-    yield* Effect.logError('reactivateActiveSessions restart failed', launchTarget, restartError);
+    yield* Effect.logError('reactivateActiveSessions restart failed', restartError).pipe(
+      annotateLaunchTargetLogs(launchTarget),
+    );
     // The sessions stay inactive: say so in each one's chat (the "Activation failed" banner with Retry).
     const message = `Provider restart failed: ${restartError.reason}`;
     updateHarnessSnapshot(registry, launchTarget, current =>

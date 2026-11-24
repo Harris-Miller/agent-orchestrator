@@ -14,10 +14,12 @@ import {
   HUB_HOST,
   HubMessage,
   PROTOCOL_VERSION,
+  toolLabel,
 } from '@lib/hub/protocol';
-import type { ClientKind, ClientMessage } from '@lib/hub/protocol';
+import type { ClientKind, ClientMessage, ToolCallMessage } from '@lib/hub/protocol';
+import { HUB_TOOL } from '@lib/hub/telemetryKeys';
 import type { HostServices, OS } from '@lib/context-services';
-import { Deferred, Duration, Effect, Schedule, Schema } from 'effect';
+import { Deferred, Duration, Effect, Schedule, Schema, Tracer } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 import { Socket } from 'effect/socket';
@@ -27,6 +29,7 @@ import type { HubConnection } from './hubConnection.ts';
 import { handleHubToolCall, registeredTokens } from './hubSessions.ts';
 import type { HubToolContext } from './hubToolHandler.ts';
 import { recordHubWire } from './hubWireLog.ts';
+import { annotateLaunchTargetLogs } from './sessionTelemetry.ts';
 
 /** Why the hub cannot be used; `reason` is what the degraded-mode notice shows. */
 export class HubUnavailable extends Schema.TaggedError<HubUnavailable>()('HubUnavailable', {
@@ -142,6 +145,16 @@ const ensureHub = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>) 
   );
 });
 
+/**
+ * Handle a routed tool call as a child of the hub's `hub.toolCall` span (when the hub sent its trace context), so the
+ * hub's span and the Harness's handling are one trace. Ids and the allowlisted tool name only (root ADR 0002).
+ */
+const withHubTrace = (call: ToolCallMessage) =>
+  Effect.withSpan('hub.handleToolCall', {
+    attributes: { [HUB_TOOL]: toolLabel(call.tool) },
+    ...(call.trace === undefined ? {} : { parent: Tracer.externalSpan(call.trace) }),
+  });
+
 /** One connection: connect, install, serve until the socket drops (always ends in `HubUnavailable`). */
 const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>) {
   const discovery = yield* ensureHub(options);
@@ -219,7 +232,9 @@ const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>
     }
     if (attempt >= RESTORE_ATTEMPTS) {
       restoring.delete(token);
-      yield* Effect.logWarning('Hub refused to restore a session credential', credential.launchTarget);
+      yield* Effect.logWarning('Hub refused to restore a session credential').pipe(
+        annotateLaunchTargetLogs(credential.launchTarget),
+      );
       return;
     }
     restoring.set(token, attempt + 1);
@@ -236,6 +251,7 @@ const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>
           return Effect.void;
         })
       : handleHubToolCall(message, { registry: options.registry }).pipe(
+          withHubTrace(message),
           Effect.flatMap(result =>
             send({ isError: result.isError, requestId: message.requestId, text: result.text, type: 'toolResult' }),
           ),

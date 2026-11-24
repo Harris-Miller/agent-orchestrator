@@ -6,6 +6,7 @@
  * Connection lost: pending interactions cancelled and the Virtual session unbound. Consequences run fire-and-forget
  * through `runFork` and never fail the fold.
  */
+import { annotateLaunchTargetLogs } from '../host/sessionTelemetry.ts';
 import { writeConfigOptionIndexCache } from '@lib/hoa-home';
 import type { HostServices } from '@lib/context-services';
 import { Effect } from 'effect';
@@ -70,7 +71,9 @@ export const makeHarnessEventFold = ({
     resetVirtualUnsupportedConfig(registry, launchTarget, index);
     runFork(
       writeConfigOptionIndexCache(toLaunchTarget(launchTarget), index).pipe(
-        Effect.catchCause(cause => Effect.logWarning('config option index persist failed', launchTarget, cause)),
+        Effect.catchCause(cause =>
+          Effect.logWarning('config option index persist failed', cause).pipe(annotateLaunchTargetLogs(launchTarget)),
+        ),
       ),
     );
   };
@@ -142,7 +145,9 @@ export const makeHarnessEventFold = ({
       if (phase === 'usable') {
         runFork(
           bindVirtualOnUsable(registry, launchTarget).pipe(
-            Effect.catchCause(cause => Effect.logWarning('bindVirtualOnUsable failed', launchTarget, cause)),
+            Effect.catchCause(cause =>
+              Effect.logWarning('bindVirtualOnUsable failed', cause).pipe(annotateLaunchTargetLogs(launchTarget)),
+            ),
           ),
         );
       }

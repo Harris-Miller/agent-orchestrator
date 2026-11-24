@@ -11,7 +11,7 @@ export const mcpPost = (
   body: object,
   options: { readonly headers?: Record<string, string>; readonly sessionId?: string | undefined } = {},
 ) =>
-  Effect.promise(async () => {
+  Effect.promise(async signal => {
     const response = await fetch(url, {
       body: JSON.stringify(body),
       headers: {
@@ -22,6 +22,7 @@ export const mcpPost = (
         ...options.headers,
       },
       method: 'POST',
+      signal,
     });
     return { response, text: await response.text() };
   });

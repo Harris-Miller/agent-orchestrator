@@ -1,4 +1,5 @@
-import { appSessionId, buildTarget } from '@lib/context-services';
+import { appSessionId, appVersion, buildTarget } from '@lib/context-services';
+import { APP_SESSION_ID, BUILD_TARGET } from '@lib/hub/telemetryKeys';
 import type { BuildTarget } from '@lib/context-services';
 import { ConfigProvider, Layer, References } from 'effect';
 import { FetchHttpClient } from 'effect/http';
@@ -27,7 +28,7 @@ const AllLogLevelsLive = Layer.succeed(References.MinimumLogLevel, 'All');
  * OTLP export for traces, logs, and metrics. Dev builds only: the host-env OTLP config
  * (`OTEL_EXPORTER_OTLP_ENDPOINT`, unless `OTEL_SDK_DISABLED` or exporters omit `otlp`) is never read
  * in a prod build, because that env var is a common convention a user's machine may already set.
- * Every signal carries a `build_target` resource attribute.
+ * Every signal carries a `build.target` resource attribute.
  * Requires {@link ConfigProvider} (from {@link ConfigProviderLive}).
  */
 export const makeObservabilityLive = (target: BuildTarget) =>
@@ -36,8 +37,9 @@ export const makeObservabilityLive = (target: BuildTarget) =>
         AllLogLevelsLive,
         Otlp.layerFromConfig({
           resource: {
-            attributes: { 'app_session.id': appSessionId, build_target: target },
+            attributes: { [APP_SESSION_ID]: appSessionId, [BUILD_TARGET]: target },
             serviceName: 'hoa-desktop',
+            serviceVersion: appVersion,
           },
         }).pipe(
           Layer.provide(OtlpSerialization.layerJson),

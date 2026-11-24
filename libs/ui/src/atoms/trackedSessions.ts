@@ -13,6 +13,7 @@
  * A malformed file is never overwritten (pins and Projects behave the same). Persistence has no start-guard for it: the
  * upsert fails and is logged, and the file is left as it was.
  */
+import { annotateLaunchTargetLogs } from '../host/sessionTelemetry.ts';
 import { readTrackedSessions, removeTrackedSession, trackedSessionRows, upsertTrackedSessions } from '@lib/hoa-home';
 import type { TrackedSessionRecord } from '@lib/hoa-home';
 import type { HostServices } from '@lib/context-services';
@@ -61,7 +62,9 @@ export const enqueue = (
   const next = cache.writes
     .then(() => work(cache))
     .catch((cause: unknown) => {
-      Effect.runFork(Effect.logWarning('tracked sessions write failed', launchTarget, cause));
+      Effect.runFork(
+        Effect.logWarning('tracked sessions write failed', cause).pipe(annotateLaunchTargetLogs(launchTarget)),
+      );
     });
   cache.writes = next;
   return next;
@@ -104,7 +107,10 @@ export const hydrateTrackedSessions = (
       return true;
     }),
     Effect.catchCause(cause =>
-      Effect.as(Effect.logWarning('tracked sessions hydrate failed', launchTarget, cause), false),
+      Effect.as(
+        Effect.logWarning('tracked sessions hydrate failed', cause).pipe(annotateLaunchTargetLogs(launchTarget)),
+        false,
+      ),
     ),
   );
 
@@ -135,7 +141,9 @@ export const startTrackedSessionsPersistence = Effect.fn('startTrackedSessionsPe
               for (const { json, record } of changed) cache.lastWritten.set(record.sessionId, json);
             }),
           ),
-          Effect.catchCause(cause => Effect.logWarning('tracked sessions persist failed', launchTarget, cause)),
+          Effect.catchCause(cause =>
+            Effect.logWarning('tracked sessions persist failed', cause).pipe(annotateLaunchTargetLogs(launchTarget)),
+          ),
         ),
       );
     });
@@ -160,7 +168,9 @@ export const untrackSession = Effect.fn('untrackSession')(function* (
               cache.lastWritten.delete(sessionId);
             }),
           ),
-          Effect.catchCause(cause => Effect.logWarning('tracked session untrack failed', launchTarget, cause)),
+          Effect.catchCause(cause =>
+            Effect.logWarning('tracked session untrack failed', cause).pipe(annotateLaunchTargetLogs(launchTarget)),
+          ),
         ),
       ),
     ),

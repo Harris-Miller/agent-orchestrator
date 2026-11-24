@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 
 import { join } from 'node:path';
 
+import { captureStartupOtelEnv } from './host/hostFulfillment';
 import { ProcessTracker } from './host/processTracker';
 import { SidebarViewProvider } from './sidebarViewProvider';
 
@@ -16,6 +17,8 @@ export const activate = function (context: vscode.ExtensionContext): void {
       quiet: true,
     });
   }
+
+  captureStartupOtelEnv();
 
   const provider = new SidebarViewProvider(context, processTracker);
 

@@ -49,6 +49,17 @@ const stringEnv = (): Record<string, string> => {
   return env;
 };
 
+/**
+ * `OTEL_*` as of activation, once `.env.development` is loaded. VS Code's bundled Copilot extension deletes
+ * `OTEL_EXPORTER_OTLP_ENDPOINT` from the shared extension host's `process.env` shortly after startup, so the webview
+ * would not see the endpoint and dev OTLP export would silently stay off. The snapshot falls back to these values.
+ */
+let startupOtelEnv: Readonly<Record<string, string>> = {};
+
+export const captureStartupOtelEnv = (): void => {
+  startupOtelEnv = Object.fromEntries(Object.entries(stringEnv()).filter(([key]) => key.startsWith('OTEL_')));
+};
+
 const toNodeStdio = (mode: StdioMode | undefined): 'ignore' | 'inherit' | 'pipe' =>
   mode === 'inherit' || mode === 'ignore' ? mode : 'pipe';
 
@@ -232,6 +243,7 @@ export const makeHostIpcFulfillment = (deps: {
         // Host markers for the webview's hub client (not passed to spawned children): which Host this is, and the
         // remote kind of a Remote SSH / WSL / container / Codespaces window, whose agents cannot reach a local hub.
         env: {
+          ...startupOtelEnv,
           ...stringEnv(),
           HOA_HOST: 'vscode',
           ...(vscode.env.remoteName === undefined ? {} : { HOA_VSCODE_REMOTE_NAME: vscode.env.remoteName }),

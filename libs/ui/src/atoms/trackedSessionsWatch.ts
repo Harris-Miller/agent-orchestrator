@@ -3,6 +3,7 @@
  * signature and reconciles Session History rows with it (add, update, archive flag, remove) without touching Agent state.
  * See `trackedSessions.ts` for `lastWritten`, and ADR 0011.
  */
+import { annotateLaunchTargetLogs } from '../host/sessionTelemetry.ts';
 import { readTrackedSessions, trackedSessionRows, trackedSessionsPath } from '@lib/hoa-home';
 import type { HostServices } from '@lib/context-services';
 import { Duration, Effect, FileSystem, Option, Schedule } from 'effect';
@@ -119,7 +120,8 @@ export const applyExternalTrackedSessions = Effect.fn('applyExternalTrackedSessi
         }).pipe(
           // A malformed file stays malformed until someone rewrites it: settled, so the poll does not re-log each tick.
           Effect.catchTag('TrackedSessionsMalformed', cause =>
-            Effect.logWarning('tracked sessions file malformed', launchTarget, cause).pipe(
+            Effect.logWarning('tracked sessions file malformed', cause).pipe(
+              annotateLaunchTargetLogs(launchTarget),
               Effect.andThen(
                 Effect.sync(() => {
                   settled = true;
@@ -127,7 +129,11 @@ export const applyExternalTrackedSessions = Effect.fn('applyExternalTrackedSessi
               ),
             ),
           ),
-          Effect.catchCause(cause => Effect.logWarning('tracked sessions external sync failed', launchTarget, cause)),
+          Effect.catchCause(cause =>
+            Effect.logWarning('tracked sessions external sync failed', cause).pipe(
+              annotateLaunchTargetLogs(launchTarget),
+            ),
+          ),
         ),
       ),
     ),
@@ -165,7 +171,11 @@ export const startTrackedSessionsWatch = Effect.fn('startTrackedSessionsWatch')(
     if (yield* applyExternalTrackedSessions(registry, launchTarget, registry.get(listedCwdsAtom), () => stopped)) {
       seen = signature;
     }
-  }).pipe(Effect.catchCause(cause => Effect.logWarning('tracked sessions poll failed', launchTarget, cause)));
+  }).pipe(
+    Effect.catchCause(cause =>
+      Effect.logWarning('tracked sessions poll failed', cause).pipe(annotateLaunchTargetLogs(launchTarget)),
+    ),
+  );
   // Forked from this fiber so it inherits the clock; detached so it outlives the hydrating fiber.
   const fiber = yield* Effect.forkDetach(
     poll.pipe(Effect.repeat(Schedule.spaced(Duration.millis(TRACKED_SESSIONS_POLL_MS)))),

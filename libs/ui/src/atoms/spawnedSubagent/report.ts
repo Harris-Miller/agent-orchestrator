@@ -7,6 +7,7 @@
  * flight, or a Prompt turn of its own once the parent is idle. Reports for one parent are serialized, each holding the
  * parent until its turn has begun; a report is dropped when its parent is gone.
  */
+import { annotateSessionLogs } from '../../host/sessionTelemetry.ts';
 import { Deferred, Duration, Effect, Exit, Fiber, Semaphore, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
@@ -244,7 +245,9 @@ const reportWhenDone = Effect.fnUntraced(function* (registry: Registry, link: Sp
   const outcome = yield* Deferred.await(link.outcome);
   const result = yield* deliver(registry, link, outcome);
   if (result === 'dropped') {
-    yield* Effect.logInfo('Subagent report not delivered', link.parentLaunchTarget, link.childSessionId);
+    yield* Effect.logInfo('Subagent report not delivered').pipe(
+      annotateSessionLogs(link.parentLaunchTarget, link.childSessionId),
+    );
   }
 });
 

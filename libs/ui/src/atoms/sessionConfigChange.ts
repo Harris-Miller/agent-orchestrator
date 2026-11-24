@@ -32,6 +32,7 @@
  */
 import { Cause, Effect, Exit, Schema } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
+import { sessionAttributes } from '@lib/hub/telemetryKeys';
 
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
@@ -41,6 +42,7 @@ import type { ConfigValueDiff } from '../host/sessionConfiguration.ts';
 import { setConfigOption } from '../host/sessionRpc.ts';
 
 import { backendHarnessSnapshotAtom, modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { annotateSessionLogs } from '../host/sessionTelemetry.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -79,7 +81,7 @@ export const setSessionConfigOption = Effect.fn('setSessionConfigOption')(functi
   change: ConfigValueDiff,
 ): Effect.fn.Return<void, SessionConfigUnavailable | SetConfigOptionError> {
   const { launchTarget, sessionId } = target;
-  yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget, 'acp.sessionId': sessionId });
+  yield* Effect.annotateCurrentSpan(sessionAttributes(launchTarget, sessionId));
   // Begin and installing the end run uninterruptibly: no interrupt can land between them (invariant 4).
   return yield* Effect.uninterruptibleMask(restore =>
     Effect.gen(function* () {
@@ -108,7 +110,9 @@ export const setSessionConfigOption = Effect.fn('setSessionConfigOption')(functi
         Effect.tapCause(cause =>
           Cause.hasInterruptsOnly(cause)
             ? Effect.void
-            : Effect.logError('Config change failed; reverting', launchTarget, sessionId, change.configId, cause),
+            : Effect.logError('Config change failed; reverting', cause).pipe(
+                annotateSessionLogs(launchTarget, sessionId),
+              ),
         ),
       );
     }),
@@ -136,7 +140,9 @@ export const applySessionConfigValues = Effect.fn('applySessionConfigValues')(fu
     attempted.add(diff.configId);
     const exit = yield* Effect.exit(applySessionConfigValue(registry, target, diff));
     if (Exit.isFailure(exit)) {
-      yield* Effect.logWarning('Config diff failed; stopping', target.launchTarget, target.sessionId, diff.configId);
+      yield* Effect.logWarning('Config diff failed; stopping').pipe(
+        annotateSessionLogs(target.launchTarget, target.sessionId),
+      );
       return { stoppedEarly: true };
     }
   }

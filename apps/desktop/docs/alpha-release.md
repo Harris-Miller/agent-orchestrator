@@ -15,7 +15,7 @@ Branching: see [`docs/gitflow.md`](../../../docs/gitflow.md). Release CI runs on
 
 ## Release notes
 
-semantic-release builds the notes from the same commits that decided the version, grouped by tag. Each squash commit title ends in `(#123)`, which becomes a link to the PR. CI passes the notes to `gh release create --notes-file`.
+semantic-release builds the notes from the same commits that decided the version, grouped by tag. Each entry is the squash commit title, which ends in `(#issue) (#PR)`; the preset prints that text as is and appends a `closes` link for every `#N` in it. CI passes the notes to `gh release create --notes-file`.
 
 ## Ship a build
 

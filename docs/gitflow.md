@@ -10,7 +10,7 @@ Both branches are protected by rulesets: no direct pushes, no force pushes, and 
 ## Day-to-day
 
 1. Branch from `develop`.
-2. Open a PR **into `develop`** with a title in the form `<Tag>: <Short description>` (checked by `pr-title.yml`). If the PR closes issues, end the title with ` (#123)` or ` (#123, #456)`.
+2. Open a PR **into `develop`** with a title in the form `<Tag>: <Short description>` (checked by `pr-title.yml`). If the PR closes issues, end the title with ` (#123)` / ` (#123, #456)` (see [CONTRIBUTING.md](../CONTRIBUTING.md#pull-request-title)).
 3. Squash-merge when CI is green. The PR title becomes the commit message on `develop`.
 
 ### PR title tags

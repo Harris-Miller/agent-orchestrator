@@ -47,6 +47,7 @@ makeHostServicesLive(options: { readonly client: IpcClient }): Layer.Layer<HostS
 - **New Effects follow the existing span and log conventions**: user action roots get a root span, private data in logs is wrapped in `Redacted`.
 - **Unit tests never provide a real analytics or OTLP layer.** Use a recording `Analytics` layer (`libs/ui/src/analytics/recordingAnalytics.testing.ts`).
 - To see events from a dev build, run a local PostHog: `docs/local-posthog.md`.
+- Missing or odd telemetry → `docs/observability-debugging.md` first.
 
 ## ACP (Agent Client Protocol)
 

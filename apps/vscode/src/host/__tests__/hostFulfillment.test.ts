@@ -45,34 +45,38 @@ type Folder = { readonly uri: { readonly fsPath: string; readonly scheme: string
  * `IpcClient` (webview end) ↔ `serveHostIpc(makeHostIpcFulfillment(...))` (extension end) over an in-memory
  * port pair, in a fresh temp dir. Everything is released with the test scope.
  */
-const fulfillment = Effect.acquireRelease(
-  Effect.promise(async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'hoa-host-fulfillment-'));
-    const [webview, extension] = connectFakePeers();
-    const tracker = new ProcessTracker();
-    const state: { folders: readonly Folder[] | undefined } = { folders: undefined };
-    const stop = serveHostIpc(
-      extension,
-      makeHostIpcFulfillment({
-        asAbsolutePath: relativePath => join(tmp, relativePath),
-        port: extension,
-        tracker,
-        webviewId: 'wv-1',
-        workspaceFolders: () => state.folders as never,
-      }),
-    );
-    const client = new IpcClient(webview);
-    return { client, state, stop, tmp, tracker, webview };
-  }),
-  ({ client, stop, tmp, tracker }) =>
+const makeFulfillment = (isExtensionDevelopment = false) =>
+  Effect.acquireRelease(
     Effect.promise(async () => {
-      stop();
-      client.dispose();
-      tracker.killAll();
-      vi.unstubAllEnvs();
-      await rm(tmp, { force: true, recursive: true });
+      const tmp = await mkdtemp(join(tmpdir(), 'hoa-host-fulfillment-'));
+      const [webview, extension] = connectFakePeers();
+      const tracker = new ProcessTracker();
+      const state: { folders: readonly Folder[] | undefined } = { folders: undefined };
+      const stop = serveHostIpc(
+        extension,
+        makeHostIpcFulfillment({
+          asAbsolutePath: relativePath => join(tmp, relativePath),
+          isExtensionDevelopment,
+          port: extension,
+          tracker,
+          webviewId: 'wv-1',
+          workspaceFolders: () => state.folders as never,
+        }),
+      );
+      const client = new IpcClient(webview);
+      return { client, state, stop, tmp, tracker, webview };
     }),
-);
+    ({ client, stop, tmp, tracker }) =>
+      Effect.promise(async () => {
+        stop();
+        client.dispose();
+        tracker.killAll();
+        vi.unstubAllEnvs();
+        await rm(tmp, { force: true, recursive: true });
+      }),
+  );
+
+const fulfillment = makeFulfillment();
 
 type Watched = {
   /**
@@ -246,6 +250,44 @@ describe('Host IPC fulfillment', () => {
       assert.strictEqual(snapshot.env.OTEL_EXPORTER_OTLP_ENDPOINT, 'http://127.0.0.1:4318');
     }),
   );
+
+  // Exception to "don't assert on logging" (AGENTS.md): the warning is this feature's only observable behaviour.
+  describe('dev OTLP export warning', () => {
+    const snapshotWarnings = (opts: {
+      readonly isExtensionDevelopment: boolean;
+      readonly endpoint: string | undefined;
+    }) =>
+      Effect.gen(function* () {
+        const { client } = yield* makeFulfillment(opts.isExtensionDevelopment);
+        vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', opts.endpoint);
+        captureStartupOtelEnv();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        yield* client.request({ _tag: 'OsSnapshot' });
+        return warn.mock.calls.flat().map(String);
+      }).pipe(Effect.ensuring(Effect.sync(() => vi.mocked(console.warn).mockRestore())));
+
+    it.effect('warns in a dev build when the snapshot has no OTEL_EXPORTER_OTLP_ENDPOINT', () =>
+      Effect.gen(function* () {
+        const warnings = yield* snapshotWarnings({ isExtensionDevelopment: true, endpoint: undefined });
+        assert.strictEqual(warnings.length, 1);
+        assert.include(warnings[0], 'OTEL_EXPORTER_OTLP_ENDPOINT');
+      }),
+    );
+
+    it.effect('stays quiet in a dev build when the snapshot has the endpoint', () =>
+      Effect.gen(function* () {
+        const warnings = yield* snapshotWarnings({ isExtensionDevelopment: true, endpoint: 'http://127.0.0.1:4318' });
+        assert.deepStrictEqual(warnings, []);
+      }),
+    );
+
+    it.effect('stays quiet in a prod build even without the endpoint', () =>
+      Effect.gen(function* () {
+        const warnings = yield* snapshotWarnings({ isExtensionDevelopment: false, endpoint: undefined });
+        assert.deepStrictEqual(warnings, []);
+      }),
+    );
+  });
 
   it.effect('reports VS Code window focus', () =>
     Effect.gen(function* () {

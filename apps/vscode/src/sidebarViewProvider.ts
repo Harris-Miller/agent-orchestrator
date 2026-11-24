@@ -64,6 +64,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       port,
       makeHostIpcFulfillment({
         asAbsolutePath: relativePath => this.context.asAbsolutePath(relativePath),
+        isExtensionDevelopment: this.context.extensionMode === vscode.ExtensionMode.Development,
         port,
         tracker: this.tracker,
         webviewId,

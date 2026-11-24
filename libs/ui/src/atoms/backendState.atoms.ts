@@ -16,7 +16,7 @@ import { harnessAvailabilityEqual, harnessUnavailableReason } from '../host/laun
 import type { HarnessAvailability } from '../host/launchTargetAvailability.ts';
 import { isSwitchingJob } from '../host/providerView.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
-import { getSubagent, hasBackgroundActivity, rootAncestorId } from '../host/subagent.ts';
+import { getSubagent, hasBackgroundActivity, rootAncestorId, subagentRollUp } from '../host/subagent.ts';
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
@@ -229,6 +229,21 @@ export const selectedSubagentAtom = Atom.family((childId: string) =>
     const subagents = get(selectedSubagentsRecordAtom);
     return subagents === undefined ? undefined : getSubagent(subagents, childId);
   }),
+);
+
+/**
+ * Narrows to what a child's row shows for its subtree (see `subagentRollUp`). Compared by value, so a row re-renders
+ * only when it changes. Not `keepAlive`: entries are keyed by child id and are collected once nothing subscribes.
+ */
+export const selectedSubagentRollUpAtom = Atom.family((childId: string) =>
+  Atom.make(get => {
+    const subagents = get(selectedSubagentsRecordAtom);
+    return subagents === undefined ? { needsInput: false, running: 0 } : subagentRollUp(subagents, childId);
+  }).pipe(
+    Atom.withEquality<{ readonly needsInput: boolean; readonly running: number }>(
+      (a, b) => a.needsInput === b.needsInput && a.running === b.running,
+    ),
+  ),
 );
 
 /**

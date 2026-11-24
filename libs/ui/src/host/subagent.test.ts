@@ -15,9 +15,11 @@ import {
   resetSubagentLiveState,
   rootAncestorId,
   sessionHasLiveWork,
+  subagentAncestry,
   subagentLatestActivity,
   subagentLaunchTarget,
   subagentNeedsInput,
+  subagentRollUp,
 } from './subagent.ts';
 import type { SubagentSnapshot } from './subagent.ts';
 import { emptySessionTranscript, reduceSessionUpdate, upsertSubagentChatItem } from './sessionUpdateReducer.ts';
@@ -243,5 +245,39 @@ describe('subagentLaunchTarget', () => {
       subagentLaunchTarget({ ...native, kind: 'spawned', launchTarget: 'claude-agent-acp' }, 'codex-acp'),
       'claude-agent-acp',
     );
+  });
+});
+
+describe('nested subagent roll-up (#277)', () => {
+  const tree = (fields: Record<string, object>) => ({
+    a: subagent('a', 'root', fields.a ?? {}),
+    b: subagent('b', 'a', fields.b ?? {}),
+    c: subagent('c', 'b', fields.c ?? {}),
+    other: subagent('other', 'root', fields.other ?? {}),
+  });
+  const running = { state: { state: 'running' } };
+
+  it('counts working descendants at any depth, not the child itself or siblings', () => {
+    const subagents = tree({ a: running, b: running, c: { state: { state: 'requires_action' } }, other: running });
+    assert.deepStrictEqual(subagentRollUp(subagents, 'a'), { needsInput: true, running: 2 });
+    assert.deepStrictEqual(subagentRollUp(subagents, 'b'), { needsInput: true, running: 1 });
+    assert.deepStrictEqual(subagentRollUp(subagents, 'c'), { needsInput: false, running: 0 });
+  });
+
+  it('a Pending interaction below needs input even when its state is running', () => {
+    const subagents = tree({ c: { ...running, pendingPermission: { request: {} } } });
+    assert.isTrue(subagentRollUp(subagents, 'a').needsInput);
+    assert.isFalse(subagentRollUp(tree({ c: running }), 'a').needsInput);
+  });
+
+  it('walks the ancestry outermost first, and survives a cycle', () => {
+    const subagents = tree({});
+    assert.deepStrictEqual(
+      subagentAncestry(subagents, 'c').map(node => node.sessionId),
+      ['a', 'b', 'c'],
+    );
+    assert.deepStrictEqual(subagentAncestry(subagents, 'missing'), []);
+    const cyclic = { x: subagent('x', 'y'), y: subagent('y', 'x') };
+    assert.lengthOf(subagentAncestry(cyclic, 'x'), 2);
   });
 });

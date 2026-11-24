@@ -8,6 +8,7 @@ import {
   selectedSessionLaunchTargetAtom,
   selectedSubagentAtom,
   selectedSubagentConfigurationAtom,
+  selectedSubagentRollUpAtom,
   selectedSubagentRootIdAtom,
   viewedSubagentAtom,
 } from '../../../../atoms/backendState.atoms.ts';
@@ -23,6 +24,7 @@ export const SubagentItemView: FC<{ readonly item: ChatItemOf<'subagent'> }> = (
   const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const configuration = useAtomValue(selectedSubagentConfigurationAtom(item.subagentSessionId));
   const rootSessionId = useAtomValue(selectedSubagentRootIdAtom(item.subagentSessionId));
+  const rollUp = useAtomValue(selectedSubagentRollUpAtom(item.subagentSessionId));
   const setViewed = useAtomSet(viewedSubagentAtom);
   if (launchTarget === undefined || rootSessionId === undefined || child === undefined) return null;
   const activity = subagentLatestActivity(child);
@@ -48,7 +50,8 @@ export const SubagentItemView: FC<{ readonly item: ChatItemOf<'subagent'> }> = (
           py: 0.5,
         }}
       >
-        <SubagentStatusIndicator child={child} />
+        {/* A descendant that needs input wins over this child's own state. */}
+        <SubagentStatusIndicator child={child} needsInput={rollUp.needsInput} />
         <AgentLaunchTargetIcon launchTarget={childLaunchTarget} size={14} />
         <Typography sx={{ fontWeight: 600 }} variant="body2">
           {child.name ?? 'Subagent'}
@@ -56,6 +59,11 @@ export const SubagentItemView: FC<{ readonly item: ChatItemOf<'subagent'> }> = (
         {modelEffort === undefined ? null : (
           <Typography color="text.secondary" noWrap sx={{ minWidth: 0 }} variant="caption">
             {modelEffort}
+          </Typography>
+        )}
+        {rollUp.running === 0 ? null : (
+          <Typography color="text.secondary" noWrap sx={{ flexShrink: 0 }} variant="caption">
+            {rollUp.running === 1 ? '1 subagent running' : `${rollUp.running} subagents running`}
           </Typography>
         )}
         <Typography color="text.secondary" noWrap sx={{ flex: 1 }} variant="caption">

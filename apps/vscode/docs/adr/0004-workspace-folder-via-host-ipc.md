@@ -4,7 +4,7 @@ The sidebar Session cwd comes from VS Code Workspace folder absolute paths. Thos
 
 ## Additional directories and the workspace file
 
-The same Host IPC capability (request and change push) also carries the saved workspace's `.code-workspace` path, omitted for an untitled workspace or any non-`file:` scheme. The webview takes the other `file:` folders as a new session's Additional directories; the first folder stays the Session cwd. OS snapshot `cwd` is still not overloaded. The Project is unchanged: only the Workspace cwd is added to `projects.json`; neither the workspace file nor the Additional directories are written there (see hoa-home ADR 0009).
+The same Host IPC capability (request and change push) also carries the saved workspace's `.code-workspace` path, omitted for an untitled workspace or any non-`file:` scheme. The webview takes the other `file:` folders as a new session's Additional directories; the first folder stays the Session cwd. OS snapshot `cwd` is still not overloaded. The Project is unchanged for now: only the Workspace cwd is added to `projects.json`; neither the workspace file nor the Additional directories are written there (see hoa-home ADR 0009). A saved workspace becoming a Workspace project is a follow-up (#502, after desktop Workspace projects in #485).
 
 The workspace file is metadata captured when a Bind is requested and recorded on the created session; it is not part of the Bind key (only the folder set is). Saving an untitled workspace changes only the workspace file; it enters a workspace and restarts the extension host (below), so the webview boots with the final value.
 

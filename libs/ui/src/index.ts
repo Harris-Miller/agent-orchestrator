@@ -123,6 +123,7 @@ export * from './theme/allotmentSashSx.ts';
 export * from './theme/AppThemeProvider.tsx';
 export * from './theme/themeId.ts';
 export * from './theme/themePaintCache.ts';
+export * from './theme/themeSettings.ts';
 export * from './theme/themes.ts';
 export * from './theme/vscodeTheme.ts';
 export * from './theme/vscodeThemeDom.ts';

@@ -1,9 +1,9 @@
 import { assert, describe, it } from '@effect/vitest';
 
 import { selectEffectiveTheme } from './effectiveTheme.ts';
-import { DEFAULT_THEME_FONT, ORIGINAL_COLORS } from './themes.ts';
+import { DEFAULT_DARK_COLORS, DEFAULT_THEME_FONT } from './themes.ts';
 
-const hostTheme = { colors: ORIGINAL_COLORS, font: DEFAULT_THEME_FONT };
+const hostTheme = { colors: DEFAULT_DARK_COLORS, font: DEFAULT_THEME_FONT };
 
 describe('selectEffectiveTheme', () => {
   it('uses the preset on desktop even when matching is on', () => {

@@ -1,6 +1,6 @@
 import { alpha, darken, lighten } from '@mui/material/styles';
 
-import { DEFAULT_THEME_FONT, LATTE_COLORS, ORIGINAL_COLORS } from './themes.ts';
+import { DEFAULT_DARK_COLORS, DEFAULT_LIGHT_COLORS, DEFAULT_THEME_FONT } from './themes.ts';
 import type { ThemeColors, ThemeFont } from './themes.ts';
 
 /** Colors and font a Host reads from its own theme and hands to the shared UI (VS Code only today). */
@@ -24,11 +24,11 @@ const isLightKind = (kind: string | undefined): boolean =>
 
 /**
  * Builds the Host theme from the active VS Code theme's variables. Each color tries a short chain of variables and
- * otherwise falls back to the preset that matches the theme kind (Original for dark, Latte for light), so no empty
+ * otherwise falls back to the preset that matches the theme kind (Default (Dark) for dark, Default (Light) for light), so no empty
  * value reaches `createAppTheme`.
  */
 export const themeFromVscode = (read: VscodeVarReader, kind: string | undefined): HostTheme => {
-  const preset = isLightKind(kind) ? LATTE_COLORS : ORIGINAL_COLORS;
+  const preset = isLightKind(kind) ? DEFAULT_LIGHT_COLORS : DEFAULT_DARK_COLORS;
   const pick = (fallback: string, ...names: readonly string[]): string => {
     for (const name of names) {
       const value = read(name).trim();

@@ -4,38 +4,46 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import type { FC } from 'react';
 
-import { themeAtom, userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
+import { darkThemeAtom, lightThemeAtom, userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
-import type { ThemeId } from '../theme/themeId.ts';
-import { THEME_IDS } from '../theme/themeId.ts';
-import { isThemeId } from '../theme/themePaintCache.ts';
+import type { Slot } from '../theme/themeId.ts';
+import { isDarkThemeId, isLightThemeId } from '../theme/themeSettings.ts';
+import { DARK_THEME_IDS, LIGHT_THEME_IDS, THEME_LABELS } from '../theme/themes.ts';
+import type { ThemeId } from '../theme/themes.ts';
 
-const THEME_LABELS: Record<ThemeId, string> = {
-  frappe: 'Catppuccin Frappé',
-  latte: 'Catppuccin Latte',
-  macchiato: 'Catppuccin Macchiato',
-  mocha: 'Catppuccin Mocha',
-  original: 'Original',
+/** What differs between the two palette pickers. */
+type SlotConfig = {
+  readonly atom: typeof lightThemeAtom;
+  readonly guard: (value: unknown) => value is ThemeId;
+  readonly ids: readonly ThemeId[];
+  readonly label: string;
 };
 
-/** Theme preference control for the Settings Appearance pane. */
-export const ThemeSelect: FC<{ readonly disabled?: boolean }> = ({ disabled = false }) => {
-  const themeId = useAtomValue(themeAtom);
-  const setTheme = useAtomSet(themeAtom);
+const SLOT_CONFIG: Record<Slot, SlotConfig> = {
+  dark: { atom: darkThemeAtom, guard: isDarkThemeId, ids: DARK_THEME_IDS, label: 'Dark theme' },
+  light: { atom: lightThemeAtom, guard: isLightThemeId, ids: LIGHT_THEME_IDS, label: 'Light theme' },
+};
+
+/** Palette picker for one slot in Settings Appearance: lists only palettes of that slot's mode. */
+export const ThemeSelect: FC<{ readonly disabled?: boolean; readonly slot: Slot }> = ({ disabled = false, slot }) => {
+  const { atom, guard, ids, label } = SLOT_CONFIG[slot];
+  const themeId = useAtomValue(atom);
+  const setTheme = useAtomSet(atom);
   const editable = !userSettingsEditsDisabled(useAtomValue(userSettingsAtom));
 
   return (
     <FormControl disabled={disabled || !editable} size="small" sx={{ minWidth: 180 }}>
       <Select
-        slotProps={{ input: { 'aria-label': 'Theme' } }}
+        slotProps={{ input: { 'aria-label': label } }}
         onChange={event => {
-          if (isThemeId(event.target.value)) {
-            setTheme(event.target.value);
+          const { value } = event.target;
+          if (guard(value)) {
+            setTheme(value);
           }
         }}
         value={themeId}
       >
-        {THEME_IDS.map(id => (
+        {ids.map(id => (
           <MenuItem key={id} value={id}>
             {THEME_LABELS[id]}
           </MenuItem>

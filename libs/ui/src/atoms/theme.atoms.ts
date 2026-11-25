@@ -1,7 +1,7 @@
 import { Atom } from 'effect/reactivity';
 
 import { selectEffectiveTheme } from '../theme/effectiveTheme.ts';
-import type { ThemeId } from '../theme/themeId.ts';
+import type { ThemeId } from '../theme/themes.ts';
 import type { HostTheme } from '../theme/vscodeTheme.ts';
 
 /**
@@ -12,6 +12,25 @@ export const hostThemeAtom = Atom.make<HostTheme | undefined>(undefined).pipe(
   Atom.withLabel('hostTheme'),
   Atom.keepAlive,
 );
+
+/**
+ * Whether the OS prefers a dark color scheme, live. Never written to User settings. `false` where `matchMedia` is
+ * unavailable.
+ */
+export const osPrefersDarkAtom = Atom.make<boolean>(get => {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false;
+  }
+  const media = window.matchMedia('(prefers-color-scheme: dark)');
+  const onChange = (event: MediaQueryListEvent) => {
+    get.setSelf(event.matches);
+  };
+  media.addEventListener('change', onChange);
+  get.addFinalizer(() => {
+    media.removeEventListener('change', onChange);
+  });
+  return media.matches;
+}).pipe(Atom.withLabel('osPrefersDark'), Atom.keepAlive);
 
 export const createThemeAtoms = (deps: {
   readonly matchVscodeThemeAtom: Atom.Atom<boolean>;

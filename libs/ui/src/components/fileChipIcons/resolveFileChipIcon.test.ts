@@ -1,3 +1,4 @@
+import { DARK_THEME_IDS, LIGHT_THEME_IDS } from '../../theme/themes.ts';
 import { assert, describe, it } from '@effect/vitest';
 
 import {
@@ -10,7 +11,7 @@ import {
 
 describe('resolveFileChipIcon', () => {
   it('prefers href for file vs URL kind', () => {
-    const file = resolveFileChipIcon({ href: 'file:///tmp/package.json', label: '@package.json' }, 'original');
+    const file = resolveFileChipIcon({ href: 'file:///tmp/package.json', label: '@package.json' }, 'default-dark');
     assert.strictEqual(file.kind, 'svg');
 
     const url = resolveFileChipIcon({ href: 'https://example.com/docs', label: 'docs' }, 'mocha');
@@ -18,7 +19,7 @@ describe('resolveFileChipIcon', () => {
   });
 
   it('maps package.json key and unknown basename to default file svg', () => {
-    const pkg = resolveFileChipIcon({ href: 'file:///repo/package.json', label: '@package.json' }, 'original');
+    const pkg = resolveFileChipIcon({ href: 'file:///repo/package.json', label: '@package.json' }, 'default-dark');
     assert.strictEqual(pkg.kind, 'svg');
     if (pkg.kind === 'svg') {
       assert.match(pkg.url, /^data:image\/svg\+xml/);
@@ -37,8 +38,8 @@ describe('resolveFileChipIcon', () => {
   it('strips @ from label only for lookup when href is absent', () => {
     assert.strictEqual(basenameForLookup('@foo.ts'), 'foo.ts');
     assert.strictEqual(logicalKeyForBasename(basenameForLookup('@foo.ts')), 'ts');
-    const fromLabel = resolveFileChipIcon({ label: '@foo.ts' }, 'original');
-    const fromHref = resolveFileChipIcon({ href: 'file:///tmp/foo.ts', label: '@other' }, 'original');
+    const fromLabel = resolveFileChipIcon({ label: '@foo.ts' }, 'default-dark');
+    const fromHref = resolveFileChipIcon({ href: 'file:///tmp/foo.ts', label: '@other' }, 'default-dark');
     assert.strictEqual(fromLabel.kind, 'svg');
     assert.strictEqual(fromHref.kind, 'svg');
     if (fromLabel.kind === 'svg' && fromHref.kind === 'svg') {
@@ -50,6 +51,16 @@ describe('resolveFileChipIcon', () => {
     const folder = resolveFileChipIcon({ href: 'file:///repo/src/', label: '@src' }, 'frappe');
     assert.strictEqual(folder.kind, 'svg');
     assert.strictEqual(packIdForTheme('frappe'), 'catppuccin-mocha');
+  });
+
+  it('maps every palette to a pack', () => {
+    assert.strictEqual(packIdForTheme('default-dark'), 'original');
+    for (const id of DARK_THEME_IDS.filter(t => t !== 'default-dark')) {
+      assert.strictEqual(packIdForTheme(id), 'catppuccin-mocha', id);
+    }
+    for (const id of LIGHT_THEME_IDS) {
+      assert.strictEqual(packIdForTheme(id), 'catppuccin-latte', id);
+    }
   });
 
   it('classifies path-like hrefs', () => {

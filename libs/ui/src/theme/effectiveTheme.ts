@@ -1,10 +1,10 @@
 import type { Theme } from '@mui/material/styles';
 
-import type { ThemeId } from './themeId.ts';
 import { createAppTheme, themes } from './themes.ts';
+import type { ThemeId } from './themes.ts';
 import type { HostTheme } from './vscodeTheme.ts';
 
-/** The theme the app shows: a stored preset, or the one the Host supplies. */
+/** The theme the app shows: the painted palette, or the one the Host supplies. */
 export type EffectiveTheme =
   | { readonly _tag: 'Host'; readonly theme: HostTheme }
   | { readonly _tag: 'Preset'; readonly id: ThemeId };

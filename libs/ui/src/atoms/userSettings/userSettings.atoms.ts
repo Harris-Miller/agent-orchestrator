@@ -7,8 +7,12 @@ import { AsyncResult, Atom } from 'effect/reactivity';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import type { ModelPickerPrefs } from '../../host/modelPickerPrefs.ts';
 import type { HostRuntimeBag } from '../../createHostRuntime.ts';
-import type { ThemeId } from '../../theme/themeId.ts';
-import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/themePaintCache.ts';
+import type { PaintedSlotSetting } from '../../theme/themeId.ts';
+import { readPaintThemeSettings, writePaintThemeSettings } from '../../theme/themePaintCache.ts';
+import { resolvePaintedThemeId, resolveThemeSettings } from '../../theme/themeSettings.ts';
+import type { ThemeSettings } from '../../theme/themeSettings.ts';
+import type { ThemeId } from '../../theme/themes.ts';
+import { hostThemeAtom, osPrefersDarkAtom } from '../theme.atoms.ts';
 
 import {
   appOrchestratedAgentsEnabled,
@@ -225,21 +229,56 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
-  /** Effective theme: paint cache while settings not Success; User settings after. Write paints + updates settings. */
-  const themeAtom = Atom.writable(
-    get => {
-      const settings = get(userSettingsAtom);
-      if (!AsyncResult.isSuccess(settings)) {
-        return readPaintThemeId();
-      }
-      const themeId = clampThemeId(settings.value.theme);
-      writePaintThemeId(themeId);
-      return themeId;
-    },
+  /** Resolved light palette / dark palette / Painted slot setting: paint cache until settings load, then User settings. */
+  const themeSettingsAtom = Atom.make((get): ThemeSettings => {
+    const settings = get(userSettingsAtom);
+    if (!AsyncResult.isSuccess(settings)) {
+      return readPaintThemeSettings();
+    }
+    const resolved = resolveThemeSettings(settings.value);
+    writePaintThemeSettings(resolved);
+    return resolved;
+  }).pipe(Atom.keepAlive);
+
+  /** Patch all three theme fields from the resolved triple, clearing the legacy `theme`. */
+  const writeThemeSettings = (ctx: Atom.WriteContext<unknown>, patch: Partial<ThemeSettings>) => {
+    const next = { ...ctx.get(themeSettingsAtom), ...patch };
+    writePaintThemeSettings(next);
+    const { theme: _legacy, ...rest } = unwrapUserSettings(ctx.get(userSettingsAtom));
+    ctx.set(userSettingsAtom, { ...rest, ...next });
+  };
+
+  /** Light palette. Write patches User settings. */
+  const lightThemeAtom = Atom.writable(
+    get => get(themeSettingsAtom).lightTheme,
     (ctx, id: ThemeId) => {
-      writePaintThemeId(id);
-      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), theme: id });
+      writeThemeSettings(ctx, { lightTheme: id });
     },
+  ).pipe(Atom.keepAlive);
+
+  /** Dark palette. Write patches User settings. */
+  const darkThemeAtom = Atom.writable(
+    get => get(themeSettingsAtom).darkTheme,
+    (ctx, id: ThemeId) => {
+      writeThemeSettings(ctx, { darkTheme: id });
+    },
+  ).pipe(Atom.keepAlive);
+
+  /** Painted slot setting (always light / always dark / use system). Write patches User settings. */
+  const paintedSlotAtom = Atom.writable(
+    get => get(themeSettingsAtom).paintedSlot,
+    (ctx, setting: PaintedSlotSetting) => {
+      writeThemeSettings(ctx, { paintedSlot: setting });
+    },
+  ).pipe(Atom.keepAlive);
+
+  /** Painted palette id (read-only): the slot the setting, OS and Host pick, filled by that slot's palette. */
+  const themeAtom: Atom.Atom<ThemeId> = Atom.make(get =>
+    resolvePaintedThemeId({
+      hostMode: get(hostThemeAtom)?.colors.mode,
+      osPrefersDark: get(osPrefersDarkAtom),
+      settings: get(themeSettingsAtom),
+    }),
   ).pipe(Atom.keepAlive);
 
   return {
@@ -248,13 +287,16 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     workstreamsSettingAtom,
     chatWidthAtom,
     confirmSessionDeleteAtom,
+    darkThemeAtom,
     developerModeAtom,
     keepAwakeEnabledAtom,
+    lightThemeAtom,
     matchVscodeThemeAtom,
     midTurnSendAtom,
     notificationSoundEnabledAtom,
     notificationsEnabledAtom,
     notifyOnlyWhenUnfocusedAtom,
+    paintedSlotAtom,
     persistUserSettingsAtomFn,
     setModelPickerPrefsAtom,
     showArchivedSettingAtom,

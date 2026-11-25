@@ -29,7 +29,7 @@ The webview implementation of FileDialog (`makeFileDialogLive`), Host IPC round-
 _Avoid_: showOpenDialog (when you mean the portable Seam)
 
 **VS Code Host services Live**:
-The webview Live Adapter of portable **Host services** (`makeHostServicesLive`) — BundledResource, ChildProcessSpawner, Clipboard, FileDialog, FileSystem, Notifier, OpenFile, OpenUrl, OS, and Path over Host IPC (plus local Clipboard/Path). Composition may also install host ConfigProvider and OTLP observability (dev **Build target** only; OTLP HTTP via Host-IPC fetch); those extras are not part of the Host services type.
+The webview Live Adapter of portable **Host services** (`makeHostServicesLive`) — BundledResource, ChildProcessSpawner, Clipboard, EditorFiles, FileDialog, FileSystem, Notifier, OpenFile, OpenUrl, OS, and Path over Host IPC (plus local Clipboard/Path). Composition may also install host ConfigProvider and OTLP observability (dev **Build target** only; OTLP HTTP via Host-IPC fetch); those extras are not part of the Host services type.
 _Avoid_: Platform layer, adapters, Host services (when you mean this webview Adapter specifically)
 
 For host vocabulary (`Clipboard`, `FileDialog`, `Notifier`, `Host`, `Host services`), see [`../context-services/GLOSSARY.md`](../context-services/GLOSSARY.md).

@@ -52,10 +52,14 @@ _Avoid_: BROWSER helper, window.open, openExternal (when you mean the portable S
 The host capability to open an absolute filesystem path in the Host editor; directories are revealed in Explorer. `open` accepts an optional 1-based line the Host jumps to where it can; otherwise it is ignored. `openImageData` opens a Base64Image (base64 payload plus an OpenableImageMimeType: png, jpeg, gif, webp) by writing it to a Host temp file first, for thumbnails with no file uri. The `supported` flag reports availability. Desktop does not support it until #169.
 _Avoid_: showTextDocument, vscode.open (when you mean the portable Seam)
 
+**EditorFiles** (service):
+The host capability to read and write text files through the Host editor's documents, so an open document's unsaved content is what is read and a write lands in the open document. Backs the Agent's ACP `fs/read_text_file` / `fs/write_text_file` requests. `readText` takes an absolute path and an optional 1-based `line` and `limit`; `writeText` takes an absolute path and content. Both fail with `EditorFilesFailed` rather than returning empty content. The `supported` flag reports availability; Harness code advertises ACP filesystem capabilities only when it is true. Desktop does not support it.
+_Avoid_: FileSystem (the disk-only Seam), Host IPC FsReadFileString / FsWriteFileString (disk-only)
+
 **Host**:
 The runtime environment that supplies a live implementation of Host services to Harness code (desktop Tauri webview; VS Code webview; Node/Bun for non-webview tools). Prefer this generic term across Hosts; on VS Code the webview is the Host and the extension host fulfills behind Host IPC.
 _Avoid_: Node, machine, runtime (when you mean the Seam consumer)
 
 **Host services**:
-Portable aggregate of Analytics, BundledResource, ChildProcessSpawner, Clipboard, FileDialog, FileSystem, HttpClient, Notifier, OpenFile, OpenUrl, OS, Path, and VscodeExtension — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags. Live Adapters stay in Host packages; Effect-only helpers those Adapters share (no Host SDK) may live in this package.
+Portable aggregate of Analytics, BundledResource, ChildProcessSpawner, Clipboard, EditorFiles, FileDialog, FileSystem, HttpClient, Notifier, OpenFile, OpenUrl, OS, Path, and VscodeExtension — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags. Live Adapters stay in Host packages; Effect-only helpers those Adapters share (no Host SDK) may live in this package.
 _Avoid_: Platform services, Tauri services (when you mean the portable aggregate)

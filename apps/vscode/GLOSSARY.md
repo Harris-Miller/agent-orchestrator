@@ -11,6 +11,10 @@ The Node VS Code extension process that fulfills spawn, filesystem, BundledResou
 The extension host's side of Host IPC for one webview: an answer for every Host IPC request (its Result, or an Error when the work fails) and handling for every webview→extension Host IPC push. Anything else it receives is ignored, never answered.
 _Avoid_: host handler, message switch
 
+**Editor-mediated file access**:
+The extension host's fulfillment of the Agent's ACP `fs/read_text_file` and `fs/write_text_file` through VS Code documents (the EditorFiles Host service): a read returns an open document's content, unsaved edits included, else the file on disk; a write replaces an open document's content and saves it, else writes the file on disk, creating parent directories. Advertised to the Agent as ACP client filesystem capabilities. Disk-only Host services (FileSystem) stay unaware of unsaved editor content.
+_Avoid_: Host filesystem, FsReadFileString (the disk-only Host IPC requests)
+
 **Webview**:
 The sidebar webview that boots `makeHostServicesLive`, binds the Host runtime, and presents the sidebar Harness UI (Session History, Chat, and Settings).
 _Avoid_: panel, iframe (when you mean this view)

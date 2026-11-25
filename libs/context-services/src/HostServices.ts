@@ -7,7 +7,6 @@ import type { Analytics } from './Analytics.ts';
 import type { AtomicFile } from './AtomicFile.ts';
 import type { BundledResource } from './BundledResource.ts';
 import type { Clipboard } from './Clipboard.ts';
-import type { EditorFiles } from './EditorFiles.ts';
 import type { FileDialog } from './FileDialog.ts';
 import type { Notifier } from './Notifier.ts';
 import type { OpenUrl } from './OpenUrl.ts';
@@ -22,7 +21,6 @@ export type HostServices =
   | BundledResource
   | ChildProcessSpawner
   | Clipboard
-  | EditorFiles
   | FileDialog
   | FileSystem
   | HttpClient

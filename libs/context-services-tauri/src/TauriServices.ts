@@ -9,7 +9,6 @@ import { BundledResourceLive } from './BundledResourceLive.ts';
 import { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
 import { ClipboardLive } from './ClipboardLive.ts';
 import { ConfigProviderLive } from './ConfigProviderLive.ts';
-import { EditorFilesLive } from './EditorFilesLive.ts';
 import { FileDialogLive } from './FileDialogLive.ts';
 import { FileSystemLive } from './FileSystemLive.ts';
 import { NotifierLive } from './NotifierLive.ts';
@@ -33,7 +32,7 @@ import { VscodeExtensionLive } from './VscodeExtensionLive.ts';
 export type TauriServices = HostServices;
 
 /**
- * Provides AtomicFile, BundledResource, Clipboard, EditorFiles, FileDialog, Notifier, OpenUrl, OpenFile, OS, Path, VscodeExtension, FileSystem, ChildProcessSpawner, and
+ * Provides AtomicFile, BundledResource, Clipboard, FileDialog, Notifier, OpenUrl, OpenFile, OS, Path, VscodeExtension, FileSystem, ChildProcessSpawner, and
  * ConfigProvider backed by Tauri plugins / host_process_info.
  */
 export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
@@ -48,7 +47,6 @@ export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
   ClipboardLive,
   ConfigProviderLive,
   ChildProcessSpawnerLive,
-  EditorFilesLive,
   FileDialogLive,
   FileSystemLive,
   NotifierLive,

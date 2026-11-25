@@ -52,14 +52,6 @@ export const HostIpcRequests = {
     request: { resourcePath: Schema.String },
     result: { path: Schema.String },
   },
-  EditorReadTextFile: {
-    request: { limit: Schema.optional(Schema.Number), line: Schema.optional(Schema.Number), path: Schema.String },
-    result: { content: Schema.String },
-  },
-  EditorWriteTextFile: {
-    request: { content: Schema.String, path: Schema.String },
-    result: {},
-  },
   FileDialogPickFiles: {
     request: {
       filters: Schema.optional(

@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { BundledResource, OpenUrl, OS } from '@lib/context-services';
-import { EditorFilesLive, PathLive } from '@lib/context-services-tauri';
+import { PathLive } from '@lib/context-services-tauri';
 import { makeAcpError } from '@lib/effect-acp';
 import { Cause, Effect, Layer, Option, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
@@ -452,7 +452,6 @@ describe('auth messages through bootstrap publication', () => {
             npmRuntime('claude-agent-acp'),
           ),
           Layer.succeed(OpenUrl, { open: () => Effect.void }),
-          EditorFilesLive,
         ),
       ),
     ),

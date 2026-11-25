@@ -21,7 +21,6 @@ import { access, copyFile, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile
 import { homedir as osHomedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { assertAbsolutePath, samePath, sliceTextLines } from './editorFilePaths';
 import { fileWorkspaceFilePath, fileWorkspaceFolderPaths } from './fileWorkspaceFolderPaths';
 import { resolveAntigravitySpawn } from './antigravitySpawn';
 import { isProviderCurrentJsonPath } from './providerStatePath';
@@ -46,21 +45,6 @@ export const postWorkspaceFoldersChanged = (
   workspaceFile: undefined | vscode.Uri,
 ): void => {
   postIpcMessage(port, { _tag: 'WorkspaceFoldersChanged', ...workspaceFoldersPayload(folders, workspaceFile) });
-};
-
-const findOpenDocument = (path: string) =>
-  vscode.workspace.textDocuments.find(doc => doc.uri.scheme === 'file' && samePath(doc.uri.fsPath, path));
-
-/** Fixed-message error for an fs failure: the original message embeds the absolute path (Private data). */
-const pathFreeFsError = (error: unknown, fallback: string): Error => {
-  const code = (error as { code?: unknown } | null)?.code;
-  if (code === 'ENOENT') {
-    return new Error('File not found');
-  }
-  if (code === 'EACCES' || code === 'EPERM') {
-    return new Error('Permission denied');
-  }
-  return new Error(fallback);
 };
 
 const stringEnv = (): Record<string, string> => {
@@ -118,39 +102,6 @@ export const makeHostIpcFulfillment = (deps: {
         throw new Error('Bundled resource missing');
       }
       return { path: absolute };
-    },
-    EditorReadTextFile: async message => {
-      assertAbsolutePath(message.path);
-      const open = findOpenDocument(message.path);
-      const text =
-        open === undefined
-          ? await readFile(message.path, 'utf8').catch((error: unknown) => {
-              throw pathFreeFsError(error, 'File read failed');
-            })
-          : open.getText();
-      return { content: sliceTextLines(text, message.line, message.limit) };
-    },
-    EditorWriteTextFile: async message => {
-      assertAbsolutePath(message.path);
-      const open = findOpenDocument(message.path);
-      if (open === undefined) {
-        try {
-          await mkdir(dirname(message.path), { recursive: true });
-          await writeFile(message.path, message.content, 'utf8');
-        } catch (error) {
-          throw pathFreeFsError(error, 'File write failed');
-        }
-        return {};
-      }
-      const edit = new vscode.WorkspaceEdit();
-      edit.replace(open.uri, new vscode.Range(0, 0, open.lineCount, 0), message.content);
-      if (!(await vscode.workspace.applyEdit(edit))) {
-        throw new Error('Editor rejected the edit');
-      }
-      if (!(await open.save())) {
-        throw new Error('Document save failed');
-      }
-      return {};
     },
     FileDialogPickFiles: async message => {
       const filters =

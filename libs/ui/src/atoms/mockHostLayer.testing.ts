@@ -4,8 +4,6 @@ import {
   AtomicFile,
   BundledResource,
   Clipboard,
-  EditorFiles,
-  EditorFilesFailed,
   FileDialog,
   Notifier,
   OpenFile,
@@ -49,11 +47,6 @@ export const mockHostLayer: Layer.Layer<HostServices> = Layer.mergeAll(
     open: () => Effect.void,
   }),
   // Host without editor support: file links render inert.
-  Layer.succeed(EditorFiles, {
-    readText: () => Effect.fail(new EditorFilesFailed({ message: 'EditorFiles unsupported' })),
-    supported: false,
-    writeText: () => Effect.fail(new EditorFilesFailed({ message: 'EditorFiles unsupported' })),
-  }),
   Layer.succeed(OpenFile, {
     open: () => Effect.void,
     openImageData: () => Effect.void,

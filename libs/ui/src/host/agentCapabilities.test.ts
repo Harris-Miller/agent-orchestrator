@@ -127,7 +127,6 @@ describe('agentCapabilitiesFrom', () => {
 });
 
 describe('clientCapabilitiesFor', () => {
-  const noEditor = { editorFiles: false };
   const base = {
     elicitation: { form: {}, url: {} },
     session: { configOptions: { boolean: {} } },
@@ -135,7 +134,7 @@ describe('clientCapabilitiesFor', () => {
   };
 
   it('offers AIR sessionIndex, sessionFailure, loadReplayEnd, recommendedValue and backgroundSubagents to Claude', () => {
-    assert.deepStrictEqual(clientCapabilitiesFor('claude-agent-acp', noEditor), {
+    assert.deepStrictEqual(clientCapabilitiesFor('claude-agent-acp'), {
       ...base,
       _meta: {
         jetbrains: {
@@ -155,29 +154,19 @@ describe('clientCapabilitiesFor', () => {
   });
 
   it('offers AIR sessionIndex, sessionFailure and recommendedValue to Codex', () => {
-    assert.deepStrictEqual(clientCapabilitiesFor('codex-acp', noEditor), {
+    assert.deepStrictEqual(clientCapabilitiesFor('codex-acp'), {
       ...base,
       _meta: {
         jetbrains: { air: { capabilities: ['sessionIndex', 'sessionFailure', 'recommendedValue'], version: 1 } },
       },
     });
-    assert.notInclude(JSON.stringify(clientCapabilitiesFor('codex-acp', noEditor)), 'loadReplayEnd');
-    assert.notInclude(JSON.stringify(clientCapabilitiesFor('codex-acp', noEditor)), 'backgroundSubagents');
+    assert.notInclude(JSON.stringify(clientCapabilitiesFor('codex-acp')), 'loadReplayEnd');
+    assert.notInclude(JSON.stringify(clientCapabilitiesFor('codex-acp')), 'backgroundSubagents');
   });
 
   it('offers no AIR _meta to Antigravity and Cursor', () => {
     for (const launchTarget of ['antigravity-acp', 'cursor-acp'] as const) {
-      assert.deepStrictEqual(clientCapabilitiesFor(launchTarget, noEditor), base);
-    }
-  });
-
-  it('advertises fs read and write only when editor files are supported', () => {
-    for (const launchTarget of ['claude-agent-acp', 'codex-acp', 'cursor-acp'] as const) {
-      assert.deepStrictEqual(clientCapabilitiesFor(launchTarget, { editorFiles: true })?.fs, {
-        readTextFile: true,
-        writeTextFile: true,
-      });
-      assert.isUndefined(clientCapabilitiesFor(launchTarget, noEditor)?.fs);
+      assert.deepStrictEqual(clientCapabilitiesFor(launchTarget), base);
     }
   });
 });

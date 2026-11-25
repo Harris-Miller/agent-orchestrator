@@ -7,13 +7,14 @@ import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Archive } from 'lucide-react';
+import { Archive, FolderTree } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
+import { sessionDirectoriesBadge } from '../../host/sessionDirectories.ts';
 import { hasBackgroundActivity } from '../../host/subagent.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
@@ -89,6 +90,7 @@ export const SessionHistoryRow: FC<{
   const displayTitle = entry.title ?? DEFAULT_SESSION_TITLE;
   const unavailable = !isSessionHistoryEntryAvailable(entry, snapshot.phase);
   const archived = entry.archived === true;
+  const directoriesBadge = sessionDirectoriesBadge(entry);
 
   const activateHistoryEntry = () => {
     if (unavailable) return;
@@ -182,6 +184,13 @@ export const SessionHistoryRow: FC<{
           {archived ? (
             <LucideMuiIcon icon={Archive} titleAccess="Archived" sx={{ color: 'text.disabled', fontSize: '0.9rem' }} />
           ) : null}
+          {directoriesBadge === undefined ? null : (
+            <LucideMuiIcon
+              icon={FolderTree}
+              sx={{ color: 'text.disabled', flexShrink: 0, fontSize: '0.9rem' }}
+              titleAccess={directoriesBadge}
+            />
+          )}
           <Box sx={{ flex: 1 }} />
           {pendingClientRequest ? (
             <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />

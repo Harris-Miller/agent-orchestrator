@@ -6,6 +6,11 @@
 
 export type SessionDirectories = {
   readonly additionalDirectories?: readonly string[];
+  /**
+   * The user edited this session's list (desktop ADR 0024): it wins over the Agent-side snapshot and over a Workspace file
+   * re-read on activation. Set only by the edit; an unedited list is the one the session was created with.
+   */
+  readonly directoriesEdited?: true;
   /** Never sent to the Agent. */
   readonly workspaceFile?: string;
 };
@@ -19,18 +24,47 @@ export const normalizeSessionDirectories = (directories: SessionDirectories | un
   const workspaceFile = directories?.workspaceFile;
   return {
     ...(additionalDirectories === undefined ? {} : { additionalDirectories }),
+    ...(directories?.directoriesEdited === true ? { directoriesEdited: true as const } : {}),
     ...(workspaceFile === undefined ? {} : { workspaceFile }),
   };
 };
 
-/** Activate resolve, like `resolveSessionCwd`: each field from the snapshot Session, else from its History entry. */
+/**
+ * Activate resolve, like `resolveSessionCwd`: each field from the snapshot Session, else from its History entry. A History
+ * entry the user edited wins as a whole (an empty edited list stays empty).
+ */
 export const resolveSessionDirectories = (
   snapshotSession: SessionDirectories | undefined,
   historyEntry: SessionDirectories | undefined,
-): SessionDirectories => ({
-  ...normalizeSessionDirectories(historyEntry),
-  ...normalizeSessionDirectories(snapshotSession),
-});
+): SessionDirectories =>
+  historyEntry?.directoriesEdited === true
+    ? normalizeSessionDirectories(historyEntry)
+    : {
+        ...normalizeSessionDirectories(historyEntry),
+        ...normalizeSessionDirectories(snapshotSession),
+      };
+
+/** The label of a Workspace file: its file name without the extension. */
+const workspaceFileLabel = (workspaceFile: string): string => {
+  const base =
+    workspaceFile
+      .replace(/[/\\]+$/u, '')
+      .split(/[/\\]/u)
+      .pop() ?? workspaceFile;
+  return base.replace(/\.code-workspace$/iu, '');
+};
+
+/** Session History's badge text for a session with a Workspace file and/or Additional directories; `undefined` for a plain one. */
+export const sessionDirectoriesBadge = (directories: SessionDirectories): string | undefined => {
+  const count = directories.additionalDirectories?.length ?? 0;
+  const parts = [
+    ...(directories.workspaceFile === undefined
+      ? []
+      : [`Workspace file: ${workspaceFileLabel(directories.workspaceFile)}`]),
+    ...(count === 0 ? [] : [`${String(count)} additional ${count === 1 ? 'directory' : 'directories'}`]),
+  ];
+  return parts.length === 0 ? undefined : parts.join(' · ');
+};
 
 /** Same Additional directories as a set: order and duplicates do not matter, empty equals absent. */
 export const sameDirectories = (a: readonly string[] | undefined, b: readonly string[] | undefined): boolean => {

@@ -1,4 +1,3 @@
-import { directoryBasename, LucideMuiIcon } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -12,27 +11,54 @@ import { FolderPlus, X } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
+import { directoryBasename } from '../host/directoryBasename.ts';
 
-/** Edits a list of Additional directories (add through the directory picker, remove); the caller decides where Save writes it. */
+import { useDirectoryPicker } from './DirectoryPickerContext.tsx';
+import { LucideMuiIcon } from './LucideMuiIcon.tsx';
+
+/**
+ * Edits a list of Additional directories: remove entries, and add through the host's directory picker when it has one.
+ * The caller decides where Save writes it. `facts` are read-only context lines (a session's cwd and Workspace file).
+ */
 export const AdditionalDirectoriesDialog: FC<{
   readonly description: string;
+  readonly facts?: readonly { readonly label: string; readonly value: string }[];
   readonly initial: readonly string[];
   readonly onClose: () => void;
-  /** Present when the list has a default to go back to (a session's Project defaults). */
-  readonly onReset?: () => void;
+  /** Present when the list has something to go back to; receives the dialog's setter for the list. */
+  readonly onReset?: () => readonly string[];
   readonly onSave: (directories: readonly string[]) => void;
   readonly title: string;
-}> = ({ description, initial, onClose, onReset, onSave, title }) => {
+}> = ({ description, facts = [], initial, onClose, onReset, onSave, title }) => {
+  const renderPicker = useDirectoryPicker();
   const [directories, setDirectories] = useState<readonly string[]>(initial);
   const [picking, setPicking] = useState(false);
 
   return (
     <>
-      <Dialog fullWidth maxWidth="sm" onClose={onClose} open>
+      <Dialog
+        fullWidth
+        maxWidth="sm"
+        onClick={event => {
+          event.stopPropagation();
+        }}
+        onClose={onClose}
+        open
+      >
         <DialogTitle>{title}</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 1 }}>{description}</DialogContentText>
+          {facts.map(fact => (
+            <Typography key={fact.label} sx={{ mb: 0.5 }} variant="body2">
+              <Typography color="text.secondary" component="span" variant="caption">
+                {fact.label}{' '}
+              </Typography>
+              {fact.value}
+            </Typography>
+          ))}
+          <Typography color="text.secondary" sx={{ mt: 1 }} variant="caption">
+            Additional directories
+          </Typography>
           {directories.length === 0 ? (
             <Typography color="text.secondary" variant="body2">
               None
@@ -58,23 +84,24 @@ export const AdditionalDirectoriesDialog: FC<{
               </Box>
             ))
           )}
-          <Button
-            onClick={() => {
-              setPicking(true);
-            }}
-            size="small"
-            startIcon={<LucideMuiIcon fontSize="small" icon={FolderPlus} />}
-            sx={{ mt: 1, textTransform: 'none' }}
-          >
-            Add directory…
-          </Button>
+          {renderPicker === undefined ? null : (
+            <Button
+              onClick={() => {
+                setPicking(true);
+              }}
+              size="small"
+              startIcon={<LucideMuiIcon fontSize="small" icon={FolderPlus} />}
+              sx={{ mt: 1, textTransform: 'none' }}
+            >
+              Add directory…
+            </Button>
+          )}
         </DialogContent>
         <DialogActions>
           {onReset === undefined ? null : (
             <Button
               onClick={() => {
-                onReset();
-                onClose();
+                setDirectories(onReset());
               }}
               sx={{ mr: 'auto' }}
             >
@@ -93,18 +120,16 @@ export const AdditionalDirectoriesDialog: FC<{
           </Button>
         </DialogActions>
       </Dialog>
-      {picking ? (
-        <CreateSessionDirectoryPicker
-          allowWorkspaceFile={false}
-          confirmLabel="Add"
-          onClose={() => {
-            setPicking(false);
-          }}
-          onSelectDirectory={directory => {
-            setDirectories(current => (current.includes(directory) ? current : [...current, directory]));
-          }}
-        />
-      ) : null}
+      {picking && renderPicker !== undefined
+        ? renderPicker({
+            onClose: () => {
+              setPicking(false);
+            },
+            onSelect: directory => {
+              setDirectories(current => (current.includes(directory) ? current : [...current, directory]));
+            },
+          })
+        : null}
     </>
   );
 };

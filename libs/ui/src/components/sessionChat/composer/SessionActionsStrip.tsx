@@ -6,6 +6,7 @@ import { ArrowRightLeft, FolderOpen, GitFork } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 
 import { virtualSessionAtom } from '../../../atoms/virtualSession.atoms.ts';
+import { workspaceDirectoriesAtom } from '../../../atoms/workspaceFolderPaths.atoms.ts';
 import { appOrchestratedAgentsEnabledAtom } from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
 import { directoryBasename } from '../../../host/directoryBasename.ts';
 import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
@@ -15,12 +16,15 @@ import { VirtualDirectoriesButton } from './VirtualDirectoriesButton.tsx';
 const CwdLabel: FC = () => {
   const { isVirtual, onClientError, selectedSession } = useSessionChatSurface();
   const virtualSession = useAtomValue(virtualSessionAtom);
+  const workspace = useAtomValue(workspaceDirectoriesAtom);
   const cwd = isVirtual ? virtualSession?.cwd : selectedSession?.cwd;
   return (
     <Box sx={{ alignItems: 'center', display: 'inline-flex', gap: 0.75 }}>
       <LucideMuiIcon icon={FolderOpen} sx={{ fontSize: 14 }} />
       <span>{cwd === undefined ? 'No project' : directoryBasename(cwd)}</span>
-      {isVirtual ? <VirtualDirectoriesButton onClientError={onClientError} /> : null}
+      {isVirtual ? (
+        <VirtualDirectoriesButton defaults={workspace.additionalDirectories ?? []} onClientError={onClientError} />
+      ) : null}
     </Box>
   );
 };

@@ -6,6 +6,8 @@ export const TrackedSessionRecordSchema = Schema.StructWithRest(
     /** Absolute directories handed to the Agent beyond `cwd` (Additional directories); absent when none. */
     additionalDirectories: Schema.optionalKey(Schema.Array(Schema.String)),
     cwd: Schema.String,
+    /** The user edited the Additional directories: that list wins over a re-read of the Workspace file on activation. */
+    directoriesEdited: Schema.optionalKey(Schema.Literal(true)),
     sessionId: Schema.String,
     title: Schema.optionalKey(Schema.UndefinedOr(Schema.String)),
     updatedAt: Schema.optionalKey(Schema.UndefinedOr(Schema.String)),

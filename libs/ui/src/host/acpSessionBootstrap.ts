@@ -250,7 +250,12 @@ export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | un
   }
 
   // Directories only enter through the Harness's own session creation/tracking, never an Agent-supplied list row.
-  const { additionalDirectories: _additionalDirectories, workspaceFile: _workspaceFile, ...row } = entry;
+  const {
+    additionalDirectories: _additionalDirectories,
+    directoriesEdited: _directoriesEdited,
+    workspaceFile: _workspaceFile,
+    ...row
+  } = entry;
   return decodeHistoryEntry({
     ...row,
     cwd: entry.cwd,
@@ -269,7 +274,12 @@ export const normalizeSessionInfoFromNew = (
     return undefined;
   }
 
-  const { additionalDirectories: _additionalDirectories, workspaceFile: _workspaceFile, ...row } = result;
+  const {
+    additionalDirectories: _additionalDirectories,
+    directoriesEdited: _directoriesEdited,
+    workspaceFile: _workspaceFile,
+    ...row
+  } = result;
   return decodeHistoryEntry({
     ...row,
     ...normalizeSessionDirectories(directories),

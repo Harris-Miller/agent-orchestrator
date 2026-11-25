@@ -22,6 +22,7 @@ import { createNotifierAtoms } from './notifier.atoms.ts';
 import { createProjectsAtoms } from './projects.atoms.ts';
 import { createWorkstreamActionAtoms } from './workstreamActions.atoms.ts';
 import { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
+import { createSessionDirectoriesAtoms } from './sessionDirectories.atoms.ts';
 import { createVirtualSessionAtoms } from './virtualSession.atoms.ts';
 import { createVscodeExtensionAtoms } from './vscodeExtension.atoms.ts';
 
@@ -140,6 +141,8 @@ export const {
 export const { idleSweepAtom } = createIdleSweepAtoms(atomRuntime);
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);
+
+export const { setSessionDirectoriesAtomFn } = createSessionDirectoriesAtoms(hostBag);
 
 export const {
   ensureVirtualSessionAtomFn,

@@ -8,7 +8,10 @@ import ListItemText from '@mui/material/ListItemText';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { FC, ReactNode } from 'react';
 
-import { selectedBackendHarnessSnapshotAtom } from '../../../atoms/backendState.atoms.ts';
+import {
+  selectedBackendHarnessBackgroundActiveAtom,
+  selectedBackendHarnessPhaseAtom,
+} from '../../../atoms/backendState.atoms.ts';
 import { activateSessionAtomFn, respondPermissionAtomFn } from '../../../atoms/boundHarnessAtoms.ts';
 import { isUsablePhase } from '../../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../../host/agentLaunchTarget.ts';
@@ -18,7 +21,6 @@ import { useChatWidthSx } from '../chatWidth.ts';
 import { PendingPermissionCard } from '../pendingInteractions/PendingPermissionCard.tsx';
 import { WaitingCount } from '../pendingInteractions/WaitingCount.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
-import { sessionHasLiveWork } from '../../../host/subagent.ts';
 import { ChatItemView } from './ChatItemView.tsx';
 import { groupChatItems, isFoldedSubagentToolCall, isLiveRegion, isWaitToolCall } from './workRegion/groupChatItems.ts';
 import { WorkRegionView } from './workRegion/WorkRegionView.tsx';
@@ -32,15 +34,13 @@ export const ChatTranscript: FC<{
   const { chatItems, composer, isVirtual, onClientError, selectedLaunchTarget, selectedSession } =
     useSessionChatSurface();
   const { availableCommands } = composer;
-  const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
+  const backendPhase = useAtomValue(selectedBackendHarnessPhaseAtom);
+  const backgroundActive = useAtomValue(selectedBackendHarnessBackgroundActiveAtom);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
 
   const turnOrBackgroundWorking =
-    selectedSession !== undefined &&
-    (backendSnapshot === undefined
-      ? selectedSession.pendingClientRequest === 'prompt'
-      : sessionHasLiveWork(backendSnapshot, selectedSession));
+    selectedSession !== undefined && (selectedSession.pendingClientRequest === 'prompt' || backgroundActive);
 
   const chatWidthSx = useChatWidthSx();
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -55,7 +55,7 @@ export const ChatTranscript: FC<{
     if (selectedLaunchTarget === undefined) {
       return <Alert severity="info">No session selected — create or select a session.</Alert>;
     }
-    if (backendSnapshot === undefined || !isUsablePhase(backendSnapshot.phase)) {
+    if (backendPhase === undefined || !isUsablePhase(backendPhase)) {
       return <Alert severity="info">Starting {agentLaunchTargetLabel(selectedLaunchTarget)} over ACP…</Alert>;
     }
     if (selectedSession === undefined) {

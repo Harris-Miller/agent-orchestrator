@@ -5,6 +5,7 @@ import {
   LucideMuiIcon,
   pickWorkspaceFile,
   projectDefaultsAtom,
+  projectDefaultsFor,
   projectDisplayAtom,
   projectMembershipAtom,
   reloadProjectAtomFn,
@@ -279,7 +280,7 @@ export const ProjectGroup: FC<{
       {editingDirectories ? (
         <AdditionalDirectoriesDialog
           description={`New sessions in ${label} start with these directories as well. Sessions that already exist keep theirs.`}
-          initial={Object.hasOwn(defaults, project) ? defaults[project] : []}
+          initial={projectDefaultsFor(defaults, project)}
           onClose={() => {
             setEditingDirectories(false);
           }}

@@ -111,6 +111,7 @@ export {
   addProject,
   normalizeProjectDirectories,
   normalizeProjectPath,
+  projectDefaultsOf,
   projectsPath,
   ProjectsMalformed,
   readProjects,

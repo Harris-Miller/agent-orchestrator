@@ -140,6 +140,20 @@ describe('a new desktop session in a Project with defaults', () => {
       ]);
     }).pipe(Effect.scoped),
   );
+
+  it.effect('a save that changes nothing records no event', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      const { setProjectDirectoriesAtomFn } = createProjectsAtoms(createHostRuntime(s.layer));
+      yield* runAtomFn(s.registry, setProjectDirectoriesAtomFn, { directories: [X], project: P });
+      yield* runAtomFn(s.registry, setProjectDirectoriesAtomFn, { directories: [X], project: P });
+      yield* runAtomFn(s.registry, setProjectDirectoriesAtomFn, {
+        directories: [X],
+        project: resolve('/not/a/project'),
+      });
+      assert.strictEqual(s.analytics.events.length, 1);
+    }).pipe(Effect.scoped),
+  );
 });
 
 describe('VS Code: the Workspace folders and the Workspace cwd Project defaults combine', () => {

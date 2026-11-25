@@ -10,15 +10,17 @@ import { appOrchestratedAgentsEnabledAtom } from '../../../atoms/userSettings/us
 import { directoryBasename } from '../../../host/directoryBasename.ts';
 import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
+import { VirtualDirectoriesButton } from './VirtualDirectoriesButton.tsx';
 
 const CwdLabel: FC = () => {
-  const { isVirtual, selectedSession } = useSessionChatSurface();
+  const { isVirtual, onClientError, selectedSession } = useSessionChatSurface();
   const virtualSession = useAtomValue(virtualSessionAtom);
   const cwd = isVirtual ? virtualSession?.cwd : selectedSession?.cwd;
   return (
     <Box sx={{ alignItems: 'center', display: 'inline-flex', gap: 0.75 }}>
       <LucideMuiIcon icon={FolderOpen} sx={{ fontSize: 14 }} />
       <span>{cwd === undefined ? 'No project' : directoryBasename(cwd)}</span>
+      {isVirtual ? <VirtualDirectoriesButton onClientError={onClientError} /> : null}
     </Box>
   );
 };

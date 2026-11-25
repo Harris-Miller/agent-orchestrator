@@ -35,6 +35,10 @@ export type ProjectResolution =
       readonly workspaceFile?: string;
     };
 
+/** A directory Project's default Additional directories (none when it has no entry). */
+export const projectDefaultsFor = (defaults: ProjectDefaults, project: string): readonly string[] =>
+  Object.hasOwn(defaults, project) ? defaults[project] : [];
+
 export const resolveProject = (
   project: string,
   states: WorkspaceFileStates,
@@ -43,7 +47,7 @@ export const resolveProject = (
   if (!isWorkspaceFilePath(project)) {
     return {
       _tag: 'Ready',
-      additionalDirectories: Object.hasOwn(defaults, project) ? defaults[project] : [],
+      additionalDirectories: projectDefaultsFor(defaults, project),
       cwd: project,
     };
   }

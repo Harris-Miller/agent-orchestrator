@@ -2,6 +2,7 @@
 import {
   addProject,
   normalizeProjectPath,
+  projectDefaultsOf,
   ProjectsMalformed,
   readWorkspaceFolders,
   removeProject,
@@ -16,6 +17,7 @@ import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { projectParentCaption } from '../host/projectParentCaption.ts';
 import {
+  projectDefaultsFor,
   projectKind,
   projectLabel,
   projectOfRecord,
@@ -95,7 +97,7 @@ export const removeProjectEverywhere = Effect.fn('removeProjectEverywhere')(func
   const before = registry.get(projectsAtom);
   const document = yield* removeProject(project);
   registry.set(projectsAtom, document.projects);
-  registry.set(projectDefaultsAtom, document.additionalDirectories ?? {});
+  registry.set(projectDefaultsAtom, projectDefaultsOf(document));
   const { [project]: _removed, ...remainingStates } = registry.get(workspaceFilesAtom);
   registry.set(workspaceFilesAtom, remainingStates);
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
@@ -194,9 +196,13 @@ export const setProjectDirectories = Effect.fn('setProjectDirectories')(function
       message: 'Projects file could not be read; fix or remove projects.json to change Projects.',
     });
   }
+  const before = registry.get(projectDefaultsAtom);
   const document = yield* setProjectAdditionalDirectories(project, directories);
-  registry.set(projectDefaultsAtom, document.additionalDirectories ?? {});
-  return document.additionalDirectories?.[normalizeProjectPath(project)]?.length ?? 0;
+  const after = projectDefaultsOf(document);
+  registry.set(projectDefaultsAtom, after);
+  const key = normalizeProjectPath(project);
+  const stored = projectDefaultsFor(after, key);
+  return { changed: stored.join('\n') !== projectDefaultsFor(before, key).join('\n'), count: stored.length };
 });
 
 export const createProjectsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 'atomRuntime'>) => {
@@ -224,7 +230,8 @@ export const createProjectsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 'atomR
   const setProjectDirectoriesAtomFn = atomRuntime
     .fn((arg: { readonly directories: readonly string[]; readonly project: string }, get: Atom.FnContext) =>
       setProjectDirectories(get.registry, arg.project, arg.directories).pipe(
-        Effect.tap(count => captureEvent(projectDirectoriesChanged(count))),
+        // Only a real change counts: a no-op (not a Project, a Workspace file, same list) records nothing.
+        Effect.tap(({ changed, count }) => (changed ? captureEvent(projectDirectoriesChanged(count)) : Effect.void)),
         Effect.asVoid,
         Effect.withSpan('setProjectDirectoriesAtomFn', { root: true }),
       ),

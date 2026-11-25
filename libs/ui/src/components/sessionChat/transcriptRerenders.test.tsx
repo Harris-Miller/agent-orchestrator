@@ -4,16 +4,26 @@ import { act, cleanup } from '@testing-library/react';
 import { Effect } from 'effect';
 import { Profiler } from 'react';
 import type { ReactNode } from 'react';
-import { afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
 
 import { CODEX } from '../../atoms/fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from '../../atoms/harnessSnapshot.ts';
 import { mockHostLayer } from '../../atoms/mockHostLayer.testing.ts';
 import { createHostRuntime } from '../../createHostRuntime.ts';
+import type { ChatItem } from '../../host/sessionUpdateReducer.ts';
 import { harness, subagent } from '../../host/harnessSnapshot.testing.ts';
 import { applyLiveSessionUpdate } from '../../host/harnessStateTransitions.ts';
 import { bindHostRuntime } from '../../hostRuntime.ts';
 import { renderInSessionChatSurface } from './sessionChatSurface.testing.tsx';
+
+const rowRenders = new Map<string, number>();
+vi.mock('./transcript/chatItems/AgentMessageView.tsx', () => ({
+  AgentMessageView: ({ text }: { readonly text: string }) => {
+    const key = text.slice(0, 3);
+    rowRenders.set(key, (rowRenders.get(key) ?? 0) + 1);
+    return <li>{text}</li>;
+  },
+}));
 
 bindHostRuntime(createHostRuntime(mockHostLayer));
 const { SessionChatSurfaceProvider } = await import('./useSessionChatSurface.tsx');
@@ -100,5 +110,52 @@ it.effect('subagent child chunks do not re-render the ChatTranscript', () =>
       updateHarnessSnapshot(registry, CODEX, current => applyLiveSessionUpdate(current, 's1', chunk(0)).snapshot);
     });
     assert.isAtLeast(commits.get('ChatTranscript') ?? 0, 1);
+  }).pipe(Effect.scoped),
+);
+
+it.effect('own-session chunks re-render only the last transcript row', () =>
+  Effect.gen(function* () {
+    const ROWS = 20;
+    const items: ChatItem[] = Array.from({ length: ROWS }, (_, i): ChatItem[] => [
+      { id: `u${String(i)}`, kind: 'user_message', text: 'go' },
+      { id: `m${String(i)}`, kind: 'agent_message', text: `m${String(i).padStart(2, '0')}` },
+    ]).flat();
+    const { registry } = yield* renderInSessionChatSurface(
+      <SessionChatSurfaceProvider onClientError={() => undefined}>
+        <ChatTranscript />
+      </SessionChatSurfaceProvider>,
+      {
+        session: {
+          transcript: {
+            items,
+            messageIndices: new Map(Array.from({ length: ROWS }, (_, i) => [`m${String(i)}`, i * 2 + 1] as const)),
+            toolCallIndices: new Map(),
+          },
+        },
+      },
+    );
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        registry.dispose();
+      }),
+    );
+    rowRenders.clear();
+    const last = `m${String(ROWS - 1).padStart(2, '0')}`;
+    for (let i = 0; i < CHUNKS; i += 1) {
+      act(() => {
+        updateHarnessSnapshot(
+          registry,
+          CODEX,
+          current =>
+            applyLiveSessionUpdate(current, 's1', {
+              content: { text: ' x', type: 'text' },
+              sessionUpdate: 'agent_message_chunk',
+            }).snapshot,
+        );
+      });
+    }
+    assert.strictEqual(rowRenders.get(last) ?? 0, CHUNKS);
+    const earlier = [...rowRenders].filter(([key]) => key !== last);
+    assert.deepStrictEqual(earlier, []);
   }).pipe(Effect.scoped),
 );

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { FC } from 'react';
 
 import type { AvailableCommand, ChatItem } from '../../../host/sessionUpdateReducer.ts';
@@ -16,7 +17,7 @@ import { UserMessageView } from './chatItems/UserMessageView.tsx';
 export const ChatItemView: FC<{
   availableCommands?: readonly AvailableCommand[];
   item: ChatItem;
-}> = ({ availableCommands = [], item }) => {
+}> = memo(({ availableCommands = [], item }) => {
   switch (item.kind) {
     case 'agent_message':
       return <AgentMessageView text={item.text} />;
@@ -51,4 +52,5 @@ export const ChatItemView: FC<{
     default:
       return null;
   }
-};
+});
+ChatItemView.displayName = 'ChatItemView';

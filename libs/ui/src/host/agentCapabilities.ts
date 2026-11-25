@@ -17,6 +17,7 @@ import { airCapability, airMeta } from './airMeta.ts';
 const AGENT_CAPABILITY_KEYS = [
   'promptEmbeddedContext',
   'promptImage',
+  'sessionAdditionalDirectories',
   'sessionArchive',
   'sessionClose',
   'sessionDelete',
@@ -31,7 +32,7 @@ export type AgentCapability = (typeof AGENT_CAPABILITY_KEYS)[number];
 /**
  * - `promptEmbeddedContext` / `promptImage`: `agentCapabilities.promptCapabilities.*`
  * - `sessionArchive` / `sessionRename`: AIR `_meta.jetbrains.air.capabilities`
- * - `sessionClose` / `sessionFork` / `sessionResume`: `agentCapabilities.sessionCapabilities.*` (`sessionDelete`: `session/delete`; resume minus never-resume Providers)
+ * - `sessionAdditionalDirectories` / `sessionClose` / `sessionFork` / `sessionResume`: `agentCapabilities.sessionCapabilities.*` (`sessionDelete`: `session/delete`; resume minus never-resume Providers)
  * - `steeringSupported`: top-level `_meta.steering.supported === true`
  */
 export type AgentCapabilities = Readonly<Record<AgentCapability, boolean>>;
@@ -39,6 +40,7 @@ export type AgentCapabilities = Readonly<Record<AgentCapability, boolean>>;
 export const NO_AGENT_CAPABILITIES: AgentCapabilities = {
   promptEmbeddedContext: false,
   promptImage: false,
+  sessionAdditionalDirectories: false,
   sessionArchive: false,
   sessionClose: false,
   sessionDelete: false,
@@ -112,6 +114,7 @@ export const agentCapabilitiesFrom = (
   return {
     promptEmbeddedContext: prompt('embeddedContext'),
     promptImage: prompt('image'),
+    sessionAdditionalDirectories: session('additionalDirectories'),
     sessionArchive: air.includes(airCapability.sessionArchive),
     sessionClose: session('close'),
     sessionDelete: session('delete'),

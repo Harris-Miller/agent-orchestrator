@@ -25,7 +25,7 @@ A bounded conversation context between Client and Agent, identified by `sessionI
 _Avoid_: Thread, chat, conversation
 
 **Working directory**:
-The absolute `cwd` passed on `session/new`, `session/load`, and `session/resume` — the session's primary filesystem context and base for relative paths. Must stay consistent for that session across load/resume.
+The absolute `cwd` passed on `session/new`, `session/load`, `session/resume`, and `session/fork` — the session's primary filesystem context and base for relative paths. Must stay consistent for that session across load/resume. The optional `additionalDirectories` (further absolute directories the Agent may see) travels alongside it, only when the Agent advertises `sessionCapabilities.additionalDirectories`.
 _Avoid_: Host cwd, spawn directory, project root (ambiguous)
 
 **Prompt**:

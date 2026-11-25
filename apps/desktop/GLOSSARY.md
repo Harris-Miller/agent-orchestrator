@@ -98,6 +98,14 @@ _Avoid_: Connection, provider instance, worker
 The absolute directory that is a session's primary filesystem context (ACP `cwd`). Chosen by the user when creating a session; carried on the History entry; required on `session/new`, `session/load`, and `session/resume`. Distinct from the Tauri host process cwd.
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
+**Additional directories**:
+Absolute directories the Agent may see beyond the **Session cwd**. The Harness keeps the list on the session and its **Tracked session** even when the Agent cannot take it, and hands it to the Agent only when the Agent can. Part of what identifies a **Bind**; inherited by a fork, a **Handoff** target and a spawned subagent.
+_Avoid_: extra folders, extra roots, workspace folders (the VS Code concept)
+
+**Workspace file**:
+An optional `.code-workspace` file a session's **Additional directories** came from. Kept with the list, never handed to the Agent.
+_Avoid_: VS Code workspace (when you mean this file)
+
 **Session History**:
 The Tracked sessions across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from hoa-home before startup and grouped by Project cwd (groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest Last prompt time first); each row carries its agent launch target. Only sessions the user created in-app or chose to **Import** appear; `session/list` is never run in the background. When browsing, the UI hides archived rows (an app-owned flag once tracked) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
 _Avoid_: Roster, Session roster, session list, session catalog, session drawer
@@ -131,7 +139,7 @@ A desktop Session History accordion group for one Project, always shown (blank w
 _Avoid_: empty cwd group, ghost group
 
 **Tracked session**:
-A session the app owns a record of: created in-app (when its Virtual session materializes, or a fork or handoff creates it) or chosen through **Import**. Persisted per launch target and cwd (hoa-home Tracked sessions document). The only source for Session History, Recent sessions and Session History search. Delete is the only way to fully remove one; Archive never un-imports it. Title and Last prompt time change only from live signals for loaded sessions; a never-loaded one keeps its import-time snapshot.
+A session the app owns a record of: created in-app (when its Virtual session materializes, or a fork or handoff creates it) or chosen through **Import**. Persisted per launch target and cwd (hoa-home Tracked sessions document), with its optional **Additional directories** and **Workspace file**. The only source for Session History, Recent sessions and Session History search. Delete is the only way to fully remove one; Archive never un-imports it. Title and Last prompt time change only from live signals for loaded sessions; a never-loaded one keeps its import-time snapshot.
 _Avoid_: listed session, cached row, imported session (when you mean any Tracked session)
 
 **Import**:
@@ -209,7 +217,7 @@ A user's change to one Config option of an active Session: shown at once, sent w
 _Avoid_: set config, config update (ambiguous with the agent's config option update)
 
 **Bind**:
-Eager `session/new` for the Virtual session draft once absolute Session cwd, agent launch target, and Bootstrap `usable` are known: upserts the session snapshot into the harness sessions map and stores the Bound `sessionId` on the Virtual blob. Optimistic and latest-wins (never locks the composer); a superseded Bind's session is torn down in the background. Not a History entry; Selected stays Virtual. Distinct from Materialize.
+Eager `session/new` for the Virtual session draft once absolute Session cwd, agent launch target, and Bootstrap `usable` are known (a changed cwd, launch target or set of **Additional directories** re-Binds): upserts the session snapshot into the harness sessions map and stores the Bound `sessionId` on the Virtual blob. Optimistic and latest-wins (never locks the composer); a superseded Bind's session is torn down in the background. Not a History entry; Selected stays Virtual. Distinct from Materialize.
 _Avoid_: Materialize, session create (when you mean this Virtual-only step), activate
 
 **Materialize**:
@@ -281,7 +289,7 @@ A pending elicitation or pending permission on a session snapshot. The Harness U
 _Avoid_: Pending client request, blocking dialog, modal
 
 **Virtual session**:
-At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd, optional Bound `sessionId`) owned by Harness application state. Not a History entry until Materialize on first Send. May be Bound (Active on the agent via Bind) while Selected stays Virtual. Discarded on app restart. Leaving it keeps the blob when the Composer has content, else discards it (best-effort Bound teardown); leaving is never blocked by Bind / Materialize. New Session / cwd-group (+) ensure and Select it; Bind runs once cwd + launch target are known and the provider is Bootstrap `usable`.
+At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd, optional **Additional directories**, optional Bound `sessionId`) owned by Harness application state. Not a History entry until Materialize on first Send. May be Bound (Active on the agent via Bind) while Selected stays Virtual. Discarded on app restart. Leaving it keeps the blob when the Composer has content, else discards it (best-effort Bound teardown); leaving is never blocked by Bind / Materialize. New Session / cwd-group (+) ensure and Select it; Bind runs once cwd + launch target are known and the provider is Bootstrap `usable`.
 _Avoid_: Draft session, pending session, unsaved session
 
 **New session launcher**:

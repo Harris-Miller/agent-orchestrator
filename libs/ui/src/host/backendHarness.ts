@@ -23,7 +23,7 @@ import {
 import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
-import { clientCapabilitiesFor, supportsMcpHttp } from './agentCapabilities.ts';
+import { agentCapabilitiesFrom, clientCapabilitiesFor, supportsMcpHttp } from './agentCapabilities.ts';
 import {
   ANTIGRAVITY_OAUTH_PERSONAL,
   ANTIGRAVITY_SIGN_IN_TIMEOUT,
@@ -38,7 +38,7 @@ import type { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
 import type { VendorNotAuthenticated } from './vendorCliAuth.ts';
 import type { BackendConnectionReports } from './sessionRpc.ts';
-import { registerBackendConnection, setBackendMcpHttp } from './sessionRpc.ts';
+import { registerBackendConnection, setBackendAdditionalDirectories, setBackendMcpHttp } from './sessionRpc.ts';
 
 export { AntigravitySignInTimedOut };
 
@@ -123,7 +123,9 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       clientCapabilities: clientCapabilitiesFor(launchTarget),
       protocolVersion: 1,
     });
+    const capabilities = agentCapabilitiesFrom(launchTarget, initializeResult);
     setBackendMcpHttp(launchTarget, supportsMcpHttp(initializeResult));
+    setBackendAdditionalDirectories(launchTarget, capabilities.sessionAdditionalDirectories);
     handlers.onInitializeResult(initializeResult);
     handlers.onPhase('initialized');
     yield* Effect.logInfo('ACP harness initialized');

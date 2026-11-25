@@ -45,6 +45,8 @@ import {
 import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from '../host/configProbe.ts';
 import { bindSession, dropSession, dropSessionIfPresent } from '../host/harnessStateTransitions.ts';
+import { normalizeSessionDirectories, sameDirectories } from '../host/sessionDirectories.ts';
+import type { SessionDirectories } from '../host/sessionDirectories.ts';
 import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { createSession, deleteSession } from '../host/sessionRpc.ts';
@@ -70,7 +72,7 @@ import { annotateLaunchTargetLogs, annotateSessionLogs } from '../host/sessionTe
 
 type Registry = AtomRegistry.AtomRegistry;
 
-export type VirtualSession = {
+export type VirtualSession = SessionDirectories & {
   readonly attachments: readonly ComposerImageAttachment[];
   readonly configValues: ConfigOptionValues;
   readonly cwd: string | undefined;
@@ -97,8 +99,8 @@ export type EnsureVirtualSessionArg = {
   readonly patchCwdIfSelectedVirtual?: boolean;
 };
 
-/** Composer edits on the blob. A cwd change tears down and rebinds; draft and attachment edits never Bind. */
-export type VirtualEdit = Partial<Pick<VirtualSession, 'attachments' | 'cwd' | 'draft'>>;
+/** Composer edits on the blob. A cwd or Additional directories (set) change tears down and rebinds; draft and attachment edits never Bind. */
+export type VirtualEdit = Partial<Pick<VirtualSession, 'additionalDirectories' | 'attachments' | 'cwd' | 'draft'>>;
 
 export type VirtualConfigOptionArg =
   | {
@@ -145,8 +147,9 @@ export const virtualMaterializingAtom: Atom.Atom<boolean> = writableMaterializin
 /** Seed source for new blobs (launch target + Config of the last Materialize). */
 export const lastCreateDefaultsAtom = Atom.make<LastCreateDefaults | null>(null).pipe(Atom.keepAlive);
 
-/** What a Bind is for: the provider + cwd the Bound session is created in. */
+/** What a Bind is for: the provider + cwd + Additional directories (compared as a set) the Bound session is created with. */
 type BindKey = {
+  readonly additionalDirectories?: readonly string[];
   readonly cwd: string;
   readonly launchTarget: AgentLaunchTarget;
 };
@@ -315,8 +318,14 @@ const boundRefOf = (virtual: null | VirtualSession): BoundRef | undefined =>
     ? { launchTarget: virtual.launchTarget, sessionId: virtual.sessionId }
     : undefined;
 
+/** Same Bind key: launch target, cwd and Additional directories (as a set). */
+const sameBindKey = (a: Partial<BindKey> | null | undefined, b: Partial<BindKey> | null | undefined): boolean =>
+  a?.launchTarget === b?.launchTarget &&
+  a?.cwd === b?.cwd &&
+  sameDirectories(a?.additionalDirectories, b?.additionalDirectories);
+
 const bindKeyMatches = (virtual: null | VirtualSession, key: BindKey): boolean =>
-  virtual?.launchTarget === key.launchTarget && virtual.cwd === key.cwd;
+  virtual !== null && sameBindKey(virtual, key);
 
 /** Best-effort close+delete Bound session (no session dir). Failed delete must not block replacement Bind. */
 const teardownBound = Effect.fn('teardownBound')(function* (registry: Registry, bound: BoundRef) {
@@ -348,24 +357,26 @@ const releaseBoundInBackground = Effect.fn('releaseBoundInBackground')(function*
 
 /** One Bind attempt: `session/new` + sessions-map upsert; discards (tears down) its session when superseded. */
 const runBind = Effect.fn('runBind')(function* (registry: Registry, bind: VirtualBind) {
-  const { cwd, launchTarget } = bind;
+  const { additionalDirectories, cwd, launchTarget } = bind;
   yield* Effect.annotateCurrentSpan({ [ACP_LAUNCH_TARGET]: launchTarget });
   yield* Effect.logInfo('UI runBind').pipe(
     Effect.annotateLogs({ cwd: Redacted.make(cwd) }),
     annotateLaunchTargetLogs(launchTarget),
   );
 
-  const createExit = yield* Effect.exit(createSession(launchTarget, cwd));
+  const createExit = yield* Effect.exit(createSession(launchTarget, cwd, { additionalDirectories }));
   if (Exit.isFailure(createExit)) {
     yield* Effect.logError('runBind session/new failed', createExit.cause).pipe(annotateLaunchTargetLogs(launchTarget));
     return undefined;
   }
 
-  const { cwd: createdCwd, result } = createExit.value;
+  const { cwd: createdCwd, directories, result } = createExit.value;
   const boundSessionId = result.sessionId;
   yield* Effect.annotateCurrentSpan(ACP_SESSION_ID, boundSessionId);
 
-  updateHarnessSnapshot(registry, launchTarget, current => bindSession(current, { cwd: createdCwd, result }));
+  updateHarnessSnapshot(registry, launchTarget, current =>
+    bindSession(current, { cwd: createdCwd, directories, result }),
+  );
 
   const latest = registry.get(virtualSessionAtom);
   if (registry.get(virtualBindAtom).latest !== bind.generation || latest === null || !bindKeyMatches(latest, bind)) {
@@ -380,7 +391,7 @@ const runBind = Effect.fn('runBind')(function* (registry: Registry, bind: Virtua
 
 /**
  * Request a Bind for the current Virtual blob without waiting for it. Latest-wins: a request with a new
- * `{launchTarget, cwd}` supersedes any in-flight Bind (its session is torn down when it lands); the same key joins it.
+ * `{launchTarget, cwd, Additional directories}` supersedes any in-flight Bind (its session is torn down when it lands); the same key joins it.
  * Returns `undefined` when nothing needs binding (unusable, no valid key, already Bound, Materializing).
  */
 const requestBind = Effect.fn('requestBind')(function* (registry: Registry) {
@@ -392,7 +403,7 @@ const requestBind = Effect.fn('requestBind')(function* (registry: Registry) {
   if (virtual === null) {
     return undefined;
   }
-  const { cwd, launchTarget, sessionId } = virtual;
+  const { additionalDirectories, cwd, launchTarget, sessionId } = virtual;
   if (launchTarget === undefined || cwd === undefined || !isAbsoluteCwd(cwd)) {
     return undefined;
   }
@@ -400,12 +411,17 @@ const requestBind = Effect.fn('requestBind')(function* (registry: Registry) {
   if (!isUsablePhase(snapshot.phase)) {
     return undefined;
   }
-  if (sessionId !== undefined && sessionId in snapshot.sessions && snapshot.sessions[sessionId].cwd === cwd) {
+  if (
+    sessionId !== undefined &&
+    sessionId in snapshot.sessions &&
+    snapshot.sessions[sessionId].cwd === cwd &&
+    sameDirectories(snapshot.sessions[sessionId].additionalDirectories, additionalDirectories)
+  ) {
     return undefined;
   }
 
   const state = registry.get(virtualBindAtom);
-  if (state.current?.launchTarget === launchTarget && state.current.cwd === cwd) {
+  if (state.current !== null && sameBindKey(state.current, { additionalDirectories, cwd, launchTarget })) {
     return state.current;
   }
 
@@ -414,6 +430,7 @@ const requestBind = Effect.fn('requestBind')(function* (registry: Registry) {
   }
 
   const bind: VirtualBind = {
+    additionalDirectories,
     cwd,
     done: yield* Deferred.make<string | undefined>(),
     generation: state.latest + 1,
@@ -496,11 +513,7 @@ const mutateThenRebind = Effect.fn('mutateThenRebind')(function* (
 
   const after = registry.get(virtualSessionAtom);
   if (oldBound !== undefined) {
-    const stillBound =
-      after !== null &&
-      after.sessionId === oldBound.sessionId &&
-      after.launchTarget === oldBound.launchTarget &&
-      after.cwd === before?.cwd;
+    const stillBound = after !== null && after.sessionId === oldBound.sessionId && sameBindKey(after, before);
     if (!stillBound) {
       yield* releaseBoundInBackground(registry, oldBound);
     }
@@ -585,8 +598,8 @@ const awaitBoundVirtual = Effect.fn('awaitBoundVirtual')(function* (
     if (virtual?.launchTarget === undefined || virtual.cwd === undefined || !hasComposerContent(virtual)) {
       return undefined;
     }
-    const { cwd, launchTarget } = virtual;
-    const key: BindKey = { cwd, launchTarget };
+    const { additionalDirectories, cwd, launchTarget } = virtual;
+    const key: BindKey = { additionalDirectories, cwd, launchTarget };
     const { failure, phase } = registry.get(backendHarnessSnapshotAtom(launchTarget));
     if (phase === 'error') {
       return yield* new ProviderUnavailable({ message: failure?.message ?? 'Provider unavailable' });
@@ -670,7 +683,12 @@ const materialize = Effect.fn('materialize')(
       return yield* new ProviderUnavailable({ message: 'Provider connection lost while starting the session' });
     }
 
-    const historyEntry = historyEntryFromNew({ sessionId }, liveSession.cwd ?? cwd);
+    const historyEntry = historyEntryFromNew(
+      { sessionId },
+      liveSession.cwd ?? cwd,
+      // The Virtual blob's own directories, never the Bound session's possibly stale ones.
+      normalizeSessionDirectories(target),
+    );
     if (historyEntry !== undefined) {
       yield* trackSession(registry, launchTarget, historyEntry);
       // A session started from "New session in Workstream" belongs to it from creation.
@@ -717,14 +735,18 @@ export const ensureVirtual = Effect.fn('ensureVirtual')(function* (
   });
 });
 
-/** Draft, attachments or cwd. Only a cwd change tears down the Bound session and rebinds. */
+/** Draft, attachments, cwd or Additional directories. Only a cwd or directories (set) change tears down the Bound session and rebinds. */
 export const editVirtual = Effect.fn('editVirtual')(function* (registry: Registry, edit: VirtualEdit) {
   const before = registry.get(virtualSessionAtom);
   yield* mutateThenRebind(registry, {
     mutate: () => {
       patchBlob(registry, edit);
     },
-    rebind: before !== null && edit.cwd !== undefined && edit.cwd !== before.cwd,
+    rebind:
+      before !== null &&
+      ((edit.cwd !== undefined && edit.cwd !== before.cwd) ||
+        (edit.additionalDirectories !== undefined &&
+          !sameDirectories(edit.additionalDirectories, before.additionalDirectories))),
   });
 });
 

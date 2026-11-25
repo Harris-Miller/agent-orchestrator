@@ -115,6 +115,27 @@ describe('runConfigProbe', () => {
     }).pipe(Effect.provide(probeServices)),
   );
 
+  it.effect('sends no Additional directories on its session/new', () =>
+    Effect.gen(function* () {
+      const params: unknown[] = [];
+      const agent = {
+        ...makeAgent([], { configOptions: [modelSelectOption('sonnet', ['sonnet']), effortOption('high')] }),
+        'session/new': (request: unknown) => {
+          params.push(request);
+          return Effect.succeed({
+            configOptions: [modelSelectOption('sonnet', ['sonnet']), effortOption('high')],
+            sessionId: 'probe-1',
+          });
+        },
+      };
+
+      yield* runConfigProbe(agent);
+
+      assert.strictEqual(params.length, 1);
+      assert.isFalse('additionalDirectories' in (params[0] as object));
+    }).pipe(Effect.provide(probeServices)),
+  );
+
   it.effect('fails when session/new has no model currentValue; still cleans up', () =>
     Effect.gen(function* () {
       const calls: string[] = [];

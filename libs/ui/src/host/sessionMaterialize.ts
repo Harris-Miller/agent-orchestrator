@@ -2,16 +2,24 @@
 
 import { normalizeSessionInfoFromNew } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo, SessionConfiguration, SessionSnapshot } from './acpSessionBootstrap.ts';
+import { normalizeSessionDirectories } from './sessionDirectories.ts';
+import type { SessionDirectories } from './sessionDirectories.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 
 /** Fields carried forward across activation merges (create may pass only `{ cwd }`). */
 export type SessionActivationCarry = Partial<
-  Pick<SessionSnapshot, 'availableCommands' | 'cwd' | 'transcript' | 'usage'>
+  Pick<
+    SessionSnapshot,
+    'additionalDirectories' | 'availableCommands' | 'cwd' | 'transcript' | 'usage' | 'workspaceFile'
+  >
 >;
 
 /** History entry from a successful `session/new` result (handoff early upsert). */
-export const historyEntryFromNew = (result: unknown, cwd: string): NormalizedSessionInfo | undefined =>
-  normalizeSessionInfoFromNew(result, cwd);
+export const historyEntryFromNew = (
+  result: unknown,
+  cwd: string,
+  directories?: SessionDirectories,
+): NormalizedSessionInfo | undefined => normalizeSessionInfoFromNew(result, cwd, directories);
 
 /** Build an active session snapshot with its Session configuration (+ optional carry fields). */
 export const buildActivatedSession = (
@@ -19,6 +27,7 @@ export const buildActivatedSession = (
   configuration: SessionConfiguration,
   existing?: SessionActivationCarry,
 ): SessionSnapshot => ({
+  ...normalizeSessionDirectories(existing),
   availableCommands: existing?.availableCommands,
   configuration,
   cwd: existing?.cwd,

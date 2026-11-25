@@ -7,6 +7,7 @@ import type { AgentCapabilities } from './agentCapabilities.ts';
 const ALL: AgentCapabilities = {
   promptEmbeddedContext: true,
   promptImage: true,
+  sessionAdditionalDirectories: true,
   sessionArchive: true,
   sessionClose: true,
   sessionDelete: true,
@@ -23,7 +24,7 @@ const claudeWithAir = {
   },
   agentCapabilities: {
     promptCapabilities: { embeddedContext: true, image: true },
-    sessionCapabilities: { close: {}, delete: {}, fork: {}, list: {}, resume: {} },
+    sessionCapabilities: { additionalDirectories: {}, close: {}, delete: {}, fork: {}, list: {}, resume: {} },
   },
   protocolVersion: 1,
 };
@@ -31,12 +32,29 @@ const claudeWithAir = {
 const codexWithoutAir = {
   agentCapabilities: {
     promptCapabilities: { embeddedContext: true, image: true },
-    sessionCapabilities: { close: {}, delete: {}, fork: {}, list: {}, resume: {} },
+    sessionCapabilities: { additionalDirectories: {}, close: {}, delete: {}, fork: {}, list: {}, resume: {} },
   },
   protocolVersion: 1,
 };
 
 const withSessionCapability = (close: unknown) => ({ agentCapabilities: { sessionCapabilities: { close } } });
+
+describe('agentCapabilitiesFrom sessionAdditionalDirectories', () => {
+  const read = (sessionCapabilities: unknown) =>
+    agentCapabilitiesFrom('codex-acp', { agentCapabilities: { sessionCapabilities } }).sessionAdditionalDirectories;
+
+  it('is advertised when sessionCapabilities.additionalDirectories is true or an object', () => {
+    assert.isTrue(read({ additionalDirectories: true }));
+    assert.isTrue(read({ additionalDirectories: {} }));
+  });
+
+  it('defaults to not advertised', () => {
+    assert.isFalse(read({}));
+    assert.isFalse(read({ additionalDirectories: false }));
+    assert.isFalse(agentCapabilitiesFrom('codex-acp', undefined).sessionAdditionalDirectories);
+    assert.isFalse(NO_AGENT_CAPABILITIES.sessionAdditionalDirectories);
+  });
+});
 
 describe('agentCapabilitiesFrom', () => {
   const table: readonly (readonly [string, AgentLaunchTarget, unknown, AgentCapabilities])[] = [

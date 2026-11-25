@@ -65,7 +65,7 @@ describe('hub MCP injection', () => {
       yield* installFakeHub(hubCalls);
       yield* installFakeAgent([], { mcp: { received: [] } });
 
-      yield* createSession('codex-acp', '/w', 'parent-1');
+      yield* createSession('codex-acp', '/w', { parentSessionId: 'parent-1' });
 
       assert.deepStrictEqual(hubCalls, ['register', 'bind:codex-acp:bound-1:parent=parent-1']);
       assert.deepStrictEqual(

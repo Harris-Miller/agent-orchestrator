@@ -15,3 +15,11 @@ export const fileWorkspaceFolderPaths = (
   }
   return folders.filter(folder => folder.uri.scheme === 'file').map(folder => folder.uri.fsPath);
 };
+
+/**
+ * Absolute path of a saved workspace's `.code-workspace` file; `undefined` for no workspace file,
+ * untitled workspaces and any non-file scheme.
+ */
+export const fileWorkspaceFilePath = (
+  workspaceFile: undefined | { readonly fsPath: string; readonly scheme: string },
+): string | undefined => (workspaceFile?.scheme === 'file' ? workspaceFile.fsPath : undefined);

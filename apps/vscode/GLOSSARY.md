@@ -20,12 +20,16 @@ One root folder in the VS Code workspace. Distinct from OS snapshot `cwd` (exten
 _Avoid_: OS cwd, Host cwd, workspace root, project root (when you mean this VS Code root)
 
 **Workspace cwd**:
-The absolute path the sidebar treats as the project cwd — the first Workspace folder’s path when folders exist, else absent. vscode-only; not a desktop concept. When present, it is the Session cwd for create and Import (the user cannot pick another). The first time a session is tracked under it (a Virtual session materializes, or an Import is confirmed), it also becomes a Project if it is not one already.
+The absolute path the sidebar treats as the project cwd — the first Workspace folder’s path when folders exist, else absent. vscode-only; not a desktop concept. When present, it is the Session cwd for create and Import (the user cannot pick another). The workspace's other folders are **Additional directories**. The first time a session is tracked under it (a Virtual session materializes, or an Import is confirmed), it also becomes a Project if it is not one already.
 _Avoid_: Session cwd (when you mean this vscode binding), OS cwd, Host cwd
 
 **Additional directories**:
-Absolute directories handed to the Agent beyond the Session cwd, sent only when the Agent advertises support. The same concept as on desktop (see the desktop glossary); the VS Code extension has no source for them yet.
+Absolute directories handed to the Agent beyond the Session cwd, sent only when the Agent advertises support. The same concept as on desktop (see the desktop glossary). A new session here gets the other Workspace folders (every folder after the **Workspace cwd**) as its Additional directories; a Tracked session keeps the list it was created with, whatever the workspace holds later.
 _Avoid_: Workspace folder (the VS Code root folder), extra roots
+
+**Workspace file**:
+The `.code-workspace` file of a saved multi-root or single-folder VS Code workspace, recorded with a new session's **Additional directories** (see the desktop glossary). An untitled workspace has none.
+_Avoid_: VS Code workspace (when you mean this file)
 
 **Session History**:
 The sidebar presentation of Session History (see desktop glossary), filtered to Tracked sessions for the current Workspace cwd whether or not that cwd is a Project (stopping tracking it on desktop does not hide them here), archived ones only when Show archived is on while browsing. An Import button in its header (hidden without a Workspace cwd) opens **Import** for the Workspace cwd. Session History search includes archived entries regardless of that toggle. On the vscode TanStack router this is the `/` shell when Selected is unset (Settings redirects from `/settings` to `/settings/general` and uses the shared responsive SettingsShell). Pinned entries for the Workspace cwd render once in a Pinned section above the rest (see desktop glossary). Create (+) ensures a Virtual session with Workspace cwd. With no Workspace cwd, History stays empty and no Virtual is created.

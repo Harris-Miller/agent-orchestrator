@@ -179,7 +179,7 @@ export const HostIpcRequests = {
   },
   WorkspaceFolders: {
     request: {},
-    result: { paths: Schema.Array(Schema.String) },
+    result: { paths: Schema.Array(Schema.String), workspaceFile: Schema.optionalKey(Schema.String) },
   },
 } satisfies Record<string, { readonly request: Schema.Struct.Fields; readonly result: Schema.Struct.Fields }>;
 
@@ -220,6 +220,7 @@ const ExtensionPushes = {
   },
   WorkspaceFoldersChanged: {
     paths: Schema.Array(Schema.String),
+    workspaceFile: Schema.optionalKey(Schema.String),
   },
 };
 

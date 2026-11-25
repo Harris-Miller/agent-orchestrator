@@ -51,7 +51,10 @@ const makeFulfillment = (isExtensionDevelopment = false) =>
       const tmp = await mkdtemp(join(tmpdir(), 'hoa-host-fulfillment-'));
       const [webview, extension] = connectFakePeers();
       const tracker = new ProcessTracker();
-      const state: { folders: readonly Folder[] | undefined } = { folders: undefined };
+      const state: { folders: readonly Folder[] | undefined; workspaceFile: Folder['uri'] | undefined } = {
+        folders: undefined,
+        workspaceFile: undefined,
+      };
       const stop = serveHostIpc(
         extension,
         makeHostIpcFulfillment({
@@ -60,6 +63,7 @@ const makeFulfillment = (isExtensionDevelopment = false) =>
           port: extension,
           tracker,
           webviewId: 'wv-1',
+          workspaceFile: () => state.workspaceFile as never,
           workspaceFolders: () => state.folders as never,
         }),
       );
@@ -305,6 +309,17 @@ describe('Host IPC fulfillment', () => {
       assert.deepStrictEqual((yield* client.request({ _tag: 'WorkspaceFolders' })).paths, ['/ws/a']);
       state.folders = [{ uri: { fsPath: '/ws/b', scheme: 'file' } }];
       assert.deepStrictEqual((yield* client.request({ _tag: 'WorkspaceFolders' })).paths, ['/ws/b']);
+    }),
+  );
+
+  it.effect('reports the saved workspace file and omits untitled ones', () =>
+    Effect.gen(function* () {
+      const { client, state } = yield* fulfillment;
+      state.folders = [{ uri: { fsPath: '/ws/a', scheme: 'file' } }];
+      state.workspaceFile = { fsPath: '/ws/x.code-workspace', scheme: 'file' };
+      assert.strictEqual((yield* client.request({ _tag: 'WorkspaceFolders' })).workspaceFile, '/ws/x.code-workspace');
+      state.workspaceFile = { fsPath: 'Untitled', scheme: 'untitled' };
+      assert.notProperty(yield* client.request({ _tag: 'WorkspaceFolders' }), 'workspaceFile');
     }),
   );
 

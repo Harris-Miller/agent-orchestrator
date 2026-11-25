@@ -29,8 +29,14 @@ export {
   unwrapUserSettings,
   userSettingsEditsDisabled,
 } from './atoms/userSettings/userSettings.atoms.ts';
-export { sessionCwdAtom, workspaceFolderPathsAtom } from './atoms/workspaceFolderPaths.atoms.ts';
+export {
+  sessionCwdAtom,
+  workspaceDirectoriesAtom,
+  workspaceFileAtom,
+  workspaceFolderPathsAtom,
+} from './atoms/workspaceFolderPaths.atoms.ts';
 export { bootWorkspaceFolders, handleWorkspaceFoldersChanged } from './atoms/workspaceFolders.ts';
+export type { WorkspaceFolders } from './atoms/workspaceFolders.ts';
 export {
   createVirtualSessionAtoms,
   virtualMaterializingAtom,

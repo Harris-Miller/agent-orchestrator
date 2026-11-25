@@ -14,6 +14,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
+import { workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
 
 const FROM_HISTORY = ['/hist/a', '/hist/b'];
 const FROM_SNAPSHOT = ['/snap/a'];
@@ -48,6 +49,28 @@ const setup = Effect.fnUntraced(function* (options: {
   advertise(registry, CODEX, options.initialize ?? advertises('fork'));
   const snapshot = () => registry.get(backendHarnessSnapshotAtom(CODEX));
   return { atoms, calls, registry, requests, snapshot, target: { launchTarget: CODEX, sessionId: 's1' } };
+});
+
+describe('Activate in a multi-root workspace', () => {
+  it.effect('sends the recorded list, not the current Workspace folders', () =>
+    Effect.gen(function* () {
+      const s = yield* setup({ capable: true, history: { additionalDirectories: FROM_HISTORY } });
+      s.registry.set(workspaceFolderPathsAtom, ['/proj', '/ws/x', '/ws/y']);
+      yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
+
+      assert.deepStrictEqual(s.requests[0].params.additionalDirectories, FROM_HISTORY);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a record without directories sends none', () =>
+    Effect.gen(function* () {
+      const s = yield* setup({ capable: true });
+      s.registry.set(workspaceFolderPathsAtom, ['/proj', '/ws/x', '/ws/y']);
+      yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
+
+      assert.isFalse('additionalDirectories' in s.requests[0].params);
+    }).pipe(Effect.scoped),
+  );
 });
 
 describe('Activate', () => {

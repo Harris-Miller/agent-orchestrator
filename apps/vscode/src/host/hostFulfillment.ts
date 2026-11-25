@@ -21,22 +21,31 @@ import { access, copyFile, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile
 import { homedir as osHomedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { fileWorkspaceFolderPaths } from './fileWorkspaceFolderPaths';
+import { fileWorkspaceFilePath, fileWorkspaceFolderPaths } from './fileWorkspaceFolderPaths';
 import { resolveAntigravitySpawn } from './antigravitySpawn';
 import { isProviderCurrentJsonPath } from './providerStatePath';
 import type { ProcessTracker } from './processTracker';
 
 export { fileWorkspaceFolderPaths };
 
-/** Push current Workspace folder paths to the webview (unsolicited). */
+/** The Workspace folder paths plus the saved workspace file path (omitted when there is none). */
+const workspaceFoldersPayload = (
+  folders: null | readonly vscode.WorkspaceFolder[] | undefined,
+  workspaceFile: undefined | vscode.Uri,
+) => {
+  const file = fileWorkspaceFilePath(workspaceFile);
+  return file === undefined
+    ? { paths: [...fileWorkspaceFolderPaths(folders)] }
+    : { paths: [...fileWorkspaceFolderPaths(folders)], workspaceFile: file };
+};
+
+/** Push current Workspace folder paths and workspace file to the webview (unsolicited). */
 export const postWorkspaceFoldersChanged = (
   port: IpcPort,
   folders: null | readonly vscode.WorkspaceFolder[] | undefined,
+  workspaceFile: undefined | vscode.Uri,
 ): void => {
-  postIpcMessage(port, {
-    _tag: 'WorkspaceFoldersChanged',
-    paths: [...fileWorkspaceFolderPaths(folders)],
-  });
+  postIpcMessage(port, { _tag: 'WorkspaceFoldersChanged', ...workspaceFoldersPayload(folders, workspaceFile) });
 };
 
 const stringEnv = (): Record<string, string> => {
@@ -77,8 +86,10 @@ export const makeHostIpcFulfillment = (deps: {
   readonly webviewId: string;
   /** Read per WorkspaceFolders request. */
   readonly workspaceFolders: () => null | readonly vscode.WorkspaceFolder[] | undefined;
+  /** Read per WorkspaceFolders request: the saved workspace's file, `undefined` when untitled or none. */
+  readonly workspaceFile: () => undefined | vscode.Uri;
 }): HostIpcFulfillment => {
-  const { asAbsolutePath, isExtensionDevelopment, port, tracker, webviewId, workspaceFolders } = deps;
+  const { asAbsolutePath, isExtensionDevelopment, port, tracker, webviewId, workspaceFile, workspaceFolders } = deps;
   return {
     AppExit: async () => {
       await vscode.commands.executeCommand('workbench.action.closeSidebar');
@@ -325,6 +336,6 @@ export const makeHostIpcFulfillment = (deps: {
       tracker.get(webviewId, message.handleId)?.child.stdin?.end();
     },
     WindowFocus: () => Promise.resolve({ focused: vscode.window.state.focused }),
-    WorkspaceFolders: () => Promise.resolve({ paths: [...fileWorkspaceFolderPaths(workspaceFolders())] }),
+    WorkspaceFolders: () => Promise.resolve(workspaceFoldersPayload(workspaceFolders(), workspaceFile())),
   };
 };

@@ -37,8 +37,8 @@ const WorkspaceFoldersGate: FC = () => {
 
     Effect.runFork(
       Effect.gen(function* () {
-        const paths = yield* requestWorkspaceFolders(hostIpcClient);
-        yield* bootWorkspaceFolders(registry, paths);
+        const folders = yield* requestWorkspaceFolders(hostIpcClient);
+        yield* bootWorkspaceFolders(registry, folders);
       }).pipe(
         Effect.tap(() =>
           Effect.sync(() => {
@@ -46,9 +46,9 @@ const WorkspaceFoldersGate: FC = () => {
               return;
             }
             setFoldersReady(true);
-            disposeChanged = onWorkspaceFoldersChanged(hostIpcClient, nextPaths => {
+            disposeChanged = onWorkspaceFoldersChanged(hostIpcClient, nextFolders => {
               hostRunFork(
-                handleWorkspaceFoldersChanged(registry, nextPaths).pipe(
+                handleWorkspaceFoldersChanged(registry, nextFolders).pipe(
                   Effect.catchCause(cause => Effect.logWarning('workspace folders churn failed', cause)),
                 ),
               );

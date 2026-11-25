@@ -8,7 +8,7 @@ import {
   onWorkspaceFoldersChanged,
   requestWorkspaceFolders,
 } from '../protocol/index.ts';
-import type { IpcMessage } from '../protocol/index.ts';
+import type { IpcMessage, WorkspaceFolders } from '../protocol/index.ts';
 
 import { connectFakePeers } from '../protocol/fakePeer.testing.ts';
 
@@ -146,12 +146,13 @@ describe('extension↔webview IPC protocol (fake peer)', () => {
             _tag: 'WorkspaceFoldersResult',
             id: message.id,
             paths: ['/ws/a', '/ws/b'],
+            workspaceFile: '/ws/x.code-workspace',
           }),
         );
       });
 
-      const paths = yield* requestWorkspaceFolders(client);
-      assert.deepStrictEqual(paths, ['/ws/a', '/ws/b']);
+      const folders = yield* requestWorkspaceFolders(client);
+      assert.deepStrictEqual(folders, { paths: ['/ws/a', '/ws/b'], workspaceFile: '/ws/x.code-workspace' });
       client.dispose();
     }),
   );
@@ -161,20 +162,39 @@ describe('extension↔webview IPC protocol (fake peer)', () => {
       const [webview, extension] = connectFakePeers();
       const client = new IpcClient(webview);
 
-      const received = yield* Effect.callback<readonly string[]>(resume => {
-        const dispose = onWorkspaceFoldersChanged(client, paths => {
+      const received = yield* Effect.callback<WorkspaceFolders>(resume => {
+        const dispose = onWorkspaceFoldersChanged(client, folders => {
           dispose();
-          resume(Effect.succeed(paths));
+          resume(Effect.succeed(folders));
         });
         extension.postMessage(
           encodeIpcMessage({
             _tag: 'WorkspaceFoldersChanged',
             paths: ['/ws/changed'],
+            workspaceFile: '/ws/x.code-workspace',
           }),
         );
       });
 
-      assert.deepStrictEqual(received, ['/ws/changed']);
+      assert.deepStrictEqual(received, { paths: ['/ws/changed'], workspaceFile: '/ws/x.code-workspace' });
+      client.dispose();
+    }),
+  );
+
+  it.effect('omits workspaceFile when the push has none', () =>
+    Effect.gen(function* () {
+      const [webview, extension] = connectFakePeers();
+      const client = new IpcClient(webview);
+
+      const received = yield* Effect.callback<WorkspaceFolders>(resume => {
+        const dispose = onWorkspaceFoldersChanged(client, folders => {
+          dispose();
+          resume(Effect.succeed(folders));
+        });
+        extension.postMessage(encodeIpcMessage({ _tag: 'WorkspaceFoldersChanged', paths: ['/ws/changed'] }));
+      });
+
+      assert.deepStrictEqual(received, { paths: ['/ws/changed'] });
       client.dispose();
     }),
   );

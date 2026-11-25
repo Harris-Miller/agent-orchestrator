@@ -62,8 +62,8 @@ const WIRE_FIELD_NAMES = {
   WindowFocus: ['_tag', 'id'],
   WindowFocusResult: ['_tag', 'focused', 'id'],
   WorkspaceFolders: ['_tag', 'id'],
-  WorkspaceFoldersChanged: ['_tag', 'paths'],
-  WorkspaceFoldersResult: ['_tag', 'id', 'paths'],
+  WorkspaceFoldersChanged: ['_tag', 'paths', 'workspaceFile'],
+  WorkspaceFoldersResult: ['_tag', 'id', 'paths', 'workspaceFile'],
 };
 
 const sortRequired = (value: unknown): unknown => {

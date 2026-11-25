@@ -68,12 +68,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         port,
         tracker: this.tracker,
         webviewId,
+        workspaceFile: () => vscode.workspace.workspaceFile,
         workspaceFolders: () => vscode.workspace.workspaceFolders,
       }),
     );
 
     const foldersChanged = vscode.workspace.onDidChangeWorkspaceFolders(() => {
-      postWorkspaceFoldersChanged(port, vscode.workspace.workspaceFolders);
+      postWorkspaceFoldersChanged(port, vscode.workspace.workspaceFolders, vscode.workspace.workspaceFile);
     });
 
     webviewView.onDidDispose(() => {

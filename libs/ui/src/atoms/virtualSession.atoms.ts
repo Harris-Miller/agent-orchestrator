@@ -24,6 +24,7 @@
  * Review rule: write only from a value read in the same synchronous step, never from one read before a wait.
  */
 import type { HostServices } from '@lib/context-services';
+import { readProjects } from '@lib/hoa-home';
 import { Deferred, Effect, Exit, Redacted } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
@@ -47,6 +48,7 @@ import type { ConfigOptionIndex, ConfigOptionValues } from '../host/configProbe.
 import { bindSession, dropSession, dropSessionIfPresent } from '../host/harnessStateTransitions.ts';
 import { normalizeSessionDirectories, sameDirectories } from '../host/sessionDirectories.ts';
 import type { SessionDirectories } from '../host/sessionDirectories.ts';
+import type { ProjectDefaults } from '../host/projectResolution.ts';
 import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { createSession, deleteSession } from '../host/sessionRpc.ts';
@@ -67,6 +69,8 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { applyRecommendedValues, applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
 import { trackSession } from './trackSession.ts';
+import { projectDefaultsAtom } from './projectDefaults.atoms.ts';
+import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { refreshWorkspaceProject, requireProjectReady } from './workspaceFiles.atoms.ts';
 import { sessionCwdAtom, workspaceDirectoriesAtom } from './workspaceFolderPaths.atoms.ts';
 import { adoptIntoWorkstream, pendingWorkstreamAtom } from './workstreams.atoms.ts';
@@ -1172,9 +1176,43 @@ export const clearSelectedIfMissing = (registry: Registry): void => {
 
 // AtomFns
 
-/** Re-reads the Project's Workspace file (a directory or no Project is a no-op) so a new session sees its current folders. */
+/**
+ * VS Code: stores the default Additional directories of the Workspace cwd's Project. A Virtual draft on the Workspace cwd
+ * takes the resulting set (a changed set re-Binds).
+ */
+export const setWorkspaceDefaults = Effect.fn('setWorkspaceDefaults')(function* (
+  registry: Registry,
+  defaults: ProjectDefaults,
+) {
+  const before = registry.get(workspaceDirectoriesAtom);
+  registry.set(projectDefaultsAtom, defaults);
+  const after = registry.get(workspaceDirectoriesAtom);
+  const virtual = registry.get(virtualSessionAtom);
+  if (
+    virtual?.cwd !== undefined &&
+    virtual.cwd === registry.get(sessionCwdAtom) &&
+    !sameDirectories(before.additionalDirectories, after.additionalDirectories)
+  ) {
+    yield* editVirtual(registry, { additionalDirectories: after.additionalDirectories ?? [] });
+  }
+});
+
+/**
+ * VS Code: re-reads the default Additional directories of the Workspace cwd's Project, so a change made on desktop reaches
+ * the next new session ({@link setWorkspaceDefaults}). Never fails.
+ */
+const refreshWorkspaceDefaults = Effect.fn('refreshWorkspaceDefaults')(
+  function* (registry: Registry) {
+    if (registry.get(sessionListScopeAtom)._tag !== 'Cwd') return;
+    const { additionalDirectories } = yield* readProjects();
+    yield* setWorkspaceDefaults(registry, additionalDirectories ?? {});
+  },
+  Effect.catchCause(cause => Effect.logWarning('workspace project defaults refresh failed', cause)),
+);
+
+/** Re-reads what a new session in `project` (its Workspace file; on VS Code the Project defaults) resolves from. */
 const refreshProjectOf = (registry: Registry, project: string | undefined) =>
-  project === undefined ? Effect.void : refreshWorkspaceProject(registry, project);
+  project === undefined ? refreshWorkspaceDefaults(registry) : refreshWorkspaceProject(registry, project);
 
 export const createVirtualSessionAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;

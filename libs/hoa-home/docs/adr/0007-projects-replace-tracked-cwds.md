@@ -12,3 +12,5 @@ Supersedes [ADR 0006](./0006-tracked-cwds-in-one-root-file.md). The user's chose
 No migration, per root ADR 0001: consumers delete `tracked-cwds.json` and re-add their Projects.
 
 **Amendment (Workspace projects).** The list is still `string[]`: a path ending `.code-workspace` is a Workspace project, resolved to its first `file:` folder (the Session cwd) plus Additional directories when read (desktop ADR 0022). Desktop reads workspace files through the home-scoped filesystem, so a file outside the home directory cannot be added in v1, and one already listed shows as an unresolvable Workspace project.
+
+**Amendment (default directories).** The document gained an optional `additionalDirectories` record (Project path to its default Additional directories, desktop ADR 0023). A Project without defaults has no key, so the file keeps the old shape; removing a Project removes its entry.

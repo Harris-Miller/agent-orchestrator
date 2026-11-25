@@ -109,12 +109,15 @@ export {
 } from './pinnedSessions.ts';
 export {
   addProject,
+  normalizeProjectDirectories,
   normalizeProjectPath,
   projectsPath,
   ProjectsMalformed,
   readProjects,
   removeProject,
+  setProjectAdditionalDirectories,
   updateProjects,
+  updateProjectsDocument,
 } from './projects.ts';
 export {
   emptyProjects,

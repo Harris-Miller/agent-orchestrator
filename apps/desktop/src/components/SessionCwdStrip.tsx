@@ -3,6 +3,7 @@ import {
   addProjectAtomFn,
   extraFoldersIgnoredAtom,
   LucideMuiIcon,
+  patchVirtualSessionAtomFn,
   projectLabel,
   projectOfRecord,
   projectsAtom,
@@ -18,6 +19,7 @@ import { FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
+import { AdditionalDirectoriesDialog } from './workbenchNavRail/AdditionalDirectoriesDialog.tsx';
 import { CreateSessionDirectoryPicker } from './workbenchNavRail/CreateSessionDirectoryPicker.tsx';
 
 /** Desktop Session cwd strip (tucked by SessionChatBody aboveComposer). Clickable only for Virtual. */
@@ -29,6 +31,8 @@ export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => v
   const extraFoldersIgnored = useAtomValue(extraFoldersIgnoredAtom);
   const projects = useAtomValue(projectsAtom);
   const selectProject = useAtomSet(selectVirtualProjectAtomFn, { mode: 'promise' });
+  const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
+  const [directoriesOpen, setDirectoriesOpen] = useState(false);
   const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -83,6 +87,48 @@ export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => v
           </Tooltip>
         ) : null}
       </Box>
+      {canPick && cwd !== undefined ? (
+        <Box
+          component="button"
+          onClick={() => {
+            setDirectoriesOpen(true);
+          }}
+          sx={{
+            '&:hover': { color: 'text.primary' },
+            background: 'none',
+            border: 'none',
+            color: 'text.secondary',
+            cursor: 'pointer',
+            font: 'inherit',
+            fontSize: 12,
+            ml: 1,
+            p: 0,
+          }}
+          type="button"
+        >
+          {(virtual?.additionalDirectories?.length ?? 0) > 0
+            ? `+${String(virtual?.additionalDirectories?.length)} directories`
+            : '+ directories'}
+        </Box>
+      ) : null}
+      {directoriesOpen && isVirtual && cwd !== undefined ? (
+        <AdditionalDirectoriesDialog
+          description="Directories the agent may use besides the first folder, for this session only. The Project is not changed."
+          initial={virtual?.additionalDirectories ?? []}
+          onClose={() => {
+            setDirectoriesOpen(false);
+          }}
+          onReset={() => {
+            selectProject(projectOfRecord({ cwd, workspaceFile: virtual?.workspaceFile }, projects) ?? cwd).catch(
+              onClientError,
+            );
+          }}
+          onSave={additionalDirectories => {
+            patchVirtual({ additionalDirectories: [...additionalDirectories] }).catch(onClientError);
+          }}
+          title={`Additional directories for ${label}`}
+        />
+      ) : null}
       {pickerOpen && isVirtual ? (
         <CreateSessionDirectoryPicker
           confirmLabel="Select"

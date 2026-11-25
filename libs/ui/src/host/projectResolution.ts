@@ -12,6 +12,9 @@ import { directoryBasename } from './directoryBasename.ts';
 export const projectKind = (project: string): 'directory' | 'workspace_file' =>
   isWorkspaceFilePath(project) ? 'workspace_file' : 'directory';
 
+/** Default Additional directories by directory Project path. */
+export type ProjectDefaults = Readonly<Record<string, readonly string[]>>;
+
 /** What reading one Workspace file gave: its folders (in order), or why it cannot be used. */
 export type WorkspaceFileState =
   | { readonly _tag: 'Failed'; readonly message: string }
@@ -25,16 +28,24 @@ export type ProjectResolution =
   | { readonly _tag: 'Pending' }
   | {
       readonly _tag: 'Ready';
-      /** Rest of the folders, in order. Empty for a directory Project. */
+      /** Rest of the folders, in order; a directory Project's default Additional directories (none unless it has some). */
       readonly additionalDirectories: readonly string[];
       /** The Session cwd: the Project itself, or the Workspace file's first folder. */
       readonly cwd: string;
       readonly workspaceFile?: string;
     };
 
-export const resolveProject = (project: string, states: WorkspaceFileStates): ProjectResolution => {
+export const resolveProject = (
+  project: string,
+  states: WorkspaceFileStates,
+  defaults: ProjectDefaults = {},
+): ProjectResolution => {
   if (!isWorkspaceFilePath(project)) {
-    return { _tag: 'Ready', additionalDirectories: [], cwd: project };
+    return {
+      _tag: 'Ready',
+      additionalDirectories: Object.hasOwn(defaults, project) ? defaults[project] : [],
+      cwd: project,
+    };
   }
   const state = Object.hasOwn(states, project) ? states[project] : undefined;
   if (state === undefined) return { _tag: 'Pending' };

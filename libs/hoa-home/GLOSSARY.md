@@ -25,7 +25,7 @@ Per-launch-target `providers/<launchTarget>/pinned-sessions.json` listing pinned
 _Avoid_: Pin list, favorites
 
 **Projects document**:
-`projects.json` at the HOA home root listing the Projects (desktop glossary) as `{ projects: string[] }` (provisional shape). One file for all launch targets, since cwd groups are unified across them (see ADR 0007). Paths are normalized for trailing separators. Each change re-reads the file and applies only that change; an undecodable file is never overwritten. Desktop reads and writes it; VS Code only adds its Workspace cwd (see ADR 0009).
+`projects.json` at the HOA home root listing the Projects (desktop glossary) as `{ projects: string[], additionalDirectories?: Record<Project path, string[]> }` (provisional shape; `additionalDirectories` holds a directory Project's default Additional directories and is absent when none has any). One file for all launch targets, since cwd groups are unified across them (see ADR 0007). Paths are normalized for trailing separators. Each change re-reads the file and applies only that change; an undecodable file is never overwritten. Desktop reads and writes it; VS Code adds its Workspace cwd and reads that Project's default Additional directories (see ADR 0009).
 _Avoid_: tracked cwds, cwd history
 
 **Workstreams document**:

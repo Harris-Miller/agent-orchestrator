@@ -142,7 +142,7 @@ The PR title becomes the squash commit on `develop`, and release CI reads it to 
 | `Upgrade`  | Dependency upgrades                        | no                 |
 | `Chore`    | Refactors, tests, and other internal work  | no                 |
 
-For example: `Fix: Keep queued prompts after a turn is cancelled`. The `PR title` check fails until the title matches. Link the issue in the PR body (`Closes #123`).
+For example: `Fix: Keep queued prompts after a turn is cancelled`. The `PR title` check fails until the title matches. If the PR is related to an issue, the PR body must start with `Closes #123` (one line per issue; use `Refs #123` only when the PR resolves part of it).
 
 Never bump a version yourself: versions come from git tags at release time ([`apps/desktop/docs/alpha-release.md`](./apps/desktop/docs/alpha-release.md)).
 

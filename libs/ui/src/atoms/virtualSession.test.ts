@@ -406,40 +406,19 @@ describe('Bind', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('Materialize tracks the Session with its Additional directories and workspace file', () =>
+  it.effect('Materialize tracks the Session with its Additional directories', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
       yield* installFakeAgent(calls, { additionalDirectories: true });
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
-      yield* editVirtual(registry, {
-        additionalDirectories: ['/lib/a'],
-        workspaceFile: '/proj/app.code-workspace',
-      });
+      yield* editVirtual(registry, { additionalDirectories: ['/lib/a'] });
       yield* bindVirtualOnUsable(registry, CODEX);
 
       yield* sendVirtual(registry, recordingPrompt(calls).prompt);
 
       const [entry] = registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory;
       assert.deepStrictEqual(entry.additionalDirectories, ['/lib/a']);
-      assert.strictEqual(entry.workspaceFile, '/proj/app.code-workspace');
-    }).pipe(Effect.scoped),
-  );
-
-  it.effect('Materialize stamps the blob workspace file, not the Bound session one edited since the Bind', () =>
-    Effect.gen(function* () {
-      const calls: string[] = [];
-      yield* installFakeAgent(calls, { additionalDirectories: true });
-      const registry = yield* freshRegistry;
-      yield* seedUnbound(registry, { draft: 'hello' });
-      yield* editVirtual(registry, { workspaceFile: '/proj/old.code-workspace' });
-      yield* bindVirtualOnUsable(registry, CODEX);
-      yield* editVirtual(registry, { workspaceFile: '/proj/new.code-workspace' });
-
-      yield* sendVirtual(registry, recordingPrompt(calls).prompt);
-
-      const [entry] = registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory;
-      assert.strictEqual(entry.workspaceFile, '/proj/new.code-workspace');
     }).pipe(Effect.scoped),
   );
 

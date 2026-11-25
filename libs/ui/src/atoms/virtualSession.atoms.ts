@@ -100,9 +100,7 @@ export type EnsureVirtualSessionArg = {
 };
 
 /** Composer edits on the blob. A cwd or Additional directories (set) change tears down and rebinds; draft and attachment edits never Bind. */
-export type VirtualEdit = Partial<
-  Pick<VirtualSession, 'additionalDirectories' | 'attachments' | 'cwd' | 'draft' | 'workspaceFile'>
->;
+export type VirtualEdit = Partial<Pick<VirtualSession, 'additionalDirectories' | 'attachments' | 'cwd' | 'draft'>>;
 
 export type VirtualConfigOptionArg =
   | {
@@ -158,8 +156,6 @@ type BindKey = {
 
 /** One Bind attempt. `done` resolves to the Bound id, or `undefined` when failed / superseded. */
 type VirtualBind = BindKey & {
-  /** Carried onto the Bound session; not part of the key. */
-  readonly workspaceFile?: string;
   readonly done: Deferred.Deferred<string | undefined>;
   readonly generation: number;
 };
@@ -361,14 +357,14 @@ const releaseBoundInBackground = Effect.fn('releaseBoundInBackground')(function*
 
 /** One Bind attempt: `session/new` + sessions-map upsert; discards (tears down) its session when superseded. */
 const runBind = Effect.fn('runBind')(function* (registry: Registry, bind: VirtualBind) {
-  const { additionalDirectories, cwd, launchTarget, workspaceFile } = bind;
+  const { additionalDirectories, cwd, launchTarget } = bind;
   yield* Effect.annotateCurrentSpan({ [ACP_LAUNCH_TARGET]: launchTarget });
   yield* Effect.logInfo('UI runBind').pipe(
     Effect.annotateLogs({ cwd: Redacted.make(cwd) }),
     annotateLaunchTargetLogs(launchTarget),
   );
 
-  const createExit = yield* Effect.exit(createSession(launchTarget, cwd, { additionalDirectories, workspaceFile }));
+  const createExit = yield* Effect.exit(createSession(launchTarget, cwd, { additionalDirectories }));
   if (Exit.isFailure(createExit)) {
     yield* Effect.logError('runBind session/new failed', createExit.cause).pipe(annotateLaunchTargetLogs(launchTarget));
     return undefined;
@@ -407,7 +403,7 @@ const requestBind = Effect.fn('requestBind')(function* (registry: Registry) {
   if (virtual === null) {
     return undefined;
   }
-  const { additionalDirectories, cwd, launchTarget, sessionId, workspaceFile } = virtual;
+  const { additionalDirectories, cwd, launchTarget, sessionId } = virtual;
   if (launchTarget === undefined || cwd === undefined || !isAbsoluteCwd(cwd)) {
     return undefined;
   }
@@ -439,7 +435,6 @@ const requestBind = Effect.fn('requestBind')(function* (registry: Registry) {
     done: yield* Deferred.make<string | undefined>(),
     generation: state.latest + 1,
     launchTarget,
-    workspaceFile,
   };
   registry.set(virtualBindAtom, { current: bind, latest: bind.generation });
 

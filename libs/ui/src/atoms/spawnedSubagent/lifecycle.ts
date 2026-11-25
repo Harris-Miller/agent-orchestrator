@@ -279,7 +279,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     );
   }
   const created = yield* createSession(input.launchTarget, cwd, {
-    ...directories,
+    additionalDirectories: directories.additionalDirectories,
     parentSessionId: parent.sessionId,
   }).pipe(
     Effect.onError(() => Effect.sync(slot.release)),

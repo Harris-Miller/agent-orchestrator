@@ -56,21 +56,15 @@ describe('Additional directories on session requests', () => {
     }),
   );
 
-  it.effect('never send the workspace file', () =>
+  it.effect('echoes the intended Additional directories back to the caller', () =>
     Effect.gen(function* () {
       const requests: SessionRequest[] = [];
       yield* installFakeAgent([], { additionalDirectories: true, requests });
 
-      const created = yield* createSession(CODEX, '/w', {
-        additionalDirectories: DIRS,
-        workspaceFile: '/w/app.code-workspace',
-      });
+      const created = yield* createSession(CODEX, '/w', { additionalDirectories: DIRS });
 
       assert.isFalse('workspaceFile' in requests[0].params);
-      assert.deepStrictEqual(created.directories, {
-        additionalDirectories: DIRS,
-        workspaceFile: '/w/app.code-workspace',
-      });
+      assert.deepStrictEqual(created.directories, { additionalDirectories: DIRS });
     }),
   );
 });

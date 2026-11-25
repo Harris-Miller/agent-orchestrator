@@ -205,14 +205,18 @@ const createSessionTraced = Effect.fn('createSession')(
       annotateSessionLogs(launchTarget, result.sessionId, parentSessionId),
     );
     onConfigIndexEvent({ _tag: 'SessionNew', response: result });
-    return { cwd, directories: normalizeSessionDirectories(options), result };
+    return {
+      cwd,
+      directories: normalizeSessionDirectories({ additionalDirectories: options.additionalDirectories }),
+      result,
+    };
   },
   (effect, launchTarget, _cwd, options) =>
     effect.pipe(logFailure('session/new failed'), annotateNewSessionLogs(launchTarget, options.parentSessionId)),
 );
 
 /** What a `session/new` may carry beyond the cwd. */
-export type CreateSessionOptions = SessionDirectories & {
+export type CreateSessionOptions = SessionDirectoriesOptions & {
   /** Set for a Spawned subagent session. */
   readonly parentSessionId?: string;
 };

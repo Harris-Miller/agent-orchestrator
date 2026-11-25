@@ -109,6 +109,43 @@ describe('a set change with the same first folder', () => {
       assert.strictEqual(bound?.sessionId, 'bound-1');
     }).pipe(Effect.scoped),
   );
+
+  it.effect('a workspace file change on a Bound blob updates the Bound session in place and reaches Materialize', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, MapFsEntry>();
+      const layer = Layer.mergeAll(mockHostLayer, mapFsTestServices(store));
+      yield* installFakeAgent([], { additionalDirectories: true });
+      const registry = yield* freshRegistry;
+      yield* startTrackedSessionsPersistence(registry, CODEX).pipe(Effect.provide(layer));
+      yield* boot(registry, { paths: [W] });
+      yield* bindVirtualOnUsable(registry, CODEX);
+      const sessionId = registry.get(virtualSessionAtom)?.sessionId;
+      assert.isDefined(sessionId);
+
+      yield* handleWorkspaceFoldersChanged(registry, { paths: [W], workspaceFile: WORKSPACE_FILE }).pipe(
+        Effect.provide(mockHostLayer),
+      );
+      assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, sessionId);
+      assert.strictEqual(registry.get(virtualSessionAtom)?.workspaceFile, WORKSPACE_FILE);
+      assert.strictEqual(sessionsOf(registry)[sessionId ?? ''].workspaceFile, WORKSPACE_FILE);
+
+      yield* handleWorkspaceFoldersChanged(registry, { paths: [W] }).pipe(Effect.provide(mockHostLayer));
+      assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, sessionId);
+      assert.isUndefined(registry.get(virtualSessionAtom)?.workspaceFile);
+      assert.isFalse('workspaceFile' in sessionsOf(registry)[sessionId ?? '']);
+
+      yield* handleWorkspaceFoldersChanged(registry, { paths: [W], workspaceFile: WORKSPACE_FILE }).pipe(
+        Effect.provide(mockHostLayer),
+      );
+      yield* editVirtual(registry, { draft: 'hello' });
+      yield* sendVirtual(registry, () => Effect.void).pipe(Effect.provide(layer));
+      yield* Effect.promise(settleTrackedSessionWrites);
+      const [record] = trackedSessionRows(
+        yield* readTrackedSessions(toLaunchTarget(CODEX)).pipe(Effect.provide(layer)),
+      );
+      assert.strictEqual(record.workspaceFile, WORKSPACE_FILE);
+    }).pipe(Effect.scoped),
+  );
 });
 
 describe('a changed first folder', () => {

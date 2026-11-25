@@ -756,6 +756,32 @@ export const editVirtual = Effect.fn('editVirtual')(function* (registry: Registr
   yield* mutateThenRebind(registry, {
     mutate: () => {
       patchBlob(registry, edit);
+      // The workspace file is not part of the Bind key: keep an already Bound session's copy current in place.
+      const { launchTarget, sessionId } = before ?? {};
+      if (
+        'workspaceFile' in edit &&
+        edit.workspaceFile !== before?.workspaceFile &&
+        launchTarget !== undefined &&
+        sessionId !== undefined &&
+        !registry.get(virtualMaterializingAtom)
+      ) {
+        updateHarnessSnapshot(registry, launchTarget, current => {
+          if (!(sessionId in current.sessions)) {
+            return current;
+          }
+          const { workspaceFile: _stale, ...rest } = current.sessions[sessionId];
+          return {
+            ...current,
+            sessions: {
+              ...current.sessions,
+              [sessionId]: {
+                ...rest,
+                ...(edit.workspaceFile === undefined ? {} : { workspaceFile: edit.workspaceFile }),
+              },
+            },
+          };
+        });
+      }
     },
     rebind:
       before !== null &&

@@ -41,6 +41,21 @@ describe('preserveConfigValuesOnModelChange', () => {
     assert.deepStrictEqual(next, { effort: 'low', mode: 'plan', model: 'opus' });
   });
 
+  it('falls back to the recommended value (else current) for an invalid prior select value', () => {
+    const effort = { ...selectOption('effort', 'low', ['low', 'high']), recommendedValue: 'high' };
+    assert.deepStrictEqual(
+      preserveConfigValuesOnModelChange({ effort: 'stale', model: 'opus' }, [
+        selectOption('model', 'opus', ['sonnet', 'opus']),
+        effort,
+      ]),
+      { effort: 'high', model: 'opus' },
+    );
+    const badRecommendation = { ...effort, recommendedValue: 'nope' };
+    assert.deepStrictEqual(preserveConfigValuesOnModelChange({ model: 'opus' }, [badRecommendation]), {
+      effort: 'low',
+    });
+  });
+
   it('preserves boolean picks across model change when option remains', () => {
     const next = preserveConfigValuesOnModelChange({ 'fast-mode': true, model: 'opus' }, [
       selectOption('model', 'opus', ['sonnet', 'opus']),

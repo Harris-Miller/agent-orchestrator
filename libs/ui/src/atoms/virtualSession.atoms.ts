@@ -35,6 +35,7 @@ import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import {
+  effectiveVirtualValues,
   hardResetForAgent,
   needsLazyHydrate,
   resetUnsupportedConfigValues,
@@ -626,7 +627,13 @@ const isLiveActive = (snapshot: BackendHarnessSnapshot, sessionId: string): bool
  */
 const materialize = Effect.fn('materialize')(
   function* (registry: Registry, target: BoundVirtualTarget) {
-    const { attachments, configValues, cwd, draft, launchTarget, sessionId } = target;
+    const { attachments, cwd, draft, launchTarget, sessionId } = target;
+    // Recommended values fill what the blob leaves unset (a fresh blob is `{}`); blob picks win.
+    const configValues = effectiveVirtualValues(
+      registry.get(configOptionIndexAtom(launchTarget)),
+      registry.get(modelPickerPrefsAtom(launchTarget)),
+      target.configValues,
+    );
     registry.set(writableMaterializingAtom, true);
     yield* Effect.annotateCurrentSpan({ [ACP_LAUNCH_TARGET]: launchTarget });
     yield* Effect.annotateCurrentSpan(ACP_SESSION_ID, sessionId);

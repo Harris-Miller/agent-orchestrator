@@ -31,7 +31,7 @@ import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
 import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts';
 import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
-import { optionsWithValues, rowForModel, startingModelId } from '../../host/configOptionIndexUi.ts';
+import { effectiveVirtualValues, optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
 import { hubUnavailableReason } from '../../host/hubSessions.ts';
 
 /** Stable empty configuration, so memoized consumers do not re-run before the agent reports one. */
@@ -85,14 +85,21 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
   );
   const virtualConfigIndex =
     isVirtual && selectedLaunchTarget !== undefined ? getConfigOptionIndex(selectedLaunchTarget) : undefined;
-  const virtualConfigValues = virtualSession?.configValues ?? {};
   const virtualPrefs = useAtomValue(modelPickerPrefsAtom(selectedLaunchTarget));
-  const virtualSelectedModelId =
-    typeof virtualConfigValues.model === 'string'
-      ? virtualConfigValues.model
-      : virtualConfigIndex && startingModelId(virtualConfigIndex, virtualPrefs);
+  // Recommended values fill what the Virtual blob leaves unset (same values Materialize sends).
+  const virtualConfigValues = effectiveVirtualValues(
+    virtualConfigIndex,
+    virtualPrefs,
+    virtualSession?.configValues ?? {},
+  );
   const configOptions = isVirtual
-    ? optionsWithValues(rowForModel(virtualConfigIndex, virtualSelectedModelId), virtualConfigValues)
+    ? optionsWithValues(
+        rowForModel(
+          virtualConfigIndex,
+          typeof virtualConfigValues.model === 'string' ? virtualConfigValues.model : undefined,
+        ),
+        virtualConfigValues,
+      )
     : (selectedSession?.configuration ?? EMPTY_CONFIGURATION);
   const hasTranscriptMessage = chatItems.some(
     item => item.kind === 'user_message' || item.kind === 'agent_message' || item.kind === 'agent_thought',

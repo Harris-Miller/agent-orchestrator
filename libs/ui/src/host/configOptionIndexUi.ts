@@ -1,6 +1,11 @@
 /** Shared Config option index → picker options / values (Handoff + Virtual session). */
 import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
-import { configValuesFromOptions, preserveConfigValuesOnModelChange } from './configProbe.ts';
+import {
+  configValuesFromOptions,
+  preserveConfigValuesOnModelChange,
+  recommendedConfigValues,
+  validRecommendedValue,
+} from './configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from './configProbe.ts';
 import { orderedModelIds } from './modelPickerPrefs.ts';
 import type { ModelPickerPrefs } from './modelPickerPrefs.ts';
@@ -101,11 +106,11 @@ export const needsLazyHydrate = (
   advertisedModelSelect(index, modelId) !== undefined;
 
 /**
- * Starting model for automatic choices (new Session, Handoff target, fallbacks): the default when shown,
- * else the first shown usable model in Model order. When every usable model is hidden, hiding is ignored
- * (the default if usable, else the first usable); with nothing usable, the default.
+ * Default starting model (no recommendation): the default when shown, else the first shown usable model in Model
+ * order. When every usable model is hidden, hiding is ignored (the default if usable, else the first usable); with
+ * nothing usable, the default.
  */
-export const startingModelId = (index: ConfigOptionIndex, prefs: ModelPickerPrefs): string => {
+const defaultStartingModelId = (index: ConfigOptionIndex, prefs: ModelPickerPrefs): string => {
   const hidden = new Set(prefs.hidden);
   const unavailable = new Set(index.unavailableModelIds);
   const usable = orderedModelIds(
@@ -116,6 +121,27 @@ export const startingModelId = (index: ConfigOptionIndex, prefs: ModelPickerPref
   const candidates = shown.length > 0 ? shown : usable;
   return candidates.includes(index.defaultModelId) ? index.defaultModelId : (candidates[0] ?? index.defaultModelId);
 };
+
+/**
+ * Starting model for automatic choices (new Session, Handoff target, fallbacks): the provider's Recommended model
+ * when it is usable and shown, else the default starting model.
+ */
+export const startingModelId = (index: ConfigOptionIndex, prefs: ModelPickerPrefs): string => {
+  const fallback = defaultStartingModelId(index, prefs);
+  const modelOption = defaultModelOption(index);
+  const recommended = modelOption === undefined ? undefined : validRecommendedValue(modelOption);
+  if (recommended === undefined || index.unavailableModelIds.includes(recommended)) {
+    return fallback;
+  }
+  const hiddenWhileOthersShown = prefs.hidden.includes(recommended) && !prefs.hidden.includes(fallback);
+  return hiddenWhileOthersShown ? fallback : recommended;
+};
+
+export { recommendedConfigValues };
+
+/** Entries of `picked` that the blob itself set (not fallbacks `preserveConfigValuesOnModelChange` filled in). */
+const onlyBlobKeys = (blob: ConfigOptionValues, picked: ConfigOptionValues): ConfigOptionValues =>
+  Object.fromEntries(Object.entries(picked).filter(([key, value]) => blob[key] === value));
 
 export const hardResetForAgent = (
   index: ConfigOptionIndex | undefined,
@@ -128,7 +154,26 @@ export const hardResetForAgent = (
     return { options: [], values: {} };
   }
   const options = rowForModel(index, startingModelId(index, prefs));
-  return { options, values: configValuesFromOptions(options) };
+  return { options, values: recommendedConfigValues(options) };
+};
+
+/**
+ * A Virtual draft's values as displayed and sent: the model's Recommended row values, overridden per key by the
+ * blob's own picks (blob values for options absent from the row are dropped). The row of a model that is not
+ * hydrated yet is the model select alone (known limitation: its other options resolve once the row hydrates).
+ */
+export const effectiveVirtualValues = (
+  index: ConfigOptionIndex | undefined,
+  prefs: ModelPickerPrefs,
+  blobValues: ConfigOptionValues,
+): ConfigOptionValues => {
+  if (index === undefined) {
+    return blobValues;
+  }
+  const model = typeof blobValues.model === 'string' ? blobValues.model : startingModelId(index, prefs);
+  const row = rowForModel(index, model);
+  const picked = preserveConfigValuesOnModelChange({ ...blobValues, model }, row);
+  return { ...recommendedConfigValues(row), ...onlyBlobKeys(blobValues, picked), model };
 };
 
 /** Prefer stored values when still valid against index; unavailable/missing model → defaultModelId. */
@@ -150,7 +195,27 @@ export const sanitizeConfigValuesForIndex = (
   if (!isHydrated(index, effectiveModel)) {
     return { ...values, model: effectiveModel };
   }
-  return preserveConfigValuesOnModelChange({ ...values, model: effectiveModel }, index.byModel[effectiveModel]);
+  // A replaced model takes the recommended row values, not the stored ones (they belonged to another model).
+  return preserveConfigValuesOnModelChange(
+    { ...(modelOk ? values : {}), model: effectiveModel },
+    index.byModel[effectiveModel],
+  );
+};
+
+/**
+ * Activation reset for a loaded Session: the agent's load response wins over a possibly stale index, so values are
+ * kept unless the loaded model is Unavailable; then the default row's *current* values (never the recommended ones).
+ */
+export const unavailableModelReset = (
+  index: ConfigOptionIndex | undefined,
+  loadedValues: ConfigOptionValues,
+  prefs: ModelPickerPrefs,
+): ConfigOptionValues => {
+  const { model } = loadedValues;
+  if (index === undefined || typeof model !== 'string' || !index.unavailableModelIds.includes(model)) {
+    return loadedValues;
+  }
+  return configValuesFromOptions(rowForModel(index, defaultStartingModelId(index, prefs)));
 };
 
 export const resetUnsupportedConfigValues = (

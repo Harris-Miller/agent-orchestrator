@@ -28,7 +28,7 @@ import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { configValuesFromOptions } from '../host/configProbe.ts';
-import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
+import { unavailableModelReset } from '../host/configOptionIndexUi.ts';
 import {
   applyLoadedConfiguration,
   beginActivation,
@@ -246,7 +246,7 @@ export const activateSession = Effect.fn('activateSession')(function* (
   const reset = yield* applySessionConfigValues(
     registry,
     { launchTarget: arg.launchTarget, sessionId: arg.sessionId },
-    resetUnsupportedConfigValues(
+    unavailableModelReset(
       registry.get(configOptionIndexAtom(arg.launchTarget)),
       configValuesFromOptions(loaded),
       registry.get(modelPickerPrefsAtom(arg.launchTarget)),

@@ -28,8 +28,28 @@ export const configValuesFromOptions = (options: readonly NormalizedConfigOption
   return values;
 };
 
+/** A select option's `recommendedValue` when it is one of its choices. */
+export const validRecommendedValue = (option: NormalizedConfigOption): string | undefined =>
+  option.type === 'select' &&
+  option.recommendedValue !== undefined &&
+  option.choices.some(choice => choice.id === option.recommendedValue)
+    ? option.recommendedValue
+    : undefined;
+
+/** Values for a model row seeded from each option's Recommended value (else its `currentValue`). */
+export const recommendedConfigValues = (options: readonly NormalizedConfigOption[]): ConfigOptionValues => {
+  const values: Record<string, boolean | string> = { ...configValuesFromOptions(options) };
+  for (const option of options) {
+    const recommended = validRecommendedValue(option);
+    if (recommended !== undefined) {
+      values[option.id] = recommended;
+    }
+  }
+  return values;
+};
+
 /**
- * Model change: keep local pick when still valid; else probe `currentValue`.
+ * Model change: keep local pick when still valid; else the Recommended value, else probe `currentValue`.
  * Drop keys absent from the new row.
  */
 export const preserveConfigValuesOnModelChange = (
@@ -43,8 +63,11 @@ export const preserveConfigValuesOnModelChange = (
       const stillValid = typeof prior === 'string' && option.choices.some(choice => choice.id === prior);
       if (stillValid) {
         next[option.id] = prior;
-      } else if (option.currentValue !== undefined) {
-        next[option.id] = option.currentValue;
+      } else {
+        const fallback = validRecommendedValue(option) ?? option.currentValue;
+        if (fallback !== undefined) {
+          next[option.id] = fallback;
+        }
       }
     } else if (typeof prior === 'boolean') {
       next[option.id] = prior;

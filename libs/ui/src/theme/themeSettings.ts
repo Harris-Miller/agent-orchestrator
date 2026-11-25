@@ -50,28 +50,17 @@ const fromLegacyTheme = (theme: unknown): ThemeSettings => {
   return DEFAULT_THEME_SETTINGS;
 };
 
+/** Unset → legacy value; valid → itself; otherwise the fallback. */
+const pick = <T>(value: unknown, guard: (v: unknown) => v is T, legacy: T, fallback: T): T =>
+  value === undefined ? legacy : guard(value) ? value : fallback;
+
 /** New fields win; otherwise the legacy `theme`; otherwise defaults. A wrong-mode or unknown id falls back to its slot's default. */
 export const resolveThemeSettings = (input: ThemeSettingsInput): ThemeSettings => {
   const legacy = fromLegacyTheme(input.theme);
   return {
-    darkTheme:
-      input.darkTheme === undefined
-        ? legacy.darkTheme
-        : isDarkThemeId(input.darkTheme)
-          ? input.darkTheme
-          : DEFAULT_DARK_THEME_ID,
-    lightTheme:
-      input.lightTheme === undefined
-        ? legacy.lightTheme
-        : isLightThemeId(input.lightTheme)
-          ? input.lightTheme
-          : DEFAULT_LIGHT_THEME_ID,
-    paintedSlot:
-      input.paintedSlot === undefined
-        ? legacy.paintedSlot
-        : isPaintedSlotSetting(input.paintedSlot)
-          ? input.paintedSlot
-          : DEFAULT_PAINTED_SLOT_SETTING,
+    darkTheme: pick(input.darkTheme, isDarkThemeId, legacy.darkTheme, DEFAULT_DARK_THEME_ID),
+    lightTheme: pick(input.lightTheme, isLightThemeId, legacy.lightTheme, DEFAULT_LIGHT_THEME_ID),
+    paintedSlot: pick(input.paintedSlot, isPaintedSlotSetting, legacy.paintedSlot, DEFAULT_PAINTED_SLOT_SETTING),
   };
 };
 

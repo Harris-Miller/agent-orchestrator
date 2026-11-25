@@ -701,6 +701,39 @@ describe('Send', () => {
       }).pipe(Effect.scoped),
     );
 
+    it.effect('a recommended option revealed by the model set (effort) is applied in a follow-up pass', () =>
+      Effect.gen(function* () {
+        const calls: string[] = [];
+        yield* installFakeAgent(calls, {
+          setConfig: (configId, value) =>
+            Effect.succeed({
+              configOptions: [
+                {
+                  ...selectableConfig.configOptions[0],
+                  currentValue: configId === 'model' ? value : 'gpt',
+                  id: 'model',
+                },
+                {
+                  _meta: { jetbrains: { air: { recommendedValue: 'high', version: 1 } } },
+                  currentValue: configId === 'effort' ? value : 'low',
+                  id: 'effort',
+                  name: 'Effort',
+                  options: ['low', 'high'].map(id => ({ name: id, value: id })),
+                  type: 'select',
+                },
+              ],
+            }),
+        });
+        const registry = yield* freshRegistry;
+        yield* seedBound(registry, calls, { draft: 'hello' });
+        registry.set(configOptionIndexAtom(CODEX), recommending('o1'));
+
+        yield* sendVirtual(registry, recordingPrompt(calls).prompt);
+
+        assert.deepStrictEqual(calls, ['set:model:o1', 'set:effort:high', 'prompt:bound-1']);
+      }).pipe(Effect.scoped),
+    );
+
     it.effect('sends nothing when the recommended model is already the live one', () =>
       Effect.gen(function* () {
         const calls: string[] = [];

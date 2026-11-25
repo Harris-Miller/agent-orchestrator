@@ -4,6 +4,7 @@ import { isRecord } from '../isRecord.ts';
 import { airMeta } from './airMeta.ts';
 import { normalizeConfigOptions } from './acpSessionBootstrap.ts';
 import type { NormalizedConfigOption, SessionConfiguration } from './acpSessionBootstrap.ts';
+import { validRecommendedValue } from './configProbe.ts';
 import type { ConfigOptionValues } from './configProbe.ts';
 
 /** One option value to set on a Session. */
@@ -100,4 +101,22 @@ export const configValueDiffs = (
       return [];
     }
     return [{ configId: option.id, type: 'boolean', value: desired }];
+  });
+
+/**
+ * Diffs moving a Session's own select options onto their Recommended value: every select whose valid recommendation
+ * differs from its current value, except the ids in `userKeys` (the user's own picks win).
+ */
+export const recommendedValueDiffs = (
+  configuration: SessionConfiguration,
+  userKeys: ReadonlySet<string>,
+): readonly ConfigValueDiff[] =>
+  configuration.flatMap((option): readonly ConfigValueDiff[] => {
+    if (option.type !== 'select' || userKeys.has(option.id)) {
+      return [];
+    }
+    const recommended = validRecommendedValue(option);
+    return recommended === undefined || recommended === option.currentValue
+      ? []
+      : [{ configId: option.id, type: 'select', value: recommended }];
   });

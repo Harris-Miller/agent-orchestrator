@@ -105,6 +105,10 @@ export const needsLazyHydrate = (
   !index.unavailableModelIds.includes(modelId) &&
   advertisedModelSelect(index, modelId) !== undefined;
 
+/** `modelId` is Hidden while `replacement` (a candidate to replace it) is shown: hiding only matters when another model is shown. */
+const hiddenWhileOtherShown = (prefs: ModelPickerPrefs, modelId: string, replacement: string): boolean =>
+  prefs.hidden.includes(modelId) && !prefs.hidden.includes(replacement);
+
 /**
  * Default starting model (no recommendation): the default when shown, else the first shown usable model in Model
  * order. When every usable model is hidden, hiding is ignored (the default if usable, else the first usable); with
@@ -133,11 +137,8 @@ export const startingModelId = (index: ConfigOptionIndex, prefs: ModelPickerPref
   if (recommended === undefined || index.unavailableModelIds.includes(recommended)) {
     return fallback;
   }
-  const hiddenWhileOthersShown = prefs.hidden.includes(recommended) && !prefs.hidden.includes(fallback);
-  return hiddenWhileOthersShown ? fallback : recommended;
+  return hiddenWhileOtherShown(prefs, recommended, fallback) ? fallback : recommended;
 };
-
-export { recommendedConfigValues };
 
 /** Entries of `picked` that the blob itself set (not fallbacks `preserveConfigValuesOnModelChange` filled in). */
 const onlyBlobKeys = (blob: ConfigOptionValues, picked: ConfigOptionValues): ConfigOptionValues =>
@@ -188,9 +189,10 @@ export const sanitizeConfigValuesForIndex = (
   const starting = startingModelId(index, prefs);
   const modelId = typeof values.model === 'string' ? values.model : starting;
   // A hidden stored model is replaced only when another model is shown (starting is shown).
-  const hiddenWhileOthersShown = prefs.hidden.includes(modelId) && !prefs.hidden.includes(starting);
   const modelOk =
-    isKnownModel(index, modelId) && !index.unavailableModelIds.includes(modelId) && !hiddenWhileOthersShown;
+    isKnownModel(index, modelId) &&
+    !index.unavailableModelIds.includes(modelId) &&
+    !hiddenWhileOtherShown(prefs, modelId, starting);
   const effectiveModel = modelOk ? modelId : starting;
   if (!isHydrated(index, effectiveModel)) {
     return { ...values, model: effectiveModel };
@@ -238,7 +240,7 @@ export const resetUnsupportedConfigValues = (
       next[option.id] =
         typeof value === 'string' && option.choices.some(choice => choice.id === value)
           ? value
-          : (option.currentValue ?? '');
+          : (validRecommendedValue(option) ?? option.currentValue ?? '');
     } else {
       next[option.id] = typeof value === 'boolean' ? value : (option.currentValue ?? false);
     }

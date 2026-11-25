@@ -1,7 +1,13 @@
 import { assert, describe, it } from '@effect/vitest';
 
 import type { SessionConfiguration } from './acpSessionBootstrap.ts';
-import { configValue, configValueDiffs, foldConfigOptions, withConfigValue } from './sessionConfiguration.ts';
+import {
+  configValue,
+  configValueDiffs,
+  foldConfigOptions,
+  recommendedValueDiffs,
+  withConfigValue,
+} from './sessionConfiguration.ts';
 
 const modelAndMode: SessionConfiguration = [
   {
@@ -192,5 +198,33 @@ describe('configValueDiffs', () => {
 
   it('has no diff for ids missing from the values', () => {
     assert.deepStrictEqual(configValueDiffs(withBrave, {}), []);
+  });
+});
+
+describe('recommendedValueDiffs', () => {
+  const effort = (currentValue: string, recommendedValue?: string): SessionConfiguration[number] => ({
+    choices: ['low', 'high'].map(id => ({ id, name: id })),
+    currentValue,
+    id: 'effort',
+    name: 'Effort',
+    ...(recommendedValue === undefined ? {} : { recommendedValue }),
+    type: 'select',
+  });
+
+  it('diffs a select whose valid recommendation differs from its current value', () => {
+    assert.deepStrictEqual(recommendedValueDiffs([effort('low', 'high')], new Set()), [
+      { configId: 'effort', type: 'select', value: 'high' },
+    ]);
+  });
+
+  it('skips user-set keys, matching values, missing and invalid recommendations, and booleans', () => {
+    assert.deepStrictEqual(recommendedValueDiffs([effort('low', 'high')], new Set(['effort'])), []);
+    assert.deepStrictEqual(recommendedValueDiffs([effort('high', 'high')], new Set()), []);
+    assert.deepStrictEqual(recommendedValueDiffs([effort('low')], new Set()), []);
+    assert.deepStrictEqual(recommendedValueDiffs([effort('low', 'bogus')], new Set()), []);
+    assert.deepStrictEqual(
+      recommendedValueDiffs([{ currentValue: false, id: 'fast', name: 'Fast', type: 'boolean' }], new Set()),
+      [],
+    );
   });
 });

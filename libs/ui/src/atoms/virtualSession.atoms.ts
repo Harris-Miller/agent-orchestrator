@@ -63,7 +63,7 @@ import {
 import type { Selected } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
-import { applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
+import { applyRecommendedValues, applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
 import { trackSession } from './trackSession.ts';
 import { adoptIntoWorkstream, pendingWorkstreamAtom } from './workstreams.atoms.ts';
 import { annotateLaunchTargetLogs, annotateSessionLogs } from '../host/sessionTelemetry.ts';
@@ -650,7 +650,11 @@ const materialize = Effect.fn('materialize')(
     const liveSession = liveSnapshot.sessions[sessionId];
 
     const afterOverrides = yield* applySessionConfigValues(registry, { launchTarget, sessionId }, configValues);
-    if (afterOverrides.stoppedEarly) {
+    // Options the model set revealed (not hydrated in the index) still start on their Recommended value.
+    const afterRecommended = afterOverrides.stoppedEarly
+      ? afterOverrides
+      : yield* applyRecommendedValues(registry, { launchTarget, sessionId }, new Set(Object.keys(target.configValues)));
+    if (afterRecommended.stoppedEarly) {
       yield* Effect.logWarning('materialize Config diffs stopped early').pipe(
         annotateSessionLogs(launchTarget, sessionId),
       );

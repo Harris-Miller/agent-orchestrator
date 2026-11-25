@@ -6,6 +6,7 @@
  * - {@link setSessionConfigOption}: the user's Config change on an active Session (gated, optimistic).
  * - {@link applySessionConfigValue}: one Harness-driven set (the Virtual Lazy hydrate pick).
  * - {@link applySessionConfigValues}: Config diffs for Materialize, Handoff and the activation reset.
+ * - {@link applyRecommendedValues}: Materialize / Handoff follow-up onto the Session's own Recommended values.
  *
  * Invariants:
  * 1. One Session configuration. A Session's selected model and mode are its `model` / `mode` options; no other field
@@ -37,7 +38,7 @@ import { sessionAttributes } from '@lib/hub/telemetryKeys';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
 import { applyConfigResult, beginConfigChange, endConfigChange } from '../host/harnessStateTransitions.ts';
-import { configValueDiffs } from '../host/sessionConfiguration.ts';
+import { configValueDiffs, recommendedValueDiffs } from '../host/sessionConfiguration.ts';
 import type { ConfigValueDiff } from '../host/sessionConfiguration.ts';
 import { setConfigOption } from '../host/sessionRpc.ts';
 
@@ -141,6 +142,40 @@ export const applySessionConfigValues = Effect.fn('applySessionConfigValues')(fu
     const exit = yield* Effect.exit(applySessionConfigValue(registry, target, diff));
     if (Exit.isFailure(exit)) {
       yield* Effect.logWarning('Config diff failed; stopping').pipe(
+        annotateSessionLogs(target.launchTarget, target.sessionId),
+      );
+      return { stoppedEarly: true };
+    }
+  }
+});
+
+/**
+ * Follow-up to {@link applySessionConfigValues} for a new Session: move every select option the user did not set
+ * (`userKeys`) onto its Recommended value, read from the Session's own configuration after the earlier sets were
+ * folded (a model change reveals that model's options). Same loop rules as Config diffs. Never for a loaded or
+ * resumed Session.
+ */
+export const applyRecommendedValues = Effect.fn('applyRecommendedValues')(function* (
+  registry: Registry,
+  target: SessionConfigTarget,
+  userKeys: ReadonlySet<string>,
+): Effect.fn.Return<{ readonly stoppedEarly: boolean }> {
+  const attempted = new Set<string>();
+  for (;;) {
+    const { sessions } = registry.get(backendHarnessSnapshotAtom(target.launchTarget));
+    if (!(target.sessionId in sessions)) {
+      return { stoppedEarly: true };
+    }
+    const diff = recommendedValueDiffs(sessions[target.sessionId].configuration ?? [], userKeys).find(
+      candidate => !attempted.has(candidate.configId),
+    );
+    if (diff === undefined) {
+      return { stoppedEarly: false };
+    }
+    attempted.add(diff.configId);
+    const exit = yield* Effect.exit(applySessionConfigValue(registry, target, diff));
+    if (Exit.isFailure(exit)) {
+      yield* Effect.logWarning('Recommended value diff failed; stopping').pipe(
         annotateSessionLogs(target.launchTarget, target.sessionId),
       );
       return { stoppedEarly: true };

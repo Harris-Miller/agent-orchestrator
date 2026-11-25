@@ -5,7 +5,6 @@ import {
   hardResetForAgent,
   needsLazyHydrate,
   newlyAdvertisedModelIds,
-  recommendedConfigValues,
   resetUnsupportedConfigValues,
   rowForModel,
   sanitizeConfigValuesForIndex,
@@ -13,6 +12,8 @@ import {
   unavailableModelReset,
 } from './configOptionIndexUi.ts';
 import { configOptionIndexFromProbeResponses, effortOption, modelSelectOption } from './configOptionIndexFixtures.ts';
+import { recommendedConfigValues } from './configProbe.ts';
+import type { ConfigOptionIndex } from './configProbe.ts';
 import { EMPTY_MODEL_PICKER_PREFS } from './modelPickerPrefs.ts';
 
 describe('sanitizeConfigValuesForIndex', () => {
@@ -88,6 +89,26 @@ describe('resetUnsupportedConfigValues', () => {
         model: 'sonnet',
         mode: 'default',
       },
+    );
+  });
+
+  it('fills a missing or invalid select with its recommended value, else its current value', () => {
+    const select = (id: string, currentValue: string, recommendedValue?: string) => ({
+      choices: ['a', 'b'].map(choice => ({ id: choice, name: choice })),
+      currentValue,
+      id,
+      name: id,
+      ...(recommendedValue === undefined ? {} : { recommendedValue }),
+      type: 'select' as const,
+    });
+    const recommending: ConfigOptionIndex = {
+      byModel: { a: [select('model', 'a'), select('effort', 'a', 'b'), select('mode', 'a')] },
+      defaultModelId: 'a',
+      unavailableModelIds: [],
+    };
+    assert.deepStrictEqual(
+      resetUnsupportedConfigValues(recommending, { mode: 'bogus', model: 'a' }, EMPTY_MODEL_PICKER_PREFS),
+      { effort: 'b', mode: 'a', model: 'a' },
     );
   });
 

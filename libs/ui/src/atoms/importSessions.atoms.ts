@@ -32,7 +32,7 @@ import { spawnedChildrenSnapshotAtom, wasSpawnedChildIn } from './spawnedSubagen
 import { untrackSession } from './trackedSessions.ts';
 import { activateSession } from './sessionLifecycle.ts';
 import { trackSession } from './trackSession.ts';
-import { requireProjectReady, resolveProjectIn } from './workspaceFiles.atoms.ts';
+import { refreshWorkspaceProject, requireProjectReady, resolveProjectIn } from './workspaceFiles.atoms.ts';
 import { select } from './virtualSession.atoms.ts';
 
 /** The Confirm failed: `session/load` did not succeed, so nothing was tracked. */
@@ -85,6 +85,7 @@ export const createImportSessionsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 
     .fn(
       Effect.fn('openImportAtomFn', { root: true })(function* (project: string, get: Atom.FnContext) {
         // Only the Session cwd is listed (`session/list` is cwd-only); rows are attributed to `project` when confirmed.
+        yield* refreshWorkspaceProject(get.registry, project);
         const { cwd } = yield* requireProjectReady(get.registry, project);
         get.registry.update(importStateAtom, current => initialImportState(cwd, current.generation + 1, project));
         yield* loadPages(get, targetsWithMorePages(get.registry.get(importStateAtom)));

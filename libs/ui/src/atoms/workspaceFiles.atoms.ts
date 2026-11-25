@@ -9,8 +9,11 @@ import type { Path } from 'effect/Path';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
+import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { resolveProject } from '../host/projectResolution.ts';
 import type { ProjectResolution, WorkspaceFileState, WorkspaceFileStates } from '../host/projectResolution.ts';
+
+import { hydrateTrackedSessions } from './trackedSessions.ts';
 
 export const workspaceFilesAtom = Atom.make<WorkspaceFileStates>({}).pipe(
   Atom.withLabel('workspaceFiles'),
@@ -62,6 +65,28 @@ export const loadWorkspaceFileStates = (
 /** `project` resolved against the stored states. */
 export const resolveProjectIn = (registry: AtomRegistry.AtomRegistry, project: string): ProjectResolution =>
   resolveProject(project, registry.get(workspaceFilesAtom));
+
+/**
+ * Re-reads a Workspace project's file, so a session created or imported now sees the file's current folders and an errored
+ * Project the user fixed comes back. When it becomes usable (it was not ready before), its Tracked sessions hydrate.
+ * A directory Project is a no-op. Never fails.
+ */
+export const refreshWorkspaceProject = Effect.fn('refreshWorkspaceProject')(function* (
+  registry: AtomRegistry.AtomRegistry,
+  project: string,
+) {
+  if (!isWorkspaceFilePath(project)) return;
+  const wasReady = resolveProjectIn(registry, project)._tag === 'Ready';
+  setWorkspaceFileState(registry, project, yield* readWorkspaceFileState(project));
+  const now = resolveProjectIn(registry, project);
+  if (!wasReady && now._tag === 'Ready') {
+    yield* Effect.forEach(
+      MOUNTED_AGENT_LAUNCH_TARGETS,
+      launchTarget => hydrateTrackedSessions(registry, launchTarget, [now.cwd]),
+      { discard: true },
+    );
+  }
+});
 
 /** The ready resolution of `project`, or a {@link ProjectUnresolved} failure naming why it cannot start a session. */
 export const requireProjectReady = Effect.fn('requireProjectReady')(function* (

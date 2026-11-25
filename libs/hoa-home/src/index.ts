@@ -158,5 +158,6 @@ export {
   isWorkspaceFilePath,
   parseWorkspaceFolders,
   readWorkspaceFolders,
+  WORKSPACE_FILE_EXTENSION,
   WorkspaceFileUnresolvable,
 } from './workspaceFile.ts';

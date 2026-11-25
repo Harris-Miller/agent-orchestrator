@@ -4,6 +4,8 @@ import {
   extraFoldersIgnoredAtom,
   LucideMuiIcon,
   projectLabel,
+  projectOfRecord,
+  projectsAtom,
   selectedAtom,
   selectedSessionAtom,
   selectVirtualProjectAtomFn,
@@ -25,6 +27,7 @@ export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => v
   const virtual = useAtomValue(virtualSessionAtom);
   const inFlight = useAtomValue(virtualMaterializingAtom);
   const extraFoldersIgnored = useAtomValue(extraFoldersIgnoredAtom);
+  const projects = useAtomValue(projectsAtom);
   const selectProject = useAtomSet(selectVirtualProjectAtomFn, { mode: 'promise' });
   const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -36,8 +39,9 @@ export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => v
   const isVirtual = selected._tag === 'Virtual';
   const record = isVirtual ? virtual : selectedSession;
   const cwd = record?.cwd;
-  // A session in a Workspace project reads as that Project; the cwd is its first folder.
-  const label = cwd === undefined ? 'Choose Project' : projectLabel(record?.workspaceFile ?? cwd);
+  // A session in a Workspace project reads as that Project (the cwd is its first folder), else as its cwd.
+  const label =
+    cwd === undefined ? 'Choose Project' : projectLabel(projectOfRecord({ ...record, cwd }, projects) ?? cwd);
   const canPick = isVirtual && !inFlight;
 
   return (

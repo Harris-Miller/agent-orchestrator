@@ -1,8 +1,10 @@
 import type { WorkstreamSession } from '@lib/hoa-home';
+import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 
+import { refreshWorkspaceProject } from './workspaceFiles.atoms.ts';
 import { adoptIntoWorkstream, orphanFromWorkstream } from './workstreams.atoms.ts';
 
 import {
@@ -46,7 +48,9 @@ export const createWorkstreamActionAtoms = ({ atomRuntime }: Pick<HostRuntimeBag
 
   const startSessionInWorkstreamAtomFn = atomRuntime
     .fn((arg: { readonly project: string; readonly workstreamId: string }, get: Atom.FnContext) =>
-      startSessionInWorkstream(get.registry, arg.workstreamId, arg.project),
+      refreshWorkspaceProject(get.registry, arg.project).pipe(
+        Effect.andThen(startSessionInWorkstream(get.registry, arg.workstreamId, arg.project)),
+      ),
     )
     .pipe(Atom.keepAlive);
 

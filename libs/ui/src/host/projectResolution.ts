@@ -4,9 +4,13 @@
  * with, so a Workspace file path is never used as a Session cwd. A directory Project is the identity case.
  * Pure: reading the files is `workspaceFiles.atoms.ts`.
  */
-import { isWorkspaceFilePath } from '@lib/hoa-home';
+import { isWorkspaceFilePath, WORKSPACE_FILE_EXTENSION } from '@lib/hoa-home';
 
 import { directoryBasename } from './directoryBasename.ts';
+
+/** What a Project path is: a directory, or a Workspace file. The `project_added` event's only property. */
+export const projectKind = (project: string): 'directory' | 'workspace_file' =>
+  isWorkspaceFilePath(project) ? 'workspace_file' : 'directory';
 
 /** What reading one Workspace file gave: its folders (in order), or why it cannot be used. */
 export type WorkspaceFileState =
@@ -64,7 +68,7 @@ export const projectOfRecord = (
 /** A Project's display name: a Workspace file's name without its extension, else the directory's basename. */
 export const projectLabel = (project: string): string => {
   const base = directoryBasename(project);
-  return isWorkspaceFilePath(project) ? base.slice(0, base.length - '.code-workspace'.length) : base;
+  return isWorkspaceFilePath(project) ? base.slice(0, base.length - WORKSPACE_FILE_EXTENSION.length) : base;
 };
 
 /** The directory a Project lives in (a Workspace file's directory, a directory's parent), trailing separators stripped. */

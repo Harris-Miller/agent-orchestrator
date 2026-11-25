@@ -1,5 +1,5 @@
 /** Projects: one hoa-home list for all launch targets, hydrated by `hydrateHarnessCaches`. Never grown from rows or probe cwds. */
-import { addProject, isWorkspaceFilePath, ProjectsMalformed, readWorkspaceFolders, removeProject } from '@lib/hoa-home';
+import { addProject, ProjectsMalformed, readWorkspaceFolders, removeProject } from '@lib/hoa-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
@@ -8,7 +8,14 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { projectParentCaption } from '../host/projectParentCaption.ts';
-import { projectLabel, projectOfRecord, resolvedProjectCwds, resolveProject } from '../host/projectResolution.ts';
+import {
+  projectKind,
+  projectLabel,
+  projectOfRecord,
+  resolvedProjectCwds,
+  resolveProject,
+} from '../host/projectResolution.ts';
+import { normalizeSessionDirectories } from '../host/sessionDirectories.ts';
 import { projectMembership } from '../host/projectSessions.ts';
 import type { ProjectMembership } from '../host/projectSessions.ts';
 
@@ -19,7 +26,12 @@ import { trackEvent } from '../analytics/trackEvent.ts';
 import { hydrateTrackedSessions } from './trackedSessions.ts';
 import { isChildIn, subagentLinksAtom } from './spawnedSubagent/links.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
-import { setWorkspaceFileState, workspaceFilesAtom } from './workspaceFiles.atoms.ts';
+import {
+  refreshWorkspaceProject,
+  resolveProjectIn,
+  setWorkspaceFileState,
+  workspaceFilesAtom,
+} from './workspaceFiles.atoms.ts';
 
 export const projectsAtom = Atom.make<readonly string[]>([]).pipe(Atom.withLabel('projects'), Atom.keepAlive);
 
@@ -103,7 +115,7 @@ export const addProjectToApp = Effect.fn('addProjectToApp')(function* (
       message: 'Projects file could not be read; fix or remove projects.json to add Projects.',
     });
   }
-  const kind = isWorkspaceFilePath(project) ? 'workspace_file' : 'directory';
+  const kind = projectKind(project);
   if (kind === 'workspace_file') {
     const folders = yield* readWorkspaceFolders(project);
     setWorkspaceFileState(registry, project, { _tag: 'Resolved', folders });
@@ -127,19 +139,59 @@ export const addProjectToApp = Effect.fn('addProjectToApp')(function* (
   return { added: added.length > 0, kind } satisfies ProjectAddResult;
 });
 
+/**
+ * Re-pick for a Workspace project (typically errored): adds `to` as a Project, moves the sessions stamped with `from` onto
+ * it (the stamp is the Project's identity, so they would otherwise vanish with `from`), then removes `from`.
+ */
+export const repickProject = Effect.fn('repickProject')(function* (
+  registry: AtomRegistry.AtomRegistry,
+  from: string,
+  to: string,
+) {
+  yield* addProjectToApp(registry, to);
+  const target = resolveProjectIn(registry, to);
+  const stamp = normalizeSessionDirectories({
+    additionalDirectories: target._tag === 'Ready' ? target.additionalDirectories : undefined,
+    workspaceFile: to,
+  });
+  for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
+    updateHarnessSnapshot(registry, launchTarget, current => ({
+      ...replaceSessionHistory(
+        current,
+        current.sessionHistory.map(entry => (entry.workspaceFile === from ? { ...entry, ...stamp } : entry)),
+      ),
+      sessions: Object.fromEntries(
+        Object.entries(current.sessions).map(([id, session]) => [
+          id,
+          session.workspaceFile === from ? { ...session, workspaceFile: to } : session,
+        ]),
+      ),
+    }));
+  }
+  yield* removeProjectEverywhere(registry, from);
+});
+
 export const createProjectsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 'atomRuntime'>) => {
   /** Adds a Project: {@link addProjectToApp} under its root span, with the `project_added` event when it was new. */
   const addProjectAtomFn = atomRuntime
     .fn((project: string, get: Atom.FnContext) =>
       addProjectToApp(get.registry, project).pipe(
-        trackEvent<ProjectAddResult>(
-          projectAdded(isWorkspaceFilePath(project) ? 'workspace_file' : 'directory'),
-          result => result.added,
-        ),
+        trackEvent<ProjectAddResult>(projectAdded(projectKind(project)), result => result.added),
         Effect.withSpan('addProjectAtomFn', { root: true }),
       ),
     )
     .pipe(Atom.keepAlive);
 
-  return { addProjectAtomFn };
+  /** Re-reads a Workspace project's file (the errored state's "Reload"); sessions hydrate once it is usable. */
+  const reloadProjectAtomFn = atomRuntime
+    .fn((project: string, get: Atom.FnContext) => refreshWorkspaceProject(get.registry, project))
+    .pipe(Atom.keepAlive);
+
+  const repickProjectAtomFn = atomRuntime
+    .fn((arg: { readonly from: string; readonly to: string }, get: Atom.FnContext) =>
+      repickProject(get.registry, arg.from, arg.to).pipe(Effect.withSpan('repickProjectAtomFn', { root: true })),
+    )
+    .pipe(Atom.keepAlive);
+
+  return { addProjectAtomFn, reloadProjectAtomFn, repickProjectAtomFn };
 };

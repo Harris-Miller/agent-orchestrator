@@ -8,7 +8,7 @@ import { Path } from 'effect/Path';
 import { parse } from 'jsonc-parser';
 import type { ParseError } from 'jsonc-parser';
 
-const WORKSPACE_FILE_EXTENSION = '.code-workspace';
+export const WORKSPACE_FILE_EXTENSION = '.code-workspace';
 
 /** True for a path that names a Workspace file (by extension, case-insensitive). */
 export const isWorkspaceFilePath = (path: string): boolean => path.toLowerCase().endsWith(WORKSPACE_FILE_EXTENSION);

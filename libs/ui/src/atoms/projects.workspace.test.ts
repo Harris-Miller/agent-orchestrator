@@ -1,4 +1,6 @@
 /** Workspace projects: adding, hydrating, listing, grouping and Stop tracking through the Project resolution seam. */
+import { resolve } from 'node:path';
+
 import { assert, describe, it } from '@effect/vitest';
 import { addProject, isWorkspaceFilePath, readProjects, upsertTrackedSessions } from '@lib/hoa-home';
 import { mapFsTestServices } from '@lib/hoa-home/testing';
@@ -24,11 +26,13 @@ import {
   projectsAtom,
   projectsLoadedAtom,
   removeProjectEverywhere,
+  repickProject,
 } from './projects.atoms.ts';
 import { settleTrackedSessionWrites } from './trackedSessions.ts';
-import { workspaceFilesAtom } from './workspaceFiles.atoms.ts';
+import { refreshWorkspaceProject, workspaceFilesAtom } from './workspaceFiles.atoms.ts';
 
-const W = '/home/operator/work/app.code-workspace';
+const W = resolve('/home/operator/work/app.code-workspace');
+const [A, B] = [resolve('/home/operator/a'), resolve('/home/operator/b')];
 const codex = toLaunchTarget(CODEX);
 
 const setup = Effect.fnUntraced(function* () {
@@ -55,13 +59,13 @@ describe('adding a Workspace project', () => {
       const s = yield* setup();
       s.writeWorkspace('{"folders":[{"path":"/home/operator/a"},{"path":"/home/operator/b"}]}');
       yield* upsertTrackedSessions(codex, [
-        { cwd: '/home/operator/a', sessionId: 'in-ws', workspaceFile: W },
-        { cwd: '/home/operator/b', sessionId: 'second-folder' },
+        { cwd: A, sessionId: 'in-ws', workspaceFile: W },
+        { cwd: B, sessionId: 'second-folder' },
       ]).pipe(Effect.provide(s.layer));
       const result = yield* s.add(W);
       assert.deepStrictEqual(result, { added: true, kind: 'workspace_file' });
       assert.deepStrictEqual(s.registry.get(projectsAtom), [W]);
-      assert.deepStrictEqual(s.registry.get(listedCwdsAtom), ['/home/operator/a']);
+      assert.deepStrictEqual(s.registry.get(listedCwdsAtom), [A]);
       assert.deepStrictEqual(s.history(), ['in-ws']);
       assert.deepStrictEqual(summarize(s.analytics.events), [
         { name: 'project_added', properties: { kind: 'workspace_file' } },
@@ -87,7 +91,7 @@ describe('adding a Workspace project', () => {
       s.writeWorkspace('{"folders":[{"path":"/home/operator/a"}]}');
       yield* s.add(W);
       assert.deepStrictEqual(yield* s.add(W), { added: false, kind: 'workspace_file' });
-      yield* s.add('/home/operator/dir');
+      yield* s.add(resolve('/home/operator/dir'));
       assert.deepStrictEqual(
         summarize(s.analytics.events).map(event => event.properties),
         [{ kind: 'workspace_file' }, { kind: 'directory' }],
@@ -101,7 +105,7 @@ describe('startup with Workspace projects', () => {
     Effect.gen(function* () {
       const s = yield* setup();
       yield* addProject(W).pipe(Effect.provide(s.layer));
-      yield* upsertTrackedSessions(codex, [{ cwd: '/home/operator/a', sessionId: 'dormant', workspaceFile: W }]).pipe(
+      yield* upsertTrackedSessions(codex, [{ cwd: A, sessionId: 'dormant', workspaceFile: W }]).pipe(
         Effect.provide(s.layer),
       );
       const unsubscribe = yield* hydrateHarnessCaches(s.registry).pipe(Effect.provide(s.layer));
@@ -119,12 +123,12 @@ describe('startup with Workspace projects', () => {
       const s = yield* setup();
       s.writeWorkspace('{"folders":[{"path":"/home/operator/a"},{"path":"/home/operator/b"}]}');
       yield* addProject(W).pipe(Effect.provide(s.layer));
-      yield* upsertTrackedSessions(codex, [{ cwd: '/home/operator/a', sessionId: 's1', workspaceFile: W }]).pipe(
+      yield* upsertTrackedSessions(codex, [{ cwd: A, sessionId: 's1', workspaceFile: W }]).pipe(
         Effect.provide(s.layer),
       );
       const unsubscribe = yield* hydrateHarnessCaches(s.registry).pipe(Effect.provide(s.layer));
       yield* Effect.promise(settleTrackedSessionWrites);
-      assert.deepStrictEqual(s.registry.get(listedCwdsAtom), ['/home/operator/a']);
+      assert.deepStrictEqual(s.registry.get(listedCwdsAtom), [A]);
       assert.deepStrictEqual(s.history(), ['s1']);
       unsubscribe();
     }).pipe(Effect.scoped),
@@ -132,11 +136,11 @@ describe('startup with Workspace projects', () => {
 });
 
 describe('Projects sharing a first folder', () => {
-  const D = '/home/operator/a';
+  const D = A;
   const seed = Effect.fnUntraced(function* () {
     const s = yield* setup();
     s.registry.set(projectsAtom, [D, W]);
-    s.registry.set(workspaceFilesAtom, { [W]: { _tag: 'Resolved', folders: [D, '/home/operator/b'] } });
+    s.registry.set(workspaceFilesAtom, { [W]: { _tag: 'Resolved', folders: [D, B] } });
     updateHarnessSnapshot(s.registry, CODEX, current => ({
       ...current,
       sessionHistory: [
@@ -187,6 +191,48 @@ describe('Projects sharing a first folder', () => {
       yield* removeProjectEverywhere(t.registry, W).pipe(Effect.provide(t.layer));
       assert.deepStrictEqual(t.history(), ['plain']);
       assert.isUndefined(t.registry.get(workspaceFilesAtom)[W]);
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe('re-reading and re-picking a Workspace project', () => {
+  it.effect('a fixed file brings an errored Project back and hydrates its sessions', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      yield* addProject(W).pipe(Effect.provide(s.layer));
+      yield* upsertTrackedSessions(codex, [{ cwd: A, sessionId: 'back', workspaceFile: W }]).pipe(
+        Effect.provide(s.layer),
+      );
+      s.registry.set(projectsAtom, [W]);
+      yield* refreshWorkspaceProject(s.registry, W).pipe(Effect.provide(s.layer));
+      assert.strictEqual(s.registry.get(workspaceFilesAtom)[W]?._tag, 'Failed');
+      assert.deepStrictEqual(s.history(), []);
+
+      s.writeWorkspace(JSON.stringify({ folders: [{ path: A }] }));
+      yield* refreshWorkspaceProject(s.registry, W).pipe(Effect.provide(s.layer));
+      assert.strictEqual(s.registry.get(workspaceFilesAtom)[W]?._tag, 'Resolved');
+      assert.deepStrictEqual(s.history(), ['back']);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('re-pick moves the sessions stamped with the old file onto the new one', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      const moved = resolve('/home/operator/work/moved.code-workspace');
+      s.writeWorkspace(JSON.stringify({ folders: [{ path: A }, { path: B }] }), moved);
+      yield* addProject(W).pipe(Effect.provide(s.layer));
+      s.registry.set(projectsAtom, [W]);
+      s.registry.set(workspaceFilesAtom, { [W]: { _tag: 'Failed', message: 'gone' } });
+      updateHarnessSnapshot(s.registry, CODEX, current => ({
+        ...current,
+        sessionHistory: [{ cwd: A, sessionId: 'kept', workspaceFile: W }],
+      }));
+      yield* repickProject(s.registry, W, moved).pipe(Effect.provide(s.layer));
+
+      assert.deepStrictEqual(s.registry.get(projectsAtom), [moved]);
+      const [row] = s.registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory;
+      assert.deepStrictEqual([row.sessionId, row.workspaceFile, row.additionalDirectories], ['kept', moved, [B]]);
+      assert.isUndefined(s.registry.get(workspaceFilesAtom)[W]);
     }).pipe(Effect.scoped),
   );
 });

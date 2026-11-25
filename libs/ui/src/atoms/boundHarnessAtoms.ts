@@ -150,7 +150,7 @@ export const {
 
 export const { pinSessionAtomFn, unpinSessionAtomFn } = createPinnedSessionsAtoms(hostBag);
 
-export const { addProjectAtomFn } = createProjectsAtoms(hostBag);
+export const { addProjectAtomFn, reloadProjectAtomFn, repickProjectAtomFn } = createProjectsAtoms(hostBag);
 
 export const {
   adoptSessionAtomFn,

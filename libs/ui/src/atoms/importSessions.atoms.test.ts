@@ -1,6 +1,11 @@
 /** Import: pages every usable launch target, merges rows, and confirms a row into a Tracked session. */
 import { assert, describe, it } from '@effect/vitest';
-import { Effect } from 'effect';
+import { resolve } from 'node:path';
+
+import { mapFsTestServices } from '@lib/hoa-home/testing';
+import type { MapFsEntry } from '@lib/hoa-home/testing';
+import type { HostServices } from '@lib/context-services';
+import { Effect, Layer } from 'effect';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 
@@ -11,7 +16,6 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.testing.ts';
 import { end, reserveSlot } from './spawnedSubagent/links.ts';
-import { workspaceFilesAtom } from './workspaceFiles.atoms.ts';
 
 type Page = { readonly nextCursor?: string; readonly sessions: readonly Record<string, unknown>[] } | 'fail';
 
@@ -36,10 +40,10 @@ const pagedAgent = (pages: Record<string, Page>, loads: string[], failLoad = fal
   },
 });
 
-const setup = Effect.fnUntraced(function* () {
+const setup = Effect.fnUntraced(function* (layer: Layer.Layer<HostServices> = mockHostLayer) {
   const registry = yield* freshRegistry;
   enableProviders(registry, [CLAUDE, CODEX]);
-  const runtime = createHostRuntime(mockHostLayer);
+  const runtime = createHostRuntime(layer);
   const atoms = createImportSessionsAtoms(runtime);
   const ids = () => registry.get(importRowsAtom).map(entry => `${entry.launchTarget}:${entry.sessionId}`);
   return { atoms, ids, registry };
@@ -186,9 +190,13 @@ describe('Import confirm', () => {
     'importing into a Workspace project lists its first folder and stamps the confirmed row with the file',
     () =>
       Effect.gen(function* () {
-        const { atoms, ids, registry } = yield* setup();
-        const workspace = '/ws/app.code-workspace';
-        registry.set(workspaceFilesAtom, { [workspace]: { _tag: 'Resolved', folders: ['/proj', '/lib/a'] } });
+        const store = new Map<string, MapFsEntry>();
+        const workspace = resolve('/ws/app.code-workspace');
+        store.set(workspace, {
+          content: JSON.stringify({ folders: [{ path: '/proj' }, { path: '/lib/a' }] }),
+          kind: 'file',
+        });
+        const { atoms, ids, registry } = yield* setup(Layer.mergeAll(mockHostLayer, mapFsTestServices(store)));
         const listed: unknown[] = [];
         const agent = pagedAgent({ '': { sessions: [row('a', '2026-01-01T00:00:00Z')] } }, []);
         yield* connectFakeAgent(CODEX, {
@@ -203,14 +211,14 @@ describe('Import confirm', () => {
         advertise(registry, CODEX, {});
 
         yield* runAtomFn(registry, atoms.openImportAtomFn, workspace);
-        assert.deepStrictEqual(listed, ['/proj']);
+        assert.deepStrictEqual(listed, [resolve('/proj')]);
         assert.deepStrictEqual(ids(), [`${CODEX}:a`]);
 
         yield* runAtomFn(registry, atoms.importSessionAtomFn, { launchTarget: CODEX, sessionId: 'a' });
         const [entry] = registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory;
         assert.deepStrictEqual(
           [entry.cwd, entry.workspaceFile, entry.additionalDirectories],
-          ['/proj', workspace, ['/lib/a']],
+          [resolve('/proj'), workspace, [resolve('/lib/a')]],
         );
       }).pipe(Effect.scoped),
   );

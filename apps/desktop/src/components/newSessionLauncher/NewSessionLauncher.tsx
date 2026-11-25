@@ -32,19 +32,20 @@ const selectableSx = (selected: boolean, theme: Theme) =>
   }) as const;
 
 const ProjectPill: FC<{
-  readonly cwd: string;
   readonly disabled: boolean;
-  readonly onPick: (cwd: string) => void;
+  readonly onPick: (project: string) => void;
+  /** A directory or a Workspace file. */
+  readonly project: string;
   readonly selected: boolean;
-}> = ({ cwd, disabled, onPick, selected }) => {
-  const { error, label, parentCaption } = useAtomValue(projectDisplayAtom(cwd));
+}> = ({ disabled, onPick, project, selected }) => {
+  const { error, label, parentCaption } = useAtomValue(projectDisplayAtom(project));
   return (
     <ButtonBase
       aria-pressed={selected}
       disabled={disabled || error !== undefined}
       title={error}
       onClick={() => {
-        onPick(cwd);
+        onPick(project);
       }}
       sx={theme => ({
         ...selectableSx(selected, theme),
@@ -74,7 +75,7 @@ export type NewSessionLauncherViewProps = {
   readonly cwd: string | undefined;
   readonly disabled: boolean;
   readonly launchTarget: AgentLaunchTarget | undefined;
-  readonly onPickProject: (cwd: string) => void;
+  readonly onPickProject: (project: string) => void;
   readonly onPickTarget: (launchTarget: AgentLaunchTarget) => void;
   readonly projects: readonly string[];
   /** False until projects have loaded; the empty hint is withheld so it cannot flash at startup. */
@@ -173,10 +174,10 @@ export const NewSessionLauncherView: FC<NewSessionLauncherViewProps> = ({
       >
         {projects.map(project => (
           <ProjectPill
-            cwd={project}
             disabled={disabled}
             key={project}
             onPick={onPickProject}
+            project={project}
             selected={cwd === project}
           />
         ))}

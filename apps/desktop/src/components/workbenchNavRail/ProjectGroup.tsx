@@ -1,12 +1,13 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { UnifiedHistoryEntry } from '@lib/ui';
 import {
-  addProjectAtomFn,
   ensureVirtualSessionAtomFn,
   LucideMuiIcon,
   pickWorkspaceFile,
   projectDisplayAtom,
   projectMembershipAtom,
+  reloadProjectAtomFn,
+  repickProjectAtomFn,
   sessionEntryKey,
   SessionHistoryRow,
   stopTrackingProjectAtomFn,
@@ -28,7 +29,17 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { Download, Ellipsis, EyeOff, Folder, FolderOpen, RefreshCw, SquarePen, TriangleAlert } from 'lucide-react';
+import {
+  Download,
+  Ellipsis,
+  EyeOff,
+  Folder,
+  FolderOpen,
+  FolderSearch,
+  RefreshCw,
+  SquarePen,
+  TriangleAlert,
+} from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -64,29 +75,28 @@ export const ProjectGroup: FC<{
   selectedSessionId,
   showAllRows,
 }) => {
-  const { cwd } = group;
-  const { error, label, parentCaption } = useAtomValue(projectDisplayAtom(cwd));
-  const { activeSessions } = useAtomValue(projectMembershipAtom(cwd));
+  const { cwd: project } = group;
+  const { error, label, parentCaption } = useAtomValue(projectDisplayAtom(project));
+  const { activeSessions } = useAtomValue(projectMembershipAtom(project));
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const stopTracking = useAtomSet(stopTrackingProjectAtomFn, { mode: 'promise' });
-  const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
+  const reload = useAtomSet(reloadProjectAtomFn, { mode: 'promise' });
+  const repick = useAtomSet(repickProjectAtomFn, { mode: 'promise' });
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [confirmingStop, setConfirmingStop] = useState(false);
   const overflowCount = group.sessions.length - CWD_GROUP_ROW_LIMIT;
 
   const runStopTracking = () => {
-    stopTracking(cwd).catch(onClientError);
+    stopTracking(project).catch(onClientError);
   };
 
-  /** Re-pick for an errored Workspace project: add the chosen file as a Project, then remove this one. */
+  /** Re-pick for an errored Workspace project: the chosen file replaces this Project, keeping its sessions. */
   const runRepick = () => {
     hostRunPromise(pickWorkspaceFile)
       .then(async picked => {
-        if (picked === undefined) {
-          return;
+        if (picked !== undefined) {
+          await repick({ from: project, to: picked });
         }
-        await addProject(picked);
-        await stopTracking(cwd);
       })
       .catch(onClientError);
   };
@@ -112,7 +122,7 @@ export const ProjectGroup: FC<{
         >
           <LucideMuiIcon className="folder-closed" icon={Folder} sx={{ flexShrink: 0, fontSize: '1rem' }} />
           <LucideMuiIcon className="folder-open" icon={FolderOpen} sx={{ flexShrink: 0, fontSize: '1rem' }} />
-          <Tooltip title={cwd}>
+          <Tooltip title={project}>
             <Box component="span" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
               {label}
               {parentCaption === undefined ? null : (
@@ -154,7 +164,7 @@ export const ProjectGroup: FC<{
             edge="end"
             onClick={event => {
               event.stopPropagation();
-              ensureVirtualSession({ patchCwdIfSelectedVirtual: true, project: cwd }).catch(onClientError);
+              ensureVirtualSession({ patchCwdIfSelectedVirtual: true, project }).catch(onClientError);
             }}
             size="small"
             sx={{ flexShrink: 0 }}
@@ -193,11 +203,24 @@ export const ProjectGroup: FC<{
           <MenuItem
             onClick={() => {
               setMenuAnchor(null);
-              runRepick();
+              reload(project).catch(onClientError);
             }}
           >
             <ListItemIcon sx={{ color: 'inherit', minWidth: 32 }}>
               <LucideMuiIcon fontSize="small" icon={RefreshCw} />
+            </ListItemIcon>
+            Reload workspace file
+          </MenuItem>
+        )}
+        {error === undefined ? null : (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              runRepick();
+            }}
+          >
+            <ListItemIcon sx={{ color: 'inherit', minWidth: 32 }}>
+              <LucideMuiIcon fontSize="small" icon={FolderSearch} />
             </ListItemIcon>
             Re-pick workspace file…
           </MenuItem>
@@ -206,7 +229,7 @@ export const ProjectGroup: FC<{
           disabled={error !== undefined}
           onClick={() => {
             setMenuAnchor(null);
-            onImport(cwd);
+            onImport(project);
           }}
         >
           <ListItemIcon sx={{ color: 'inherit', minWidth: 32 }}>

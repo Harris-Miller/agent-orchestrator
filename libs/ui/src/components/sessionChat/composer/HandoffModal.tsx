@@ -11,6 +11,7 @@ import type { FC } from 'react';
 import { modelPickerPrefsAtom } from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
 import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
 import {
+  effectiveVirtualValues,
   hardResetForAgent,
   optionsWithValues,
   rowForModel,
@@ -116,7 +117,15 @@ export const HandoffModal: FC<{
             if (targetLaunchTarget === undefined) {
               return;
             }
-            onConfirm({ configValues, targetLaunchTarget });
+            // The seed may predate the Config option index: fill Recommended values at submit, as Virtual does.
+            onConfirm({
+              configValues: effectiveVirtualValues(
+                getConfigOptionIndex(targetLaunchTarget),
+                registry.get(modelPickerPrefsAtom(targetLaunchTarget)),
+                configValues,
+              ),
+              targetLaunchTarget,
+            });
           }}
           variant="contained"
         >

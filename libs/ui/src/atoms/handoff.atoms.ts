@@ -27,7 +27,7 @@ import {
 } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { cancelPromptTurn, sendPromptTurn } from './promptTurn.ts';
-import { applySessionConfigValues } from './sessionConfigChange.ts';
+import { applyRecommendedValues, applySessionConfigValues } from './sessionConfigChange.ts';
 import { ensureWorkspaceProject } from './trackSession.ts';
 import { select } from './virtualSession.atoms.ts';
 import { annotateLaunchTargetLogs, annotateSessionLogs } from '../host/sessionTelemetry.ts';
@@ -173,7 +173,14 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             { launchTarget: arg.targetLaunchTarget, sessionId: targetSessionId },
             arg.configValues,
           );
-          if (configured.stoppedEarly) {
+          const recommended = configured.stoppedEarly
+            ? configured
+            : yield* applyRecommendedValues(
+                get.registry,
+                { launchTarget: arg.targetLaunchTarget, sessionId: targetSessionId },
+                new Set(Object.keys(arg.configValues)),
+              );
+          if (recommended.stoppedEarly) {
             yield* Effect.logWarning('Handoff Config diffs stopped early').pipe(
               annotateSessionLogs(arg.targetLaunchTarget, targetSessionId),
             );

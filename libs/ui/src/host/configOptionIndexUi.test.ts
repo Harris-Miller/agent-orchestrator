@@ -1,6 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 
 import {
+  effectiveVirtualValues,
   hardResetForAgent,
   needsLazyHydrate,
   newlyAdvertisedModelIds,
@@ -8,8 +9,11 @@ import {
   rowForModel,
   sanitizeConfigValuesForIndex,
   startingModelId,
+  unavailableModelReset,
 } from './configOptionIndexUi.ts';
-import { configOptionIndexFromProbeResponses, modelSelectOption } from './configOptionIndexFixtures.ts';
+import { configOptionIndexFromProbeResponses, effortOption, modelSelectOption } from './configOptionIndexFixtures.ts';
+import { recommendedConfigValues } from './configProbe.ts';
+import type { ConfigOptionIndex } from './configProbe.ts';
 import { EMPTY_MODEL_PICKER_PREFS } from './modelPickerPrefs.ts';
 
 describe('sanitizeConfigValuesForIndex', () => {
@@ -85,6 +89,26 @@ describe('resetUnsupportedConfigValues', () => {
         model: 'sonnet',
         mode: 'default',
       },
+    );
+  });
+
+  it('fills a missing or invalid select with its recommended value, else its current value', () => {
+    const select = (id: string, currentValue: string, recommendedValue?: string) => ({
+      choices: ['a', 'b'].map(choice => ({ id: choice, name: choice })),
+      currentValue,
+      id,
+      name: id,
+      ...(recommendedValue === undefined ? {} : { recommendedValue }),
+      type: 'select' as const,
+    });
+    const recommending: ConfigOptionIndex = {
+      byModel: { a: [select('model', 'a'), select('effort', 'a', 'b'), select('mode', 'a')] },
+      defaultModelId: 'a',
+      unavailableModelIds: [],
+    };
+    assert.deepStrictEqual(
+      resetUnsupportedConfigValues(recommending, { mode: 'bogus', model: 'a' }, EMPTY_MODEL_PICKER_PREFS),
+      { effort: 'b', mode: 'a', model: 'a' },
     );
   });
 
@@ -277,5 +301,102 @@ describe('newlyAdvertisedModelIds', () => {
 
   it('is empty on the first probe', () => {
     assert.deepStrictEqual(newlyAdvertisedModelIds(undefined, index(['a', 'b'])), []);
+  });
+});
+
+describe('Recommended value', () => {
+  const air = (recommendedValue: string) => ({ _meta: { jetbrains: { air: { recommendedValue, version: 1 } } } });
+  const effort = (current: string, recommended?: string) => ({
+    ...effortOption(current),
+    ...(recommended === undefined ? {} : air(recommended)),
+  });
+  const model = (current: string, recommended?: string) => ({
+    ...modelSelectOption(current, ['sonnet', 'opus']),
+    ...(recommended === undefined ? {} : air(recommended)),
+  });
+  const withRecs = (unavailable: readonly string[] = []) =>
+    configOptionIndexFromProbeResponses(
+      'sonnet',
+      {
+        opus: { configOptions: [model('opus', 'opus'), effort('low', 'high')] },
+        sonnet: { configOptions: [model('sonnet', 'opus'), effort('low', 'high')] },
+      },
+      unavailable,
+    );
+  const prefs = (hidden: readonly string[]) => ({ hidden, order: [] });
+
+  it('startingModelId prefers the recommended model', () => {
+    assert.strictEqual(startingModelId(withRecs(), EMPTY_MODEL_PICKER_PREFS), 'opus');
+  });
+
+  it('startingModelId skips a recommended model that is unavailable or hidden', () => {
+    assert.strictEqual(startingModelId(withRecs(['opus']), EMPTY_MODEL_PICKER_PREFS), 'sonnet');
+    assert.strictEqual(startingModelId(withRecs(), prefs(['opus'])), 'sonnet');
+  });
+
+  it('startingModelId ignores a recommendation that is not an advertised choice', () => {
+    const index = configOptionIndexFromProbeResponses('sonnet', {
+      sonnet: { configOptions: [model('sonnet', 'ghost')] },
+    });
+    assert.strictEqual(startingModelId(index, EMPTY_MODEL_PICKER_PREFS), 'sonnet');
+  });
+
+  it('startingModelId without recommendation keeps the default', () => {
+    const index = configOptionIndexFromProbeResponses('sonnet', {
+      sonnet: { configOptions: [model('sonnet')] },
+    });
+    assert.strictEqual(startingModelId(index, EMPTY_MODEL_PICKER_PREFS), 'sonnet');
+  });
+
+  it('recommendedConfigValues uses valid recommendations, else current values', () => {
+    const row = rowForModel(withRecs(), 'opus');
+    assert.deepStrictEqual(recommendedConfigValues(row), { effort: 'high', model: 'opus' });
+    const bad = rowForModel(
+      configOptionIndexFromProbeResponses('sonnet', {
+        sonnet: { configOptions: [model('sonnet'), effort('low', 'ghost')] },
+      }),
+      'sonnet',
+    );
+    assert.deepStrictEqual(recommendedConfigValues(bad), { effort: 'low', model: 'sonnet' });
+  });
+
+  it('hardResetForAgent seeds recommended model and effort', () => {
+    assert.deepStrictEqual(hardResetForAgent(withRecs(), EMPTY_MODEL_PICKER_PREFS).values, {
+      effort: 'high',
+      model: 'opus',
+    });
+  });
+
+  it('effectiveVirtualValues: empty blob gets recommended, blob values win per key', () => {
+    assert.deepStrictEqual(effectiveVirtualValues(withRecs(), EMPTY_MODEL_PICKER_PREFS, {}), {
+      effort: 'high',
+      model: 'opus',
+    });
+    assert.deepStrictEqual(effectiveVirtualValues(withRecs(), EMPTY_MODEL_PICKER_PREFS, { effort: 'low' }), {
+      effort: 'low',
+      model: 'opus',
+    });
+    assert.deepStrictEqual(
+      effectiveVirtualValues(withRecs(), EMPTY_MODEL_PICKER_PREFS, { gone: 'x', model: 'sonnet' }),
+      { effort: 'high', model: 'sonnet' },
+    );
+  });
+
+  it('effectiveVirtualValues without an index returns the blob', () => {
+    const blob = { model: 'x' };
+    assert.strictEqual(effectiveVirtualValues(undefined, EMPTY_MODEL_PICKER_PREFS, blob), blob);
+  });
+
+  it('unavailableModelReset leaves loaded values alone unless the model is Unavailable', () => {
+    const loaded = { effort: 'low', model: 'ghost' };
+    assert.strictEqual(unavailableModelReset(withRecs(), loaded, EMPTY_MODEL_PICKER_PREFS), loaded);
+    assert.strictEqual(unavailableModelReset(undefined, loaded, EMPTY_MODEL_PICKER_PREFS), loaded);
+  });
+
+  it('unavailableModelReset resets an Unavailable model to the default row current values, not recommended', () => {
+    assert.deepStrictEqual(
+      unavailableModelReset(withRecs(['opus']), { effort: 'high', model: 'opus' }, EMPTY_MODEL_PICKER_PREFS),
+      { effort: 'low', model: 'sonnet' },
+    );
   });
 });

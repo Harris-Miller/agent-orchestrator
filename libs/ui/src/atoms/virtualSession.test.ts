@@ -665,6 +665,104 @@ describe('Send', () => {
     }).pipe(Effect.scoped),
   );
 
+  describe('Recommended value', () => {
+    const recommending = (recommended: string): ConfigOptionIndex => ({
+      byModel: {
+        gpt: [
+          {
+            choices: ['gpt', 'o1'].map(id => ({ id, name: id })),
+            currentValue: 'gpt',
+            id: 'model',
+            name: 'Model',
+            recommendedValue: recommended,
+            type: 'select',
+          },
+        ],
+      },
+      defaultModelId: 'gpt',
+      unavailableModelIds: [],
+    });
+
+    it.effect('a fresh blob (no picks) sends the recommended model when it differs from the live one', () =>
+      Effect.gen(function* () {
+        const calls: string[] = [];
+        yield* installFakeAgent(calls);
+        const registry = yield* freshRegistry;
+        yield* seedBound(registry, calls, { draft: 'hello' });
+        registry.set(configOptionIndexAtom(CODEX), recommending('o1'));
+
+        yield* sendVirtual(registry, recordingPrompt(calls).prompt);
+
+        assert.deepStrictEqual(calls, ['set:model:o1', 'prompt:bound-1']);
+        assert.deepStrictEqual(registry.get(lastCreateDefaultsAtom), {
+          configValues: { model: 'o1' },
+          launchTarget: CODEX,
+        });
+      }).pipe(Effect.scoped),
+    );
+
+    it.effect('a recommended option revealed by the model set (effort) is applied in a follow-up pass', () =>
+      Effect.gen(function* () {
+        const calls: string[] = [];
+        yield* installFakeAgent(calls, {
+          setConfig: (configId, value) =>
+            Effect.succeed({
+              configOptions: [
+                {
+                  ...selectableConfig.configOptions[0],
+                  currentValue: configId === 'model' ? value : 'gpt',
+                  id: 'model',
+                },
+                {
+                  _meta: { jetbrains: { air: { recommendedValue: 'high', version: 1 } } },
+                  currentValue: configId === 'effort' ? value : 'low',
+                  id: 'effort',
+                  name: 'Effort',
+                  options: ['low', 'high'].map(id => ({ name: id, value: id })),
+                  type: 'select',
+                },
+              ],
+            }),
+        });
+        const registry = yield* freshRegistry;
+        yield* seedBound(registry, calls, { draft: 'hello' });
+        registry.set(configOptionIndexAtom(CODEX), recommending('o1'));
+
+        yield* sendVirtual(registry, recordingPrompt(calls).prompt);
+
+        assert.deepStrictEqual(calls, ['set:model:o1', 'set:effort:high', 'prompt:bound-1']);
+      }).pipe(Effect.scoped),
+    );
+
+    it.effect('sends nothing when the recommended model is already the live one', () =>
+      Effect.gen(function* () {
+        const calls: string[] = [];
+        yield* installFakeAgent(calls);
+        const registry = yield* freshRegistry;
+        yield* seedBound(registry, calls, { draft: 'hello' });
+        registry.set(configOptionIndexAtom(CODEX), recommending('gpt'));
+
+        yield* sendVirtual(registry, recordingPrompt(calls).prompt);
+
+        assert.deepStrictEqual(calls, ['prompt:bound-1']);
+      }).pipe(Effect.scoped),
+    );
+
+    it.effect('an explicit blob pick (last-create default) outranks the recommendation', () =>
+      Effect.gen(function* () {
+        const calls: string[] = [];
+        yield* installFakeAgent(calls);
+        const registry = yield* freshRegistry;
+        yield* seedBound(registry, calls, { draft: 'hello', model: 'gpt' });
+        registry.set(configOptionIndexAtom(CODEX), recommending('o1'));
+
+        yield* sendVirtual(registry, recordingPrompt(calls).prompt);
+
+        assert.deepStrictEqual(calls, ['prompt:bound-1']);
+      }).pipe(Effect.scoped),
+    );
+  });
+
   it.effect('a session/update landing during the Config diffs survives Materialize', () =>
     Effect.gen(function* () {
       const calls: string[] = [];

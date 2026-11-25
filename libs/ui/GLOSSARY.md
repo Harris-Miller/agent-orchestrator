@@ -221,8 +221,12 @@ A Config option the Composer treats specially, identified by launch target and o
 _Avoid_: special option, custom option
 
 **Starting model**:
-The model a new Virtual draft or Handoff target begins on when nothing the user chose applies (no last-create default for that launch target, or that default names a Hidden or Unavailable model): the agent's default model if shown, else the first shown model in Model order. Unavailable models are never picked. A model the user already chose (a Session's current model, a Virtual draft's value, a Handoff form's value) is applied as-is even if it is later hidden: hiding changes what is offered, never what a Session already has.
+The model a new Virtual draft or Handoff target begins on when nothing the user chose applies (no last-create default for that launch target, or that default names a Hidden or Unavailable model): the agent's Recommended value for model if it is shown and usable, else the agent's default model if shown, else the first shown model in Model order. Unavailable models are never picked. A model the user already chose (a Session's current model, a Virtual draft's value, a Handoff form's value) is applied as-is even if it is later hidden: hiding changes what is offered, never what a Session already has.
 _Avoid_: Default model (that is the agent's own, in the Config option index), fallback model
+
+**Recommended value**:
+The choice an agent suggests for a select Config option (model, reasoning effort), independent of that option's current value. A new Session starts on it for model and effort; an agent that suggests none starts on its own current values. Not the agent's default.
+_Avoid_: Default effort, preferred value, suggested model
 
 **Model order**:
 The user's ordering of one launch target's advertised models, set in Settings > Providers and used by every model select. Models it does not list follow it in the agent's own order. Hidden models keep their place in it. A model that newly appears in an advertised list (not in the previous one) is added to the top and shown, not Hidden; the first probe reorders nothing.

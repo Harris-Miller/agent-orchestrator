@@ -31,11 +31,14 @@ import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
 import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts';
 import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
-import { optionsWithValues, rowForModel, startingModelId } from '../../host/configOptionIndexUi.ts';
+import { effectiveVirtualValues, optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
+import type { ConfigOptionValues } from '../../host/configProbe.ts';
 import { hubUnavailableReason } from '../../host/hubSessions.ts';
 
 /** Stable empty configuration, so memoized consumers do not re-run before the agent reports one. */
 const EMPTY_CONFIGURATION: SessionConfiguration = [];
+/** Stable empty Virtual blob values. */
+const EMPTY_VALUES: ConfigOptionValues = {};
 
 const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => {
   const composer = useAtomValue(composerAtom);
@@ -85,15 +88,20 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
   );
   const virtualConfigIndex =
     isVirtual && selectedLaunchTarget !== undefined ? getConfigOptionIndex(selectedLaunchTarget) : undefined;
-  const virtualConfigValues = virtualSession?.configValues ?? {};
   const virtualPrefs = useAtomValue(modelPickerPrefsAtom(selectedLaunchTarget));
-  const virtualSelectedModelId =
-    typeof virtualConfigValues.model === 'string'
-      ? virtualConfigValues.model
-      : virtualConfigIndex && startingModelId(virtualConfigIndex, virtualPrefs);
-  const configOptions = isVirtual
-    ? optionsWithValues(rowForModel(virtualConfigIndex, virtualSelectedModelId), virtualConfigValues)
-    : (selectedSession?.configuration ?? EMPTY_CONFIGURATION);
+  const virtualBlobValues = virtualSession?.configValues ?? EMPTY_VALUES;
+  const sessionConfiguration = selectedSession?.configuration ?? EMPTY_CONFIGURATION;
+  // Recommended values fill what the Virtual blob leaves unset (same values Materialize sends).
+  const configOptions = useMemo(() => {
+    if (!isVirtual) {
+      return sessionConfiguration;
+    }
+    const values = effectiveVirtualValues(virtualConfigIndex, virtualPrefs, virtualBlobValues);
+    return optionsWithValues(
+      rowForModel(virtualConfigIndex, typeof values.model === 'string' ? values.model : undefined),
+      values,
+    );
+  }, [isVirtual, sessionConfiguration, virtualBlobValues, virtualConfigIndex, virtualPrefs]);
   const hasTranscriptMessage = chatItems.some(
     item => item.kind === 'user_message' || item.kind === 'agent_message' || item.kind === 'agent_thought',
   );

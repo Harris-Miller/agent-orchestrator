@@ -35,6 +35,7 @@ import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import {
+  effectiveVirtualValues,
   hardResetForAgent,
   needsLazyHydrate,
   resetUnsupportedConfigValues,
@@ -62,7 +63,7 @@ import {
 import type { Selected } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
-import { applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
+import { applyRecommendedValues, applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
 import { trackSession } from './trackSession.ts';
 import { adoptIntoWorkstream, pendingWorkstreamAtom } from './workstreams.atoms.ts';
 import { annotateLaunchTargetLogs, annotateSessionLogs } from '../host/sessionTelemetry.ts';
@@ -626,7 +627,13 @@ const isLiveActive = (snapshot: BackendHarnessSnapshot, sessionId: string): bool
  */
 const materialize = Effect.fn('materialize')(
   function* (registry: Registry, target: BoundVirtualTarget) {
-    const { attachments, configValues, cwd, draft, launchTarget, sessionId } = target;
+    const { attachments, cwd, draft, launchTarget, sessionId } = target;
+    // Recommended values fill what the blob leaves unset (a fresh blob is `{}`); blob picks win.
+    const configValues = effectiveVirtualValues(
+      registry.get(configOptionIndexAtom(launchTarget)),
+      registry.get(modelPickerPrefsAtom(launchTarget)),
+      target.configValues,
+    );
     registry.set(writableMaterializingAtom, true);
     yield* Effect.annotateCurrentSpan({ [ACP_LAUNCH_TARGET]: launchTarget });
     yield* Effect.annotateCurrentSpan(ACP_SESSION_ID, sessionId);
@@ -643,7 +650,11 @@ const materialize = Effect.fn('materialize')(
     const liveSession = liveSnapshot.sessions[sessionId];
 
     const afterOverrides = yield* applySessionConfigValues(registry, { launchTarget, sessionId }, configValues);
-    if (afterOverrides.stoppedEarly) {
+    // Options the model set revealed (not hydrated in the index) still start on their Recommended value.
+    const afterRecommended = afterOverrides.stoppedEarly
+      ? afterOverrides
+      : yield* applyRecommendedValues(registry, { launchTarget, sessionId }, new Set(Object.keys(target.configValues)));
+    if (afterRecommended.stoppedEarly) {
       yield* Effect.logWarning('materialize Config diffs stopped early').pipe(
         annotateSessionLogs(launchTarget, sessionId),
       );

@@ -42,6 +42,7 @@ import {
 } from '../host/harnessStateTransitions.ts';
 import { awaitHubSettled } from '../host/hubConnection.ts';
 import type { SessionTarget } from '../host/projectSessions.ts';
+import { resolveSessionDirectories } from '../host/sessionDirectories.ts';
 import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import {
   archiveSession as archiveOnAgent,
@@ -177,6 +178,7 @@ export const activateSession = Effect.fn('activateSession')(function* (
   const existingSession = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
   const historyEntry = snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId);
   const cwd = resolveSessionCwd(existingSession?.cwd, historyEntry?.cwd);
+  const directories = resolveSessionDirectories(existingSession, historyEntry);
   if (historyEntry?.archived === true) {
     // Unarchive first; the agent-side call is best-effort, so a failure never blocks opening the session.
     updateHarnessSnapshot(registry, arg.launchTarget, current => setSessionArchived(current, arg.sessionId, false));
@@ -221,11 +223,13 @@ export const activateSession = Effect.fn('activateSession')(function* (
 
   const previousTranscript = existingSession?.transcript;
   updateHarnessSnapshot(registry, arg.launchTarget, current =>
-    beginActivation(current, arg.sessionId, cwd, useResume ? 'resume' : 'load'),
+    beginActivation(current, arg.sessionId, cwd, useResume ? 'resume' : 'load', directories),
   );
 
   const exit = yield* Effect.exit(
-    useResume ? resumeSession(arg.launchTarget, arg.sessionId, cwd) : loadSession(arg.launchTarget, arg.sessionId, cwd),
+    useResume
+      ? resumeSession(arg.launchTarget, arg.sessionId, cwd, directories.additionalDirectories)
+      : loadSession(arg.launchTarget, arg.sessionId, cwd, directories.additionalDirectories),
   );
 
   if (Exit.isFailure(exit)) {
@@ -357,7 +361,12 @@ export const forkSession = Effect.fn('forkSession')(
     }
     yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionFork');
 
-    const result = yield* forkOnAgent(arg.launchTarget, arg.sessionId, arg.cwd).pipe(
+    // The fork inherits the source's Additional directories (and workspace file).
+    const sourceEntry = snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId);
+    const sourceSession = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
+    const directories = resolveSessionDirectories(sourceSession, sourceEntry);
+
+    const result = yield* forkOnAgent(arg.launchTarget, arg.sessionId, arg.cwd, directories.additionalDirectories).pipe(
       reportRequestError(registry, arg, 'session/fork'),
     );
     if (result === undefined) {
@@ -367,7 +376,7 @@ export const forkSession = Effect.fn('forkSession')(
     yield* Effect.annotateCurrentSpan(ACP_FORKED_SESSION_ID, forkedSessionId);
 
     const parentEntry = snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId);
-    const createdEntry = historyEntryFromNew(result, arg.cwd);
+    const createdEntry = historyEntryFromNew(result, arg.cwd, directories);
     if (createdEntry === undefined) {
       yield* Effect.logError('forkSession skipped; fork result missing sessionId').pipe(
         annotateLaunchTargetLogs(arg.launchTarget),

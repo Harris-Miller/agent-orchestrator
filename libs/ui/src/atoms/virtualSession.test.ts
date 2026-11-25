@@ -11,6 +11,7 @@ import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configValue } from '../host/sessionConfiguration.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom, selectedAtom } from './backendState.atoms.ts';
+import type { SessionRequest } from './fakeAgent.testing.ts';
 import { userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { composerAtom, createComposerAtoms } from './composer.atoms.ts';
 import {
@@ -376,6 +377,85 @@ describe('Bind', () => {
       assert.strictEqual(blob(registry)?.sessionId, 'bound-2');
       assert.deepStrictEqual(Object.keys(sessionsOf(registry)), ['bound-2']);
       assert.strictEqual(sessionsOf(registry)['bound-2'].cwd, '/other');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a changed Additional directories set tears down the Bound session and rebinds with the new list', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const requests: SessionRequest[] = [];
+      yield* installFakeAgent(calls, { additionalDirectories: true, requests });
+      const registry = yield* freshRegistry;
+      yield* seedUnbound(registry);
+      yield* editVirtual(registry, { additionalDirectories: ['/lib/a'] });
+      yield* bindVirtualOnUsable(registry, CODEX);
+      assert.deepStrictEqual(sessionsOf(registry)['bound-1'].additionalDirectories, ['/lib/a']);
+      calls.length = 0;
+
+      yield* editVirtual(registry, { additionalDirectories: ['/lib/a', '/lib/b'] });
+      yield* bindVirtualOnUsable(registry, CODEX);
+      yield* Effect.yieldNow;
+
+      assert.sameMembers(calls, ['close:bound-1', 'delete:bound-1', 'new']);
+      assert.deepStrictEqual(
+        requests.map(request => request.params.additionalDirectories),
+        [['/lib/a'], ['/lib/a', '/lib/b']],
+      );
+      assert.strictEqual(blob(registry)?.sessionId, 'bound-2');
+      assert.deepStrictEqual(sessionsOf(registry)['bound-2'].additionalDirectories, ['/lib/a', '/lib/b']);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('Materialize tracks the Session with its Additional directories and workspace file', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      yield* installFakeAgent(calls, { additionalDirectories: true });
+      const registry = yield* freshRegistry;
+      yield* seedUnbound(registry, { draft: 'hello' });
+      yield* editVirtual(registry, {
+        additionalDirectories: ['/lib/a'],
+        workspaceFile: '/proj/app.code-workspace',
+      });
+      yield* bindVirtualOnUsable(registry, CODEX);
+
+      yield* sendVirtual(registry, recordingPrompt(calls).prompt);
+
+      const [entry] = registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory;
+      assert.deepStrictEqual(entry.additionalDirectories, ['/lib/a']);
+      assert.strictEqual(entry.workspaceFile, '/proj/app.code-workspace');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('the same Additional directories in another order, or an emptied list on none, does not rebind', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      yield* installFakeAgent(calls, { additionalDirectories: true });
+      const registry = yield* freshRegistry;
+      yield* seedUnbound(registry);
+      yield* editVirtual(registry, { additionalDirectories: ['/lib/a', '/lib/b'] });
+      yield* bindVirtualOnUsable(registry, CODEX);
+      calls.length = 0;
+
+      yield* editVirtual(registry, { additionalDirectories: ['/lib/b', '/lib/a'] });
+      yield* bindVirtualOnUsable(registry, CODEX);
+      yield* Effect.yieldNow;
+
+      assert.deepStrictEqual(calls, []);
+      assert.strictEqual(blob(registry)?.sessionId, 'bound-1');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('an Agent that is not capable is Bound without the list, which the Session still carries', () =>
+    Effect.gen(function* () {
+      const requests: SessionRequest[] = [];
+      yield* installFakeAgent([], { requests });
+      const registry = yield* freshRegistry;
+      yield* seedUnbound(registry);
+      yield* editVirtual(registry, { additionalDirectories: ['/lib/a'] });
+      yield* bindVirtualOnUsable(registry, CODEX);
+
+      assert.isFalse('additionalDirectories' in requests[0].params);
+      assert.deepStrictEqual(sessionsOf(registry)['bound-1'].additionalDirectories, ['/lib/a']);
     }).pipe(Effect.scoped),
   );
 

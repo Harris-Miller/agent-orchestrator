@@ -26,6 +26,7 @@ import {
   setMirrorWorkState,
 } from '../../host/harnessStateTransitions.ts';
 import { describeError, isAcpError, RequestErrorDetail, requestErrorDetail } from '../../host/requestError.ts';
+import { resolveSessionDirectories } from '../../host/sessionDirectories.ts';
 import { createSession } from '../../host/sessionRpc.ts';
 import { lastAgentMessage } from '../../host/sessionUpdateReducer.ts';
 import { validateSubagentConfig } from '../../host/subagentTargets.ts';
@@ -258,10 +259,11 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   if (invalid !== undefined) {
     return yield* refuse(invalid);
   }
-  const cwd = resolveSessionCwd(
-    parentSnapshot.sessions[parent.sessionId].cwd,
-    parentSnapshot.sessionHistory.find(entry => entry.sessionId === parent.sessionId)?.cwd,
-  );
+  const parentSession = parentSnapshot.sessions[parent.sessionId];
+  const parentEntry = parentSnapshot.sessionHistory.find(entry => entry.sessionId === parent.sessionId);
+  const cwd = resolveSessionCwd(parentSession.cwd, parentEntry?.cwd);
+  // The child inherits the parent's Additional directories (sent only if the child's Agent is capable).
+  const directories = resolveSessionDirectories(parentSession, parentEntry);
   if (cwd === undefined) {
     return yield* refuse('The parent session has no working directory.');
   }
@@ -276,7 +278,10 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
         : `You already have ${MAX_LIVE_CHILDREN} subagents running. Wait for one to finish (wait_subagent) before starting another.`,
     );
   }
-  const created = yield* createSession(input.launchTarget, cwd, parent.sessionId).pipe(
+  const created = yield* createSession(input.launchTarget, cwd, {
+    ...directories,
+    parentSessionId: parent.sessionId,
+  }).pipe(
     Effect.onError(() => Effect.sync(slot.release)),
     Effect.mapError(error => {
       const label = agentLaunchTargetLabel(input.launchTarget);

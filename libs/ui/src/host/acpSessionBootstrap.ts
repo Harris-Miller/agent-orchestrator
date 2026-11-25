@@ -16,6 +16,8 @@ import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import type { AvailableCommand, SessionTranscript } from './sessionUpdateReducer.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
+import { additionalDirectoriesOfRow, normalizeSessionDirectories } from './sessionDirectories.ts';
+import type { SessionDirectories } from './sessionDirectories.ts';
 import type { SubagentRecord } from './subagent.ts';
 
 export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready' | 'signing-in' | 'usable';
@@ -31,7 +33,7 @@ export const isSessionActiveOrActivating = (status: SessionStatus): boolean =>
 
 export type PendingClientRequestKind = 'config' | 'prompt';
 
-export type SessionSnapshot = {
+export type SessionSnapshot = SessionDirectories & {
   readonly availableCommands?: readonly AvailableCommand[];
   /** Session cwd when known (create, handoff, or activate resolve). Absent until stamped. */
   readonly cwd?: string;
@@ -120,13 +122,14 @@ export const defectsFromActivationFailure = <E>(
 };
 
 /** A Session History row, decoded: the app-owned archived flag and Last prompt time are typed fields (`historyEntry.ts`). */
-export type NormalizedSessionInfo = HistoryEntryFields & {
-  readonly [key: string]: unknown;
-  readonly cwd: string;
-  readonly sessionId: string;
-  readonly title?: string;
-  readonly updatedAt?: string;
-};
+export type NormalizedSessionInfo = HistoryEntryFields &
+  SessionDirectories & {
+    readonly [key: string]: unknown;
+    readonly cwd: string;
+    readonly sessionId: string;
+    readonly title?: string;
+    readonly updatedAt?: string;
+  };
 
 /** Cached `session/list` row; `unavailable` until its provider confirms it with a successful list. */
 export type HistoryEntry = NormalizedSessionInfo & { readonly unavailable?: true };
@@ -246,8 +249,11 @@ export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | un
     return undefined;
   }
 
+  const { additionalDirectories: _wire, ...row } = entry;
+  const additionalDirectories = additionalDirectoriesOfRow(_wire);
   return decodeHistoryEntry({
-    ...entry,
+    ...row,
+    ...(additionalDirectories === undefined ? {} : { additionalDirectories }),
     cwd: entry.cwd,
     sessionId: entry.sessionId,
     title: typeof entry.title === 'string' ? entry.title : undefined,
@@ -255,13 +261,18 @@ export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | un
   });
 };
 
-export const normalizeSessionInfoFromNew = (result: unknown, cwd: string): NormalizedSessionInfo | undefined => {
+export const normalizeSessionInfoFromNew = (
+  result: unknown,
+  cwd: string,
+  directories?: SessionDirectories,
+): NormalizedSessionInfo | undefined => {
   if (!isRecord(result) || typeof result.sessionId !== 'string') {
     return undefined;
   }
 
   return decodeHistoryEntry({
     ...result,
+    ...normalizeSessionDirectories(directories),
     cwd,
     sessionId: result.sessionId,
     title: typeof result.title === 'string' ? result.title : undefined,

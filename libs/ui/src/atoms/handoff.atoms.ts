@@ -11,6 +11,8 @@ import {
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
+import type { SessionSnapshot } from '../host/acpSessionBootstrap.ts';
+import { resolveSessionDirectories } from '../host/sessionDirectories.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
 import { buildTargetHandoffSeedPrompt, SOURCE_HANDOFF_PROMPT } from '../host/handoffDocument.ts';
@@ -151,7 +153,17 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             return;
           }
 
-          const createExit = yield* Effect.exit(createSession(arg.targetLaunchTarget, sourceEntry.cwd));
+          // The target inherits the source's Additional directories (sent only if the target Agent is capable).
+          const sourceSession = get(backendHarnessSnapshotAtom(arg.sourceLaunchTarget)).sessions[
+            arg.sourceSessionId
+          ] as SessionSnapshot | undefined;
+          const createExit = yield* Effect.exit(
+            createSession(
+              arg.targetLaunchTarget,
+              sourceEntry.cwd,
+              resolveSessionDirectories(sourceSession, sourceEntry),
+            ),
+          );
           if (Exit.isFailure(createExit)) {
             yield* Effect.logWarning('Handoff soft-abort; target session create failed').pipe(
               annotateLaunchTargetLogs(arg.targetLaunchTarget),
@@ -159,11 +171,12 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             return;
           }
           const { cwd, result } = createExit.value;
+          const { directories } = createExit.value;
           const { sessionId: targetSessionId } = result;
 
           // The target Session is in the map before its Config diffs, so each response folds into it.
           updateHarnessSnapshot(get.registry, arg.targetLaunchTarget, current =>
-            addCreatedSession(current, { cwd, result }),
+            addCreatedSession(current, { cwd, directories, result }),
           );
           yield* ensureWorkspaceProject(get.registry, cwd);
           yield* select(get.registry, { _tag: 'Session', sessionId: targetSessionId });

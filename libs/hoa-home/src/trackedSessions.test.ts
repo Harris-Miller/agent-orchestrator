@@ -39,6 +39,22 @@ describe('tracked sessions', () => {
       }),
     );
 
+    testIt.effect('round-trips Additional directories and a workspace file; a record without them still decodes', () =>
+      Effect.gen(function* () {
+        const withDirectories = {
+          additionalDirectories: ['/lib/a', '/lib/b'],
+          cwd: '/work',
+          sessionId: 's1',
+          workspaceFile: '/work/app.code-workspace',
+        };
+        const plain = { cwd: '/work', sessionId: 's2', title: 'Old' };
+        yield* upsertTrackedSessions(target, [withDirectories, plain]);
+        const read = yield* readTrackedSessions(target);
+        assert.deepStrictEqual(read, { cwds: { '/work': [withDirectories, plain] } });
+        assert.strictEqual('additionalDirectories' in read.cwds['/work'][1], false);
+      }),
+    );
+
     testIt.effect('upserts per record, preserving siblings and external writes', () =>
       Effect.gen(function* () {
         yield* upsertTrackedSessions(target, [

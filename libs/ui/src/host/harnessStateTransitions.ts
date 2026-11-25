@@ -43,6 +43,8 @@ import {
 import { requestErrorDetails } from './requestError.ts';
 import { configValue, foldConfigOptions, withConfigValue } from './sessionConfiguration.ts';
 import type { ConfigValueDiff } from './sessionConfiguration.ts';
+import { normalizeSessionDirectories } from './sessionDirectories.ts';
+import type { SessionDirectories } from './sessionDirectories.ts';
 import { buildActivatedSession, historyEntryFromNew } from './sessionMaterialize.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
 import {
@@ -461,7 +463,7 @@ export const setAntigravityAuthUrl = (snapshot: BackendHarnessSnapshot, url: str
 });
 
 /**
- * Activation begins: cwd stamped, defects, usage and `replayComplete` cleared, status `activating`, descendant Subagents reset. A `load`
+ * Activation begins: cwd (and Additional directories, when resolved) stamped, defects, usage and `replayComplete` cleared, status `activating`, descendant Subagents reset. A `load`
  * replays the whole history, so it starts from an empty transcript; a `resume` keeps the local one.
  */
 export const beginActivation = (
@@ -469,12 +471,14 @@ export const beginActivation = (
   sessionId: string,
   cwd: string,
   mode: 'load' | 'resume',
+  directories?: SessionDirectories,
 ): BackendHarnessSnapshot =>
   resetSubagentsOfRoot(
     {
       ...snapshot,
       sessions: patchSession(snapshot.sessions, sessionId, session => ({
         ...session,
+        ...normalizeSessionDirectories(directories),
         cwd,
         defects: undefined,
         status: 'activating',
@@ -550,16 +554,17 @@ export const finishActivation = (snapshot: BackendHarnessSnapshot, sessionId: st
 /** A `session/new` answer: its id and the cwd it was created for. */
 export type CreatedSession = {
   readonly cwd: string;
+  readonly directories?: SessionDirectories;
   readonly result: { readonly sessionId: string };
 };
 
-const activatedFromNew = ({ cwd, result }: CreatedSession): SessionSnapshot =>
-  buildActivatedSession(result.sessionId, normalizeConfigOptions(result), { cwd });
+const activatedFromNew = ({ cwd, directories, result }: CreatedSession): SessionSnapshot =>
+  buildActivatedSession(result.sessionId, normalizeConfigOptions(result), { ...directories, cwd });
 
 /** `session/new` answered outside Bind (handoff target): its active Session and its Session History row join together. */
 export const addCreatedSession = (snapshot: BackendHarnessSnapshot, created: CreatedSession): BackendHarnessSnapshot =>
   upsertIntoSnapshot(snapshot, {
-    historyEntry: historyEntryFromNew(created.result, created.cwd),
+    historyEntry: historyEntryFromNew(created.result, created.cwd, created.directories),
     session: activatedFromNew(created),
   });
 

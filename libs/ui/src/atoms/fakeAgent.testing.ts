@@ -14,7 +14,7 @@ import { applyInitializeResult } from '../host/harnessStateTransitions.ts';
 import { forgetAllMcpTokens } from '../host/hubSessions.ts';
 import { installHub, setHubAvailability } from '../host/hubConnection.ts';
 import type { BackendConnectionReports } from '../host/sessionRpc.ts';
-import { registerBackendConnection, setBackendMcpHttp } from '../host/sessionRpc.ts';
+import { registerBackendConnection, setBackendAdditionalDirectories, setBackendMcpHttp } from '../host/sessionRpc.ts';
 
 import { providerBootstrapDoneAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -68,6 +68,10 @@ type FakeSetConfig =
     };
 
 export type FakeAgentOpts = FakeSetConfig & {
+  /** The Agent advertised `sessionCapabilities.additionalDirectories`: session requests may carry them (default: not). */
+  readonly additionalDirectories?: boolean;
+  /** Collects each session RPC's request params (minus the hub `mcpServers`), to see exactly what went on the wire. */
+  readonly requests?: SessionRequest[];
   readonly failArchive?: boolean;
   readonly failClose?: boolean;
   readonly failDelete?: boolean;
@@ -100,6 +104,20 @@ export type FakeAgentOpts = FakeSetConfig & {
   readonly duringSteering?: Effect.Effect<void>;
   /** `_session/steering` result (default `injected`); `fail` makes the RPC fail; `reject` answers with {@link REJECTION}. */
   readonly steering?: 'fail' | 'reject' | SessionSteeringResponse['outcome'];
+};
+
+/** One session RPC's request params as the fake agent received them (without `mcpServers` / `_meta`). */
+export type SessionRequest = {
+  readonly params: Readonly<Record<string, unknown>>;
+  readonly rpc: 'fork' | 'load' | 'new' | 'resume';
+};
+
+const recordRequest = (
+  opts: FakeAgentOpts,
+  rpc: SessionRequest['rpc'],
+  { _meta, mcpServers: _mcpServers, ...params }: Record<string, unknown>,
+): void => {
+  opts.requests?.push({ params, rpc });
 };
 
 /** One session RPC's `mcpServers`, as the fake agent received it. */
@@ -156,22 +174,18 @@ export const installFakeAgent = (
           calls.push(`delete:${sessionId}`);
           return opts.failDelete === true ? Effect.fail('delete-fail') : Effect.void;
         },
-        'session/load': ({
-          _meta,
-          mcpServers,
-          sessionId,
-        }: {
-          _meta?: unknown;
-          mcpServers: readonly unknown[];
-          sessionId: string;
-        }) => {
+        'session/load': (request: { _meta?: unknown; mcpServers: readonly unknown[]; sessionId: string }) => {
+          const { _meta, mcpServers, sessionId } = request;
+          recordRequest(opts, 'load', request);
           calls.push(`load:${sessionId}`);
           opts.mcp?.received.push({ meta: _meta, rpc: 'load', servers: mcpServers });
           return opts.failLoad === true
             ? Effect.andThen(opts.duringLoad ?? Effect.void, Effect.fail('load-fail'))
             : Effect.as(opts.duringLoad ?? Effect.void, selectableConfig);
         },
-        'session/new': ({ _meta, mcpServers }: { _meta?: unknown; mcpServers: readonly unknown[] }) => {
+        'session/new': (request: { _meta?: unknown; mcpServers: readonly unknown[] }) => {
+          const { _meta, mcpServers } = request;
+          recordRequest(opts, 'new', request);
           calls.push(isClaude ? 'new:claude' : 'new');
           opts.mcp?.received.push({ meta: _meta, rpc: 'new', servers: mcpServers });
           if (opts.failNew === true) {
@@ -202,15 +216,9 @@ export const installFakeAgent = (
                 stopReason: opts.prompt ?? 'end_turn',
               });
         },
-        'session/resume': ({
-          _meta,
-          mcpServers,
-          sessionId,
-        }: {
-          _meta?: unknown;
-          mcpServers?: readonly unknown[];
-          sessionId: string;
-        }) => {
+        'session/resume': (request: { _meta?: unknown; mcpServers?: readonly unknown[]; sessionId: string }) => {
+          const { _meta, mcpServers, sessionId } = request;
+          recordRequest(opts, 'resume', request);
           calls.push(`resume:${sessionId}`);
           opts.mcp?.received.push({ meta: _meta, rpc: 'resume', servers: mcpServers ?? [] });
           return Effect.succeed(selectableConfig);
@@ -241,15 +249,9 @@ export const installFakeAgent = (
         calls.push(`archive:${sessionId}`);
         return opts.failArchive === true ? Effect.die('archive-fail') : Effect.void;
       },
-      sessionFork: ({
-        _meta,
-        mcpServers,
-        sessionId,
-      }: {
-        _meta?: unknown;
-        mcpServers: readonly unknown[];
-        sessionId: string;
-      }) => {
+      sessionFork: (request: { _meta?: unknown; mcpServers: readonly unknown[]; sessionId: string }) => {
+        const { _meta, mcpServers, sessionId } = request;
+        recordRequest(opts, 'fork', request);
         calls.push(`fork:${sessionId}`);
         opts.mcp?.received.push({ meta: _meta, rpc: 'fork', servers: mcpServers });
         return opts.rejectFork === true
@@ -281,6 +283,7 @@ export const installFakeAgent = (
     Effect.tap(() =>
       Effect.sync(() => {
         setBackendMcpHttp(launchTarget, opts.mcp !== undefined && opts.mcp.http !== false);
+        setBackendAdditionalDirectories(launchTarget, opts.additionalDirectories === true);
       }),
     ),
   );

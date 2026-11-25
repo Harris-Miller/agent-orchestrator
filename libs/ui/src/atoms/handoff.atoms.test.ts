@@ -10,6 +10,7 @@ import { TestClock } from 'effect/testing';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
+import type { HistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { handleHubToolCall } from '../host/hubSessions.ts';
 import type { HubToolResult } from '../host/hubToolHandler.ts';
 import { configValue } from '../host/sessionConfiguration.ts';
@@ -25,7 +26,7 @@ import {
   installFakeAgent,
   installFakeHub,
 } from './fakeAgent.testing.ts';
-import type { McpReceived } from './fakeAgent.testing.ts';
+import type { McpReceived, SessionRequest } from './fakeAgent.testing.ts';
 import { createHandoffAtoms, handoffSourcePrompt, SOURCE_TURN_TIMEOUT } from './handoff.atoms.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -42,6 +43,7 @@ const submitHandoff = (received: McpReceived[], document: string): Effect.Effect
 const sourceSession = Effect.fnUntraced(function* (
   received: McpReceived[],
   opts: Parameters<typeof installFakeAgent>[1],
+  historyExtras: Partial<HistoryEntry> = {},
 ) {
   const registry = yield* freshRegistry;
   advertise(registry, CODEX, {});
@@ -51,7 +53,7 @@ const sourceSession = Effect.fnUntraced(function* (
   yield* createSession(CODEX, '/w');
   updateHarnessSnapshot(registry, CODEX, current => ({
     ...current,
-    sessionHistory: [{ cwd: '/w', sessionId: 'bound-1', title: 'Source' }],
+    sessionHistory: [{ cwd: '/w', sessionId: 'bound-1', title: 'Source', ...historyExtras }],
     sessions: { 'bound-1': initialSessionSnapshot('bound-1', 'active') },
   }));
   return { registry, sourceCalls };
@@ -123,6 +125,36 @@ describe('handoffSessionAtomFn', () => {
       assert.deepStrictEqual(target.availableCommands, [
         { description: 'Review the diff', isSkill: false, name: 'review' },
       ]);
+    }),
+  );
+
+  it.effect.each([
+    { capable: true, sent: ['/lib/a', '/lib/b'] },
+    { capable: false, sent: undefined },
+  ])('the target inherits the source Additional directories (target capable: $capable)', ({ capable, sent }) =>
+    Effect.gen(function* () {
+      yield* installFakeHub([]);
+      const received: McpReceived[] = [];
+      const { registry } = yield* sourceSession(
+        received,
+        { duringPrompt: Effect.suspend(() => submitHandoff(received, 'the plan')) },
+        { additionalDirectories: ['/lib/a', '/lib/b'], workspaceFile: '/w/app.code-workspace' },
+      );
+      const requests: SessionRequest[] = [];
+      yield* installFakeAgent([], { additionalDirectories: capable, requests }, CLAUDE);
+      const { handoffSessionAtomFn } = createHandoffAtoms(createHostRuntime(mockHostLayer));
+      registry.mount(handoffSessionAtomFn);
+
+      yield* runAtomFn(registry, handoffSessionAtomFn, handoffArg);
+
+      assert.deepStrictEqual(requests[0].params.additionalDirectories, sent);
+      const targetEntry = registry
+        .get(backendHarnessSnapshotAtom(CLAUDE))
+        .sessionHistory.find(entry => entry.sessionId === 'claude-1');
+      assert.deepStrictEqual(targetEntry?.additionalDirectories, ['/lib/a', '/lib/b']);
+      assert.strictEqual(targetEntry?.workspaceFile, '/w/app.code-workspace');
+      const target = registry.get(backendHarnessSnapshotAtom(CLAUDE)).sessions['claude-1'];
+      assert.deepStrictEqual(target.additionalDirectories, ['/lib/a', '/lib/b']);
     }),
   );
 

@@ -84,7 +84,7 @@ const sessionWithCredential = (parentSessionId?: string) =>
   Effect.gen(function* () {
     const received: McpReceived[] = [];
     yield* installFakeAgent([], { mcp: { received } });
-    const { result } = yield* createSession('codex-acp', '/w', parentSessionId);
+    const { result } = yield* createSession('codex-acp', '/w', { parentSessionId });
     const [server] = received[0].servers as readonly { url: string }[];
     return { sessionId: result.sessionId, token: bearerOf(received[0].servers), url: server.url };
   });

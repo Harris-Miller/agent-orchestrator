@@ -14,7 +14,6 @@ import {
 } from './composerImageAttachment.ts';
 import type { ComposerImageAttachment } from './composerImageAttachment.ts';
 import {
-  BLOB_EMBED_MAX_BYTES,
   draftToContentBlocks,
   findMarkdownLinks,
   promptBlocksFromComposerDraft,
@@ -60,10 +59,11 @@ const fileInfo = (type: FileSystem.File.Type, size: number): FileSystem.File.Inf
   uid: Option.none(),
 });
 
-const mockFsLayer = (entries: ReadonlyMap<string, MockEntry>) =>
+const mockFsLayer = (entries: ReadonlyMap<string, MockEntry>, reads?: string[]) =>
   layerNoop({
     exists: path => Effect.succeed(entries.has(path)),
     readFile: path => {
+      reads?.push(path);
       const entry = entries.get(path);
       if (entry?.type !== 'File') {
         return Effect.fail(notFound('readFile', path));
@@ -82,7 +82,8 @@ const mockFsLayer = (entries: ReadonlyMap<string, MockEntry>) =>
     },
   });
 
-const withFs = (entries: ReadonlyMap<string, MockEntry>) => Layer.mergeAll(posixPathLayer, mockFsLayer(entries));
+const withFs = (entries: ReadonlyMap<string, MockEntry>, reads?: string[]) =>
+  Layer.mergeAll(posixPathLayer, mockFsLayer(entries, reads));
 
 describe('findMarkdownLinks', () => {
   it('finds label and href spans', () => {
@@ -385,39 +386,39 @@ describe('draftToContentBlocks', () => {
     }).pipe(Effect.provide(withFs(new Map([['/session/a.txt', { bytes: encoder.encode('hello'), type: 'File' }]])))),
   );
 
-  it.effect('mid-size text → resource blob', () =>
-    Effect.gen(function* () {
-      const payload = 'x'.repeat(TEXT_EMBED_MAX_BYTES + 1);
-      const bytes = encoder.encode(payload);
-      assert.isTrue(bytes.byteLength > TEXT_EMBED_MAX_BYTES);
-      assert.isTrue(bytes.byteLength <= BLOB_EMBED_MAX_BYTES);
-
+  it.effect('oversized text → resource_link, not read', () => {
+    const reads: string[] = [];
+    return Effect.gen(function* () {
       const blocks = yield* draftToContentBlocks('[big](/session/big.txt)', {
         cwd: '/session',
         embeddedContext: true,
       });
-      assert.strictEqual(blocks.length, 1);
-      const [block] = blocks;
-      assert.strictEqual(block.type, 'resource');
-      if (block.type !== 'resource') {
-        return;
-      }
-      assert.isTrue('blob' in block.resource);
-      if (!('blob' in block.resource)) {
-        return;
-      }
-      assert.strictEqual(block.resource.uri, 'file:///session/big.txt');
-      assert.strictEqual(atob(block.resource.blob), payload);
+      assert.deepStrictEqual(blocks, [{ name: 'big.txt', type: 'resource_link', uri: 'file:///session/big.txt' }]);
+      assert.deepStrictEqual(reads, []);
     }).pipe(
       Effect.provide(
         withFs(
           new Map([
             ['/session/big.txt', { bytes: encoder.encode('x'.repeat(TEXT_EMBED_MAX_BYTES + 1)), type: 'File' }],
           ]),
+          reads,
         ),
       ),
-    ),
-  );
+    );
+  });
+
+  it.effect('text exactly at limit → resource text', () => {
+    const payload = 'x'.repeat(TEXT_EMBED_MAX_BYTES);
+    return Effect.gen(function* () {
+      const blocks = yield* draftToContentBlocks('[big](/session/big.txt)', {
+        cwd: '/session',
+        embeddedContext: true,
+      });
+      assert.deepStrictEqual(blocks, [
+        { resource: { text: payload, uri: 'file:///session/big.txt' }, type: 'resource' },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map([['/session/big.txt', { bytes: encoder.encode(payload), type: 'File' }]]))));
+  });
 
   it.effect('file with NUL → resource_link', () =>
     Effect.gen(function* () {

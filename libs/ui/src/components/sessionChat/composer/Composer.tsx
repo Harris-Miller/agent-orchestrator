@@ -141,7 +141,10 @@ export const Composer: FC<{
         return;
       }
       if (!imagePromptSupported) {
-        onClientError(new ImageAttachmentRejected({ message: AGENT_NO_IMAGES_MESSAGE }));
+        // No Agent chosen yet (fresh Virtual Composer): nothing to blame, so fail silently.
+        if (selectedLaunchTarget !== undefined) {
+          onClientError(new ImageAttachmentRejected({ message: AGENT_NO_IMAGES_MESSAGE }));
+        }
         return;
       }
       attachImages({ _tag: 'Files', files })
@@ -150,7 +153,7 @@ export const Composer: FC<{
           focusComposerEndRef.current?.();
         });
     },
-    [attachImages, canEdit, imagePromptSupported, onClientError],
+    [attachImages, canEdit, imagePromptSupported, onClientError, selectedLaunchTarget],
   );
 
   const hasFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files');

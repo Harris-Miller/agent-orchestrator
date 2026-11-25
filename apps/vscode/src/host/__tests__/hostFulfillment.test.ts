@@ -5,7 +5,7 @@ import { connectFakePeers } from '@lib/context-services-vscode-webview/testing';
 import { Effect } from 'effect';
 import { beforeEach, vi } from 'vitest';
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
@@ -599,6 +599,9 @@ describe('Host IPC fulfillment', () => {
           .request({ _tag: 'EditorReadTextFile', path: join(tmp, 'nope', 'missing.txt') })
           .pipe(Effect.flip);
         assert.strictEqual(missing._tag, 'IpcClientError');
+        assert.include(missing.message, 'File not found');
+        assert.notInclude(missing.message, 'missing.txt');
+        assert.notInclude(missing.message, tmp);
       }),
     );
 
@@ -624,6 +627,52 @@ describe('Host IPC fulfillment', () => {
         yield* client.request({ _tag: 'EditorWriteTextFile', content: 'fresh', path: file });
         assert.strictEqual(readFileSync(file, 'utf8'), 'fresh');
         assert.strictEqual(vscodeStub.workspace.applyEdit.mock.calls.length, 0);
+      }),
+    );
+
+    it.effect('fails without leaking the path when the document save returns false', () =>
+      Effect.gen(function* () {
+        const { client, tmp } = yield* fulfillment;
+        const file = join(tmp, 'open.txt');
+        const doc = openDocument(file, 'old');
+        doc.save.mockResolvedValueOnce(false);
+        const failed = yield* client
+          .request({ _tag: 'EditorWriteTextFile', content: 'new', path: file })
+          .pipe(Effect.flip);
+        assert.include(failed.message, 'Document save failed');
+        assert.notInclude(failed.message, tmp);
+      }),
+    );
+
+    it.effect('write fs failures carry a fixed message without the path', () =>
+      Effect.gen(function* () {
+        const { client, tmp } = yield* fulfillment;
+        const blocker = join(tmp, 'blocker');
+        writeFileSync(blocker, 'x');
+        // parent is a file, so mkdir/write fails with a path-bearing fs error
+        const failed = yield* client
+          .request({ _tag: 'EditorWriteTextFile', content: 'x', path: join(blocker, 'child.txt') })
+          .pipe(Effect.flip);
+        assert.include(failed.message, 'File write failed');
+        assert.notInclude(failed.message, tmp);
+        assert.notInclude(failed.message, 'child.txt');
+      }),
+    );
+
+    it.effect('write EACCES reports Permission denied without the path', () =>
+      Effect.gen(function* () {
+        if (process.platform === 'win32' || process.getuid?.() === 0) {
+          return;
+        }
+        const { client, tmp } = yield* fulfillment;
+        const dir = join(tmp, 'ro');
+        mkdirSync(dir);
+        chmodSync(dir, 0o500);
+        const failed = yield* client
+          .request({ _tag: 'EditorWriteTextFile', content: 'x', path: join(dir, 'f.txt') })
+          .pipe(Effect.flip, Effect.ensuring(Effect.sync(() => chmodSync(dir, 0o700))));
+        assert.include(failed.message, 'Permission denied');
+        assert.notInclude(failed.message, tmp);
       }),
     );
 

@@ -7,11 +7,11 @@ export const assertAbsolutePath = (path: string): void => {
   }
 };
 
-/** Path-normalized equality (case-insensitive on Windows). */
-export const samePath = (a: string, b: string): boolean => {
+/** Path-normalized equality; case-insensitive everywhere except Linux, matching VS Code. */
+export const samePath = (a: string, b: string, platform: NodeJS.Platform = process.platform): boolean => {
   const left = resolve(a);
   const right = resolve(b);
-  return process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
+  return platform === 'linux' ? left === right : left.toLowerCase() === right.toLowerCase();
 };
 
 /**

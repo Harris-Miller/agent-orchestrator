@@ -53,8 +53,8 @@ The host capability to open an absolute filesystem path in the Host editor; dire
 _Avoid_: showTextDocument, vscode.open (when you mean the portable Seam)
 
 **EditorFiles** (service):
-The host capability to read and write text files through the Host editor's documents, so an open document's unsaved content is what is read and a write lands in the open document. Backs the Agent's ACP `fs/read_text_file` / `fs/write_text_file` requests. `readText` takes an absolute path and an optional 1-based `line` and `limit`; `writeText` takes an absolute path and content. Both fail with `EditorFilesFailed` rather than returning empty content. The `supported` flag reports availability; Harness code advertises ACP filesystem capabilities only when it is true. Desktop does not support it.
-_Avoid_: FileSystem (the disk-only Seam), Host IPC FsReadFileString / FsWriteFileString (disk-only)
+The host capability to read and write text files through the Host editor, so reads see an open document's unsaved content. The `supported` flag reports availability; Harness code advertises ACP filesystem capabilities only when it is true. Desktop does not support it.
+_Avoid_: FileSystem (the disk-only Seam)
 
 **Host**:
 The runtime environment that supplies a live implementation of Host services to Harness code (desktop Tauri webview; VS Code webview; Node/Bun for non-webview tools). Prefer this generic term across Hosts; on VS Code the webview is the Host and the extension host fulfills behind Host IPC.

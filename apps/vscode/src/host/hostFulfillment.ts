@@ -48,6 +48,21 @@ export const postWorkspaceFoldersChanged = (
   postIpcMessage(port, { _tag: 'WorkspaceFoldersChanged', ...workspaceFoldersPayload(folders, workspaceFile) });
 };
 
+const findOpenDocument = (path: string) =>
+  vscode.workspace.textDocuments.find(doc => doc.uri.scheme === 'file' && samePath(doc.uri.fsPath, path));
+
+/** Fixed-message error for an fs failure: the original message embeds the absolute path (Private data). */
+const pathFreeFsError = (error: unknown, fallback: string): Error => {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === 'ENOENT') {
+    return new Error('File not found');
+  }
+  if (code === 'EACCES' || code === 'EPERM') {
+    return new Error('Permission denied');
+  }
+  return new Error(fallback);
+};
+
 const stringEnv = (): Record<string, string> => {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
@@ -106,20 +121,25 @@ export const makeHostIpcFulfillment = (deps: {
     },
     EditorReadTextFile: async message => {
       assertAbsolutePath(message.path);
-      const open = vscode.workspace.textDocuments.find(
-        doc => doc.uri.scheme === 'file' && samePath(doc.uri.fsPath, message.path),
-      );
-      const text = open === undefined ? await readFile(message.path, 'utf8') : open.getText();
+      const open = findOpenDocument(message.path);
+      const text =
+        open === undefined
+          ? await readFile(message.path, 'utf8').catch((error: unknown) => {
+              throw pathFreeFsError(error, 'File read failed');
+            })
+          : open.getText();
       return { content: sliceTextLines(text, message.line, message.limit) };
     },
     EditorWriteTextFile: async message => {
       assertAbsolutePath(message.path);
-      const open = vscode.workspace.textDocuments.find(
-        doc => doc.uri.scheme === 'file' && samePath(doc.uri.fsPath, message.path),
-      );
+      const open = findOpenDocument(message.path);
       if (open === undefined) {
-        await mkdir(dirname(message.path), { recursive: true });
-        await writeFile(message.path, message.content, 'utf8');
+        try {
+          await mkdir(dirname(message.path), { recursive: true });
+          await writeFile(message.path, message.content, 'utf8');
+        } catch (error) {
+          throw pathFreeFsError(error, 'File write failed');
+        }
         return {};
       }
       const edit = new vscode.WorkspaceEdit();
@@ -127,7 +147,9 @@ export const makeHostIpcFulfillment = (deps: {
       if (!(await vscode.workspace.applyEdit(edit))) {
         throw new Error('Editor rejected the edit');
       }
-      await open.save();
+      if (!(await open.save())) {
+        throw new Error('Document save failed');
+      }
       return {};
     },
     FileDialogPickFiles: async message => {

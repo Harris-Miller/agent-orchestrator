@@ -33,12 +33,7 @@ describe('sliceTextLines', () => {
 
 describe('assertAbsolutePath / samePath', () => {
   it('rejects relative paths without echoing them', () => {
-    assert.throws(() => assertAbsolutePath('secret/rel.ts'), /must be absolute/);
-    try {
-      assertAbsolutePath('secret/rel.ts');
-    } catch (error) {
-      assert.notInclude((error as Error).message, 'secret');
-    }
+    assert.throws(() => assertAbsolutePath('secret/rel.ts'), /^(?!.*secret).*must be absolute/);
     assertAbsolutePath(resolve('x'));
   });
 
@@ -46,5 +41,13 @@ describe('assertAbsolutePath / samePath', () => {
     const base = resolve('some', 'dir');
     assert.isTrue(samePath(join(base, 'a', '..', 'f.ts'), join(base, 'f.ts')));
     assert.isFalse(samePath(join(base, 'f.ts'), join(base, 'g.ts')));
+  });
+
+  it('is case-insensitive except on linux', () => {
+    const upper = join(resolve('some'), 'F.ts');
+    const lower = join(resolve('some'), 'f.ts');
+    assert.isTrue(samePath(upper, lower, 'darwin'));
+    assert.isTrue(samePath(upper, lower, 'win32'));
+    assert.isFalse(samePath(upper, lower, 'linux'));
   });
 });

@@ -12,11 +12,23 @@ import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.t
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { deactivateSession } from './sessionLifecycle.ts';
 import { hydrateTrackedSessions } from './trackedSessions.ts';
-import { clearSelectedIfMissing, discardVirtual, ensureVirtual } from './virtualSession.atoms.ts';
+import {
+  clearSelectedIfMissing,
+  discardVirtual,
+  editVirtual,
+  ensureVirtual,
+  virtualSessionAtom,
+} from './virtualSession.atoms.ts';
 import { sessionHistorySearchAtom } from './sessionHistorySearch.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { isChild } from './spawnedSubagent/index.ts';
-import { workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
+import { workspaceDirectoriesAtom, workspaceFileAtom, workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
+
+/** The Workspace folders: file-scheme paths and, for a saved workspace, its workspace file. */
+export interface WorkspaceFolders {
+  readonly paths: readonly string[];
+  readonly workspaceFile?: string;
+}
 
 const stripPendingOnMatched = (
   registry: AtomRegistry.AtomRegistry,
@@ -50,18 +62,27 @@ const repointVirtual = (registry: AtomRegistry.AtomRegistry, cwd: string | undef
 const anyBackendUsable = (getSnapshot: (launchTarget: AgentLaunchTarget) => BackendHarnessSnapshot): boolean =>
   MOUNTED_AGENT_LAUNCH_TARGETS.some(launchTarget => isUsablePhase(getSnapshot(launchTarget).phase));
 
-const applyWorkspaceFolderPaths = (registry: AtomRegistry.AtomRegistry, paths: readonly string[]): void => {
+const storeWorkspaceFolders = (
+  registry: AtomRegistry.AtomRegistry,
+  { paths, workspaceFile }: WorkspaceFolders,
+): void => {
   registry.set(workspaceFolderPathsAtom, paths);
+  registry.set(workspaceFileAtom, workspaceFile);
+};
+
+const applyWorkspaceFolders = (registry: AtomRegistry.AtomRegistry, folders: WorkspaceFolders): void => {
+  storeWorkspaceFolders(registry, folders);
+  const { paths } = folders;
   registry.set(sessionListScopeAtom, sessionListScopeFromPaths(paths));
 };
 
 /** Apply the initial folder paths and ensure the Virtual session for the first folder. */
 export const bootWorkspaceFolders = Effect.fn('bootWorkspaceFolders')(function* (
   registry: AtomRegistry.AtomRegistry,
-  paths: readonly string[],
+  folders: WorkspaceFolders,
 ) {
-  applyWorkspaceFolderPaths(registry, paths);
-  const cwd = firstFolderPath(paths);
+  applyWorkspaceFolders(registry, folders);
+  const cwd = firstFolderPath(folders.paths);
   if (cwd !== undefined) {
     // The ensure verb rebinds when Ready already fired; a sync blob seed alone can miss Bind.
     yield* ensureVirtual(registry, { cwd }).pipe(Effect.ignore);
@@ -70,26 +91,33 @@ export const bootWorkspaceFolders = Effect.fn('bootWorkspaceFolders')(function* 
 
 /**
  * Handle a Workspace folders change after the first Result was applied.
- * - Same first folder: store paths only.
- * - First folder changed, no ready backend: apply paths and re-point Virtual.
+ * - Same first folder: store the folders; Active sessions stay up. A Virtual blob on that cwd takes the new Additional
+ *   directories and workspace file (a changed set tears down and rebinds its Bound session); the next create uses them.
+ * - First folder changed, no ready backend: apply the folders and re-point Virtual.
  * - First folder changed, a backend ready: cancel prompts and deactivate sessions on the previous cwd,
- *   strip pendings, clear Selected, apply paths, re-point Virtual, hydrate the new Workspace cwd's Tracked sessions.
+ *   strip pendings, clear Selected, apply the folders, re-point Virtual, hydrate the new Workspace cwd's Tracked sessions.
  */
 export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersChanged')(function* (
   registry: AtomRegistry.AtomRegistry,
-  nextPaths: readonly string[],
+  nextFolders: WorkspaceFolders,
 ) {
+  const nextPaths = nextFolders.paths;
   const previousPaths = registry.get(workspaceFolderPathsAtom);
   const previousSessionCwd = firstFolderPath(previousPaths);
   const nextSessionCwd = firstFolderPath(nextPaths);
 
   if (previousSessionCwd === nextSessionCwd) {
-    registry.set(workspaceFolderPathsAtom, nextPaths);
+    storeWorkspaceFolders(registry, nextFolders);
+    const virtual = registry.get(virtualSessionAtom);
+    if (nextSessionCwd !== undefined && virtual?.cwd === nextSessionCwd) {
+      const { additionalDirectories, workspaceFile } = registry.get(workspaceDirectoriesAtom);
+      yield* editVirtual(registry, { additionalDirectories: additionalDirectories ?? [], workspaceFile });
+    }
     return;
   }
 
   registry.set(sessionHistorySearchAtom, { scope: nextSessionCwd, query: '' });
-  applyWorkspaceFolderPaths(registry, nextPaths);
+  applyWorkspaceFolders(registry, nextFolders);
 
   const getSnapshot = (launchTarget: AgentLaunchTarget) => registry.get(backendHarnessSnapshotAtom(launchTarget));
   if (!anyBackendUsable(getSnapshot)) {

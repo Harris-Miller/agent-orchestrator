@@ -1,9 +1,23 @@
 import { Atom } from 'effect/reactivity';
 
+import { normalizeSessionDirectories } from '../host/sessionDirectories.ts';
+import type { SessionDirectories } from '../host/sessionDirectories.ts';
+
 /** Absolute file-scheme Workspace folder paths (extension order). Empty = no folder. */
 export const workspaceFolderPathsAtom = Atom.make<readonly string[]>([]).pipe(Atom.keepAlive);
+
+/** The saved workspace's `.code-workspace` path; undefined for untitled, non-file and no workspace. */
+export const workspaceFileAtom = Atom.make<string | undefined>(undefined).pipe(Atom.keepAlive);
 
 /** Session cwd = first folder path, or undefined when none. */
 export const sessionCwdAtom = Atom.make((get): string | undefined => get(workspaceFolderPathsAtom)[0]).pipe(
   Atom.keepAlive,
 );
+
+/** What a new session in this workspace carries beyond its cwd: the other Workspace folders and the workspace file. */
+export const workspaceDirectoriesAtom = Atom.make((get): SessionDirectories =>
+  normalizeSessionDirectories({
+    additionalDirectories: get(workspaceFolderPathsAtom).slice(1),
+    workspaceFile: get(workspaceFileAtom),
+  }),
+).pipe(Atom.keepAlive);

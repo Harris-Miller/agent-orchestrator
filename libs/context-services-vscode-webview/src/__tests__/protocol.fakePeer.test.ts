@@ -1,3 +1,5 @@
+import { join, resolve } from 'node:path';
+
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
 
@@ -8,9 +10,14 @@ import {
   onWorkspaceFoldersChanged,
   requestWorkspaceFolders,
 } from '../protocol/index.ts';
-import type { IpcMessage } from '../protocol/index.ts';
+import type { IpcMessage, WorkspaceFolders } from '../protocol/index.ts';
 
 import { connectFakePeers } from '../protocol/fakePeer.testing.ts';
+
+const WS_A = resolve('/ws/a');
+const WS_B = resolve('/ws/b');
+const WS_CHANGED = resolve('/ws/changed');
+const WORKSPACE_FILE = join(resolve('/ws'), 'x.code-workspace');
 
 describe('extension↔webview IPC protocol (fake peer)', () => {
   it.effect('round-trips OsSnapshot request and result over duplex ports', () =>
@@ -145,13 +152,14 @@ describe('extension↔webview IPC protocol (fake peer)', () => {
           encodeIpcMessage({
             _tag: 'WorkspaceFoldersResult',
             id: message.id,
-            paths: ['/ws/a', '/ws/b'],
+            paths: [WS_A, WS_B],
+            workspaceFile: WORKSPACE_FILE,
           }),
         );
       });
 
-      const paths = yield* requestWorkspaceFolders(client);
-      assert.deepStrictEqual(paths, ['/ws/a', '/ws/b']);
+      const folders = yield* requestWorkspaceFolders(client);
+      assert.deepStrictEqual(folders, { paths: [WS_A, WS_B], workspaceFile: WORKSPACE_FILE });
       client.dispose();
     }),
   );
@@ -161,20 +169,39 @@ describe('extension↔webview IPC protocol (fake peer)', () => {
       const [webview, extension] = connectFakePeers();
       const client = new IpcClient(webview);
 
-      const received = yield* Effect.callback<readonly string[]>(resume => {
-        const dispose = onWorkspaceFoldersChanged(client, paths => {
+      const received = yield* Effect.callback<WorkspaceFolders>(resume => {
+        const dispose = onWorkspaceFoldersChanged(client, folders => {
           dispose();
-          resume(Effect.succeed(paths));
+          resume(Effect.succeed(folders));
         });
         extension.postMessage(
           encodeIpcMessage({
             _tag: 'WorkspaceFoldersChanged',
-            paths: ['/ws/changed'],
+            paths: [WS_CHANGED],
+            workspaceFile: WORKSPACE_FILE,
           }),
         );
       });
 
-      assert.deepStrictEqual(received, ['/ws/changed']);
+      assert.deepStrictEqual(received, { paths: [WS_CHANGED], workspaceFile: WORKSPACE_FILE });
+      client.dispose();
+    }),
+  );
+
+  it.effect('omits workspaceFile when the push has none', () =>
+    Effect.gen(function* () {
+      const [webview, extension] = connectFakePeers();
+      const client = new IpcClient(webview);
+
+      const received = yield* Effect.callback<WorkspaceFolders>(resume => {
+        const dispose = onWorkspaceFoldersChanged(client, folders => {
+          dispose();
+          resume(Effect.succeed(folders));
+        });
+        extension.postMessage(encodeIpcMessage({ _tag: 'WorkspaceFoldersChanged', paths: [WS_CHANGED] }));
+      });
+
+      assert.deepStrictEqual(received, { paths: [WS_CHANGED] });
       client.dispose();
     }),
   );

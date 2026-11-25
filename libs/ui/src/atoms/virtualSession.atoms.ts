@@ -67,6 +67,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { applyRecommendedValues, applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
 import { trackSession } from './trackSession.ts';
+import { sessionCwdAtom, workspaceDirectoriesAtom } from './workspaceFolderPaths.atoms.ts';
 import { adoptIntoWorkstream, pendingWorkstreamAtom } from './workstreams.atoms.ts';
 import { annotateLaunchTargetLogs, annotateSessionLogs } from '../host/sessionTelemetry.ts';
 
@@ -99,8 +100,10 @@ export type EnsureVirtualSessionArg = {
   readonly patchCwdIfSelectedVirtual?: boolean;
 };
 
-/** Composer edits on the blob. A cwd or Additional directories (set) change tears down and rebinds; draft and attachment edits never Bind. */
-export type VirtualEdit = Partial<Pick<VirtualSession, 'additionalDirectories' | 'attachments' | 'cwd' | 'draft'>>;
+/** Composer edits on the blob. A cwd or Additional directories (set) change tears down and rebinds; draft, attachment and workspace file edits never Bind. */
+export type VirtualEdit = Partial<
+  Pick<VirtualSession, 'additionalDirectories' | 'attachments' | 'cwd' | 'draft' | 'workspaceFile'>
+>;
 
 export type VirtualConfigOptionArg =
   | {
@@ -156,6 +159,8 @@ type BindKey = {
 
 /** One Bind attempt. `done` resolves to the Bound id, or `undefined` when failed / superseded. */
 type VirtualBind = BindKey & {
+  /** Captured with the request, not part of the Bind key: recorded on the created Session, never sent to the Agent. */
+  readonly workspaceFile?: string;
   readonly done: Deferred.Deferred<string | undefined>;
   readonly generation: number;
 };
@@ -227,21 +232,30 @@ const ensureBlob = (registry: Registry, arg: EnsureVirtualSessionArg): void => {
 
   const selected = registry.get(selectedAtom);
   const existing = registry.get(virtualSessionAtom);
+  // A blob on the Workspace cwd carries the workspace's Additional directories and workspace file. The cwd must be
+  // defined: with no Workspace folder (or on desktop) both sides are undefined and a blob is never stamped with directories.
+  const withDirectories = (blob: VirtualSession): VirtualSession => {
+    if (arg.cwd === undefined || arg.cwd !== registry.get(sessionCwdAtom)) {
+      return blob;
+    }
+    const { additionalDirectories, workspaceFile } = registry.get(workspaceDirectoriesAtom);
+    return { ...blob, additionalDirectories, workspaceFile };
+  };
 
   if (selected?._tag === 'Virtual') {
     if (arg.patchCwdIfSelectedVirtual === true && arg.cwd !== undefined && existing !== null) {
-      setBlob(registry, { ...existing, cwd: arg.cwd });
+      setBlob(registry, withDirectories({ ...existing, cwd: arg.cwd }));
     }
     return;
   }
 
   if (existing !== null) {
-    setBlob(registry, arg.cwd !== undefined ? { ...existing, cwd: arg.cwd } : existing);
+    setBlob(registry, arg.cwd !== undefined ? withDirectories({ ...existing, cwd: arg.cwd }) : existing);
     registry.set(selectedAtom, { _tag: 'Virtual' });
     return;
   }
 
-  setBlob(registry, { ...emptyVirtual(), ...seedFromLastDefaults(registry), cwd: arg.cwd });
+  setBlob(registry, withDirectories({ ...emptyVirtual(), ...seedFromLastDefaults(registry), cwd: arg.cwd }));
   registry.set(selectedAtom, { _tag: 'Virtual' });
 };
 
@@ -357,14 +371,14 @@ const releaseBoundInBackground = Effect.fn('releaseBoundInBackground')(function*
 
 /** One Bind attempt: `session/new` + sessions-map upsert; discards (tears down) its session when superseded. */
 const runBind = Effect.fn('runBind')(function* (registry: Registry, bind: VirtualBind) {
-  const { additionalDirectories, cwd, launchTarget } = bind;
+  const { additionalDirectories, cwd, launchTarget, workspaceFile } = bind;
   yield* Effect.annotateCurrentSpan({ [ACP_LAUNCH_TARGET]: launchTarget });
   yield* Effect.logInfo('UI runBind').pipe(
     Effect.annotateLogs({ cwd: Redacted.make(cwd) }),
     annotateLaunchTargetLogs(launchTarget),
   );
 
-  const createExit = yield* Effect.exit(createSession(launchTarget, cwd, { additionalDirectories }));
+  const createExit = yield* Effect.exit(createSession(launchTarget, cwd, { additionalDirectories, workspaceFile }));
   if (Exit.isFailure(createExit)) {
     yield* Effect.logError('runBind session/new failed', createExit.cause).pipe(annotateLaunchTargetLogs(launchTarget));
     return undefined;
@@ -403,7 +417,7 @@ const requestBind = Effect.fn('requestBind')(function* (registry: Registry) {
   if (virtual === null) {
     return undefined;
   }
-  const { additionalDirectories, cwd, launchTarget, sessionId } = virtual;
+  const { additionalDirectories, cwd, launchTarget, sessionId, workspaceFile } = virtual;
   if (launchTarget === undefined || cwd === undefined || !isAbsoluteCwd(cwd)) {
     return undefined;
   }
@@ -435,6 +449,7 @@ const requestBind = Effect.fn('requestBind')(function* (registry: Registry) {
     done: yield* Deferred.make<string | undefined>(),
     generation: state.latest + 1,
     launchTarget,
+    workspaceFile,
   };
   registry.set(virtualBindAtom, { current: bind, latest: bind.generation });
 
@@ -741,6 +756,32 @@ export const editVirtual = Effect.fn('editVirtual')(function* (registry: Registr
   yield* mutateThenRebind(registry, {
     mutate: () => {
       patchBlob(registry, edit);
+      // The workspace file is not part of the Bind key: keep an already Bound session's copy current in place.
+      const { launchTarget, sessionId } = before ?? {};
+      if (
+        'workspaceFile' in edit &&
+        edit.workspaceFile !== before?.workspaceFile &&
+        launchTarget !== undefined &&
+        sessionId !== undefined &&
+        !registry.get(virtualMaterializingAtom)
+      ) {
+        updateHarnessSnapshot(registry, launchTarget, current => {
+          if (!(sessionId in current.sessions)) {
+            return current;
+          }
+          const { workspaceFile: _stale, ...rest } = current.sessions[sessionId];
+          return {
+            ...current,
+            sessions: {
+              ...current.sessions,
+              [sessionId]: {
+                ...rest,
+                ...(edit.workspaceFile === undefined ? {} : { workspaceFile: edit.workspaceFile }),
+              },
+            },
+          };
+        });
+      }
     },
     rebind:
       before !== null &&

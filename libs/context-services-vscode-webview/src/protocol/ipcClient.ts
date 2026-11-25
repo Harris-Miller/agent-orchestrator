@@ -10,6 +10,7 @@ import type {
   WebviewPush,
 } from './messages.ts';
 import type { IpcPort } from './port.ts';
+import type { WorkspaceFolders } from './workspaceFoldersIpc.ts';
 
 export class IpcClientError extends Schema.TaggedError<IpcClientError>()('IpcClientError', {
   cause: Schema.optional(Schema.Unknown),
@@ -45,7 +46,7 @@ const PROCESS_NOTIFICATION_TAGS: ReadonlySet<ProcessNotification['_tag']> = new 
 const isProcessNotification = (message: IpcMessage): message is ProcessNotification =>
   PROCESS_NOTIFICATION_TAGS.has(message._tag as ProcessNotification['_tag']);
 
-type WorkspaceFoldersChangedListener = (paths: readonly string[]) => void;
+type WorkspaceFoldersChangedListener = (folders: WorkspaceFolders) => void;
 
 /**
  * Request/response + process notification demux over an {@link IpcPort}.
@@ -164,7 +165,11 @@ export class IpcClient {
 
     if (message._tag === 'WorkspaceFoldersChanged') {
       for (const listener of this.workspaceFoldersChangedListeners) {
-        listener(message.paths);
+        listener(
+          message.workspaceFile === undefined
+            ? { paths: message.paths }
+            : { paths: message.paths, workspaceFile: message.workspaceFile },
+        );
       }
       return;
     }

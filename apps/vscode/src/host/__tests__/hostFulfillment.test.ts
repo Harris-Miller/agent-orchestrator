@@ -9,9 +9,9 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
-import { captureStartupOtelEnv, makeHostIpcFulfillment } from '../hostFulfillment';
+import { captureStartupOtelEnv, makeHostIpcFulfillment, postWorkspaceFoldersChanged } from '../hostFulfillment';
 import { ProcessTracker } from '../processTracker';
 
 const vscodeStub = vi.hoisted(() => ({
@@ -51,7 +51,10 @@ const makeFulfillment = (isExtensionDevelopment = false) =>
       const tmp = await mkdtemp(join(tmpdir(), 'hoa-host-fulfillment-'));
       const [webview, extension] = connectFakePeers();
       const tracker = new ProcessTracker();
-      const state: { folders: readonly Folder[] | undefined } = { folders: undefined };
+      const state: { folders: readonly Folder[] | undefined; workspaceFile: Folder['uri'] | undefined } = {
+        folders: undefined,
+        workspaceFile: undefined,
+      };
       const stop = serveHostIpc(
         extension,
         makeHostIpcFulfillment({
@@ -60,6 +63,7 @@ const makeFulfillment = (isExtensionDevelopment = false) =>
           port: extension,
           tracker,
           webviewId: 'wv-1',
+          workspaceFile: () => state.workspaceFile as never,
           workspaceFolders: () => state.folders as never,
         }),
       );
@@ -305,6 +309,37 @@ describe('Host IPC fulfillment', () => {
       assert.deepStrictEqual((yield* client.request({ _tag: 'WorkspaceFolders' })).paths, ['/ws/a']);
       state.folders = [{ uri: { fsPath: '/ws/b', scheme: 'file' } }];
       assert.deepStrictEqual((yield* client.request({ _tag: 'WorkspaceFolders' })).paths, ['/ws/b']);
+    }),
+  );
+
+  it.effect('reports the saved workspace file and omits untitled ones', () =>
+    Effect.gen(function* () {
+      const { client, state } = yield* fulfillment;
+      const wsFile = join(resolve('/ws'), 'x.code-workspace');
+      state.folders = [{ uri: { fsPath: resolve('/ws/a'), scheme: 'file' } }];
+      state.workspaceFile = { fsPath: wsFile, scheme: 'file' };
+      assert.strictEqual((yield* client.request({ _tag: 'WorkspaceFolders' })).workspaceFile, wsFile);
+      state.workspaceFile = { fsPath: 'Untitled', scheme: 'untitled' };
+      assert.notProperty(yield* client.request({ _tag: 'WorkspaceFolders' }), 'workspaceFile');
+    }),
+  );
+
+  it.effect('pushes the workspace file with a Workspace folders change, and omits it when there is none', () =>
+    Effect.gen(function* () {
+      const [webview, extension] = connectFakePeers();
+      const pushed: IpcMessage[] = [];
+      webview.onMessage(raw => pushed.push(decodeIpcMessage(raw)));
+      const folder = { uri: { fsPath: resolve('/ws/a'), scheme: 'file' } } as never;
+      const wsFile = join(resolve('/ws'), 'x.code-workspace');
+
+      postWorkspaceFoldersChanged(extension, [folder], { fsPath: wsFile, scheme: 'file' } as never);
+      postWorkspaceFoldersChanged(extension, [folder], undefined);
+
+      assert.deepStrictEqual(pushed, [
+        { _tag: 'WorkspaceFoldersChanged', paths: [resolve('/ws/a')], workspaceFile: wsFile },
+        { _tag: 'WorkspaceFoldersChanged', paths: [resolve('/ws/a')] },
+      ]);
+      assert.notProperty(pushed[1], 'workspaceFile');
     }),
   );
 

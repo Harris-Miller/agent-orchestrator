@@ -1,3 +1,5 @@
+import { join, resolve } from 'node:path';
+
 import { assert, describe, it } from '@effect/vitest';
 import { upsertTrackedSessions } from '@lib/hoa-home';
 import { mapFsTestServices } from '@lib/hoa-home/testing';
@@ -14,12 +16,15 @@ import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { sessionHistorySearchAtom } from './sessionHistorySearch.atoms.ts';
 
+const WORKSPACE_FILE = join(resolve('/workspace'), 'x.code-workspace');
+const NEW_DIR = resolve('/new');
+
 bindHostRuntime(createHostRuntime(mockHostLayer));
 
 const [
   { backendHarnessSnapshotAtom, selectedAtom },
   { sessionListScopeAtom },
-  { workspaceFolderPathsAtom },
+  { workspaceDirectoriesAtom, workspaceFolderPathsAtom },
   workspaceFolders,
 ] = await Promise.all([
   import('./backendState.atoms.ts'),
@@ -34,7 +39,7 @@ describe('workspace folder policy', () => {
   it.effect('boot stores folder paths and derived list scope', () =>
     Effect.gen(function* () {
       const registry = AtomRegistry.make();
-      yield* bootWorkspaceFolders(registry, []);
+      yield* bootWorkspaceFolders(registry, { paths: [] });
 
       assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), []);
       assert.deepStrictEqual(registry.get(sessionListScopeAtom), { _tag: 'Skip' });
@@ -42,7 +47,7 @@ describe('workspace folder policy', () => {
     }),
   );
 
-  it.effect('same first folder updates paths without tearing down sessions', () =>
+  it.effect('same first folder updates the folder set and directories without tearing down sessions', () =>
     Effect.gen(function* () {
       const registry = AtomRegistry.make();
       registry.set(workspaceFolderPathsAtom, ['/workspace', '/old']);
@@ -59,9 +64,16 @@ describe('workspace folder policy', () => {
         },
       }));
 
-      yield* handleWorkspaceFoldersChanged(registry, ['/workspace', '/new']).pipe(Effect.provide(mockHostLayer));
+      yield* handleWorkspaceFoldersChanged(registry, {
+        paths: [resolve('/workspace'), NEW_DIR],
+        workspaceFile: WORKSPACE_FILE,
+      }).pipe(Effect.provide(mockHostLayer));
 
-      assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), ['/workspace', '/new']);
+      assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), [resolve('/workspace'), NEW_DIR]);
+      assert.deepStrictEqual(registry.get(workspaceDirectoriesAtom), {
+        additionalDirectories: [NEW_DIR],
+        workspaceFile: WORKSPACE_FILE,
+      });
       assert.strictEqual(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions.session.status, 'active');
       registry.dispose();
     }),
@@ -72,7 +84,7 @@ describe('workspace folder policy', () => {
       const registry = AtomRegistry.make();
       registry.set(workspaceFolderPathsAtom, ['/workspace']);
       registry.set(sessionHistorySearchAtom, { scope: '/workspace', query: 'old search' });
-      yield* handleWorkspaceFoldersChanged(registry, ['/new']).pipe(Effect.provide(mockHostLayer));
+      yield* handleWorkspaceFoldersChanged(registry, { paths: ['/new'] }).pipe(Effect.provide(mockHostLayer));
       assert.deepStrictEqual(registry.get(sessionHistorySearchAtom), { scope: '/new', query: '' });
       registry.dispose();
     }),
@@ -90,7 +102,7 @@ describe('workspace folder policy', () => {
         { cwd: '/elsewhere', sessionId: 'other' },
       ]).pipe(Effect.provide(layer));
 
-      yield* handleWorkspaceFoldersChanged(registry, ['/new']).pipe(Effect.provide(layer));
+      yield* handleWorkspaceFoldersChanged(registry, { paths: ['/new'] }).pipe(Effect.provide(layer));
 
       assert.deepStrictEqual(
         registry.get(backendHarnessSnapshotAtom('codex-acp')).sessionHistory.map(entry => entry.sessionId),
@@ -106,7 +118,7 @@ describe('workspace folder policy', () => {
       registry.set(workspaceFolderPathsAtom, ['/workspace']);
       registry.set(selectedAtom, { _tag: 'Virtual' });
 
-      yield* handleWorkspaceFoldersChanged(registry, []).pipe(Effect.provide(mockHostLayer));
+      yield* handleWorkspaceFoldersChanged(registry, { paths: [] }).pipe(Effect.provide(mockHostLayer));
 
       assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), []);
       assert.isUndefined(registry.get(selectedAtom));

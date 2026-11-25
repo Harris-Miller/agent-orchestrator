@@ -30,3 +30,4 @@ export type {
 } from './messages.ts';
 export type { IpcPort } from './port.ts';
 export { onWorkspaceFoldersChanged, requestWorkspaceFolders } from './workspaceFoldersIpc.ts';
+export type { WorkspaceFolders } from './workspaceFoldersIpc.ts';

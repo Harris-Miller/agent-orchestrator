@@ -205,7 +205,10 @@ const createSessionTraced = Effect.fn('createSession')(
     onConfigIndexEvent({ _tag: 'SessionNew', response: result });
     return {
       cwd,
-      directories: normalizeSessionDirectories({ additionalDirectories: options.additionalDirectories }),
+      directories: normalizeSessionDirectories({
+        additionalDirectories: options.additionalDirectories,
+        workspaceFile: options.workspaceFile,
+      }),
       result,
     };
   },
@@ -215,6 +218,8 @@ const createSessionTraced = Effect.fn('createSession')(
 
 /** What a `session/new` may carry beyond the cwd. */
 export type CreateSessionOptions = SessionDirectoriesOptions & {
+  /** Recorded on the created Session only; never sent to the Agent. */
+  readonly workspaceFile?: string;
   /** Set for a Spawned subagent session. */
   readonly parentSessionId?: string;
 };

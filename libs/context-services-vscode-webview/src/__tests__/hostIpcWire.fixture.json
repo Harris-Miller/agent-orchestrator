@@ -1205,6 +1205,9 @@
         "items": {
           "type": "string"
         }
+      },
+      "workspaceFile": {
+        "type": "string"
       }
     },
     "required": ["_tag", "paths"],
@@ -1225,6 +1228,9 @@
         "items": {
           "type": "string"
         }
+      },
+      "workspaceFile": {
+        "type": "string"
       }
     },
     "required": ["_tag", "id", "paths"],

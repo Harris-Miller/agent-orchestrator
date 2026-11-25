@@ -17,8 +17,20 @@ Full-page Harness UI route (`/settings/$category`, default entry `/settings/gene
 _Avoid_: Settings modal, settings dialog, config screen
 
 **Theme preference**:
-User-chosen Harness UI theme id stored in User settings. Always picks the file-icon set; it picks the colors too except in VS Code with Match VS Code theme on (where it is disabled) (see the ui glossary).
+A palette id (Default (Dark), Default (Light), Catppuccin Latte, GitHub Dark, …). Two are stored in User settings, the Light palette and the Dark palette. The painted one always picks the file-icon set; it picks the colors too except in VS Code with Match VS Code theme on (where both are disabled) (see the ui glossary).
 _Avoid_: color mode, appearance mode, MUI theme (when meaning the preference)
+
+**Light palette**:
+The Theme preference used while the light side is painted. Only a light Theme preference can fill it. Defaults to Default (Light).
+_Avoid_: light theme id, day theme
+
+**Dark palette**:
+The Theme preference used while the dark side is painted. Only a dark Theme preference can fill it. Defaults to Default (Dark).
+_Avoid_: dark theme id, night theme
+
+**Painted slot setting**:
+The User setting that chooses which palette is painted: always light, always dark, or use system. Use system follows the OS light/dark setting live and never writes User settings. Desktop only: the VS Code webview always paints the slot that matches the active VS Code color theme, and ignores this setting. Unset means use system.
+_Avoid_: color mode, appearance mode, light/dark toggle, theme mode
 
 **Session delete confirmation**:
 Whether deleting a session shows the confirm dialog; stored in User settings; on when unset.

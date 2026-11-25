@@ -127,12 +127,12 @@ export const setBackendAdditionalDirectories = (launchTarget: AgentLaunchTarget,
 
 /**
  * The wire side of the intended Additional directories: `params` carries `{ additionalDirectories }` only when the Agent
- * is capable and the list is non-empty (the key is never sent otherwise); `log` is the count sent, never the paths.
+ * is capable and the list is non-empty (the key is never sent otherwise).
  */
 const wireDirectories = (capable: boolean, directories: readonly string[] | undefined) => {
   const params: { readonly additionalDirectories?: string[] } =
     capable && directories !== undefined && directories.length > 0 ? { additionalDirectories: [...directories] } : {};
-  return { log: { additional_directories: params.additionalDirectories?.length ?? 0 }, params };
+  return { params };
 };
 
 /** What a `session/fork`, `session/load` or `session/resume` may carry beyond the cwd. */
@@ -193,9 +193,7 @@ const createSessionTraced = Effect.fn('createSession')(
     const { additionalDirectories, agent, mcpHttp, onConfigIndexEvent } = yield* requireBackendConnection(launchTarget);
     const { parentSessionId } = options;
     const directories = wireDirectories(additionalDirectories, options.additionalDirectories);
-    yield* Effect.logInfo('Creating ACP session').pipe(
-      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directories.log }),
-    );
+    yield* Effect.logInfo('Creating ACP session').pipe(Effect.annotateLogs({ cwd: Redacted.make(cwd) }));
     const mcp = yield* beginMcp(launchTarget, mcpHttp, parentSessionId);
     const result = yield* agent['session/new']({ cwd, ...directories.params, ...mcp.params }).pipe(
       Effect.onError(() => mcp.abandon),
@@ -233,9 +231,7 @@ export const forkSession = Effect.fn('forkSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string, options: SessionDirectoriesOptions = {}) {
     const { additionalDirectories: capable, mcpHttp, sessionFork } = yield* requireBackendConnection(launchTarget);
     const directories = wireDirectories(capable, options.additionalDirectories);
-    yield* Effect.logInfo('Forking ACP session').pipe(
-      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directories.log }),
-    );
+    yield* Effect.logInfo('Forking ACP session').pipe(Effect.annotateLogs({ cwd: Redacted.make(cwd) }));
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
     const result = yield* sessionFork({ cwd, ...directories.params, ...mcp.params, sessionId }).pipe(
       Effect.onError(() => mcp.abandon),
@@ -258,9 +254,7 @@ export const loadSession = Effect.fn('loadSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string, options: SessionDirectoriesOptions = {}) {
     const { additionalDirectories: capable, agent, mcpHttp } = yield* requireBackendConnection(launchTarget);
     const directories = wireDirectories(capable, options.additionalDirectories);
-    yield* Effect.logInfo('Loading ACP session').pipe(
-      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directories.log }),
-    );
+    yield* Effect.logInfo('Loading ACP session').pipe(Effect.annotateLogs({ cwd: Redacted.make(cwd) }));
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
     const result = yield* agent['session/load']({ cwd, ...directories.params, ...mcp.params, sessionId }).pipe(
       Effect.onError(() => mcp.abandon),
@@ -276,9 +270,7 @@ export const resumeSession = Effect.fn('resumeSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string, options: SessionDirectoriesOptions = {}) {
     const { additionalDirectories: capable, agent, mcpHttp } = yield* requireBackendConnection(launchTarget);
     const directories = wireDirectories(capable, options.additionalDirectories);
-    yield* Effect.logInfo('Resuming ACP session').pipe(
-      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directories.log }),
-    );
+    yield* Effect.logInfo('Resuming ACP session').pipe(Effect.annotateLogs({ cwd: Redacted.make(cwd) }));
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
     const result = yield* agent['session/resume']({ cwd, ...directories.params, ...mcp.params, sessionId }).pipe(
       Effect.onError(() => mcp.abandon),

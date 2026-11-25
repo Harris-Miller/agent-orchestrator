@@ -19,6 +19,7 @@ import {
 } from './trackedSessions.ts';
 import { startTrackedSessionsWatch } from './trackedSessionsWatch.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import { loadWorkspaceFileStates } from './workspaceFiles.atoms.ts';
 import { workstreamsAtom, workstreamsLoadedAtom } from './workstreams.atoms.ts';
 
 /** Runs a read; on success applies it, on failure logs a warning with `message` and carries on. */
@@ -51,6 +52,10 @@ export const hydrateHarnessCaches = (
         registry.set(projectsAtom, projects);
         registry.set(projectsLoadedAtom, true);
       }).pipe(Effect.catchCause(cause => Effect.logWarning('projects hydrate crashed', cause)));
+      // Workspace projects resolve before the listed cwds are read; an unresolvable file lists no cwd (its rows stay dormant).
+      yield* loadWorkspaceFileStates(registry, registry.get(projectsAtom)).pipe(
+        Effect.catchCause(cause => Effect.logWarning('workspace files hydrate crashed', cause)),
+      );
     }
     // Workstreams are a desktop feature too; the file is shared by all launch targets.
     if (scopeReadsProjects(registry.get(sessionListScopeAtom))) {

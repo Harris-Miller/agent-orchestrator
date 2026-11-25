@@ -1,14 +1,15 @@
 /**
- * Desktop Sessions panel grouping: one group per Project (exact cwd), always present even with no rows.
- * Rows whose cwd is not a Project are not grouped. VS Code Session History does not group; it uses
+ * Desktop Sessions panel grouping: one group per Project, always present even with no rows. A row belongs to the Project
+ * `projectOfRecord` names (its Workspace project, else the directory Project at its cwd); rows with none are not grouped. VS Code Session History does not group; it uses
  * {@link sessionsForCwd} for the Workspace cwd.
  */
 
 import { compareHistoryEntries } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo } from './acpSessionBootstrap.ts';
-import { directoryBasename } from './directoryBasename.ts';
+import { projectLabel, projectOfRecord } from './projectResolution.ts';
 
 export type NavSessionGroup<T extends NormalizedSessionInfo = NormalizedSessionInfo> = {
+  /** The Project path: a directory, or a Workspace file. */
   readonly cwd: string;
   readonly sessions: readonly T[];
 };
@@ -28,13 +29,14 @@ export const groupAndSortSessionsForNav = <T extends NormalizedSessionInfo>(
 ): readonly NavSessionGroup<T>[] => {
   const byCwd = new Map<string, T[]>(projects.map(cwd => [cwd, []]));
   for (const entry of history) {
-    byCwd.get(entry.cwd)?.push(entry);
+    const project = projectOfRecord(entry, projects);
+    if (project !== undefined) byCwd.get(project)?.push(entry);
   }
   return [...byCwd.entries()]
     .map(([cwd, sessions]) => ({ cwd, sessions: [...sessions].sort(compareHistoryEntries) }))
     .sort(
       (left, right) =>
-        collator.compare(directoryBasename(left.cwd), directoryBasename(right.cwd)) ||
+        collator.compare(projectLabel(left.cwd), projectLabel(right.cwd)) ||
         (left.cwd < right.cwd ? -1 : left.cwd > right.cwd ? 1 : 0),
     );
 };

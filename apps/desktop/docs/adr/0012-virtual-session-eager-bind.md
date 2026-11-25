@@ -12,3 +12,5 @@ ADR 0011 deferred `session/new` until first Send. That left Composer Triggers (`
 - **Post-create cwd mutator / vendor `_meta`:** ACP v1 has no cwd update; cwd change always teardown + Bind. The Bind key is `{launch target, cwd, Additional directories}`, the directories compared as a set (order and duplicates ignored, empty equals absent): a changed set tears down and re-Binds like a cwd change, the same set never does.
 - **Apply Config at Bind:** duplicates Materialize's config apply; Bind stays create+upsert only.
 - **Bind from Materialize as fallback:** second create path; rejected — Send no-ops until Bound.
+
+A Workspace project (ADR 0022) feeds the Bind key as its resolved first folder and Additional directories; changing between two Projects with the same first folder but different folder sets re-Binds.

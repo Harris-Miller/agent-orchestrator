@@ -1,15 +1,19 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   addProjectAtomFn,
-  directoryBasename,
+  extraFoldersIgnoredAtom,
   LucideMuiIcon,
-  patchVirtualSessionAtomFn,
+  projectLabel,
+  projectOfRecord,
+  projectsAtom,
   selectedAtom,
   selectedSessionAtom,
+  selectVirtualProjectAtomFn,
   virtualMaterializingAtom,
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
+import Tooltip from '@mui/material/Tooltip';
 import { FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
@@ -22,7 +26,9 @@ export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => v
   const selectedSession = useAtomValue(selectedSessionAtom);
   const virtual = useAtomValue(virtualSessionAtom);
   const inFlight = useAtomValue(virtualMaterializingAtom);
-  const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
+  const extraFoldersIgnored = useAtomValue(extraFoldersIgnoredAtom);
+  const projects = useAtomValue(projectsAtom);
+  const selectProject = useAtomSet(selectVirtualProjectAtomFn, { mode: 'promise' });
   const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -31,8 +37,11 @@ export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => v
   }
 
   const isVirtual = selected._tag === 'Virtual';
-  const cwd = isVirtual ? virtual?.cwd : selectedSession?.cwd;
-  const label = cwd === undefined ? 'Choose Project' : directoryBasename(cwd);
+  const record = isVirtual ? virtual : selectedSession;
+  const cwd = record?.cwd;
+  // A session in a Workspace project reads as that Project (the cwd is its first folder), else as its cwd.
+  const label =
+    cwd === undefined ? 'Choose Project' : projectLabel(projectOfRecord({ ...record, cwd }, projects) ?? cwd);
   const canPick = isVirtual && !inFlight;
 
   return (
@@ -66,6 +75,13 @@ export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => v
       >
         <LucideMuiIcon icon={FolderOpen} sx={{ fontSize: 14 }} />
         <span>{label}</span>
+        {extraFoldersIgnored ? (
+          <Tooltip title="This agent does not support additional directories, so only the first folder is used.">
+            <Box component="span" sx={{ color: 'warning.main', fontSize: 11 }}>
+              extra folders ignored
+            </Box>
+          </Tooltip>
+        ) : null}
       </Box>
       {pickerOpen && isVirtual ? (
         <CreateSessionDirectoryPicker
@@ -74,8 +90,9 @@ export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => v
             setPickerOpen(false);
           }}
           onSelectDirectory={nextCwd => {
-            addProject(nextCwd).catch(onClientError);
-            patchVirtual({ cwd: nextCwd }).catch(() => undefined);
+            addProject(nextCwd)
+              .then(() => selectProject(nextCwd))
+              .catch(onClientError);
           }}
         />
       ) : null}

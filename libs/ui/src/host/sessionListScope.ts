@@ -1,6 +1,8 @@
 import type { ListSessionsRequest } from '@lib/effect-acp';
 
 import { declaresSessionIndex } from './agentCapabilities.ts';
+import { resolvedProjectCwds } from './projectResolution.ts';
+import type { WorkspaceFileStates } from './projectResolution.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 
 /** Which cwds Session History shows. Desktop shows every Project; vscode sets Cwd/Skip from the Workspace. */
@@ -14,13 +16,17 @@ export const projectsSessionListScope: SessionListScope = { _tag: 'Projects' };
 /** Only the desktop Projects scope reads `projects.json`; VS Code (Cwd/Skip) never reads it, it only adds its Workspace cwd as a Project. */
 export const scopeReadsProjects = (scope: SessionListScope): boolean => scope._tag === 'Projects';
 
-/** The cwds Session History shows under `scope`. */
-export const listCwdsForScope = (scope: SessionListScope, projects: readonly string[]): readonly string[] => {
+/** The cwds Session History shows under `scope`; a Workspace project lists its resolved first folder (none while errored). */
+export const listCwdsForScope = (
+  scope: SessionListScope,
+  projects: readonly string[],
+  states: WorkspaceFileStates,
+): readonly string[] => {
   switch (scope._tag) {
     case 'Cwd':
       return [scope.cwd];
     case 'Projects':
-      return projects;
+      return resolvedProjectCwds(projects, states);
     case 'Skip':
       return [];
   }

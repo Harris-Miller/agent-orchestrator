@@ -103,7 +103,7 @@ Absolute directories the Agent may see beyond the **Session cwd**. The Harness k
 _Avoid_: extra folders, extra roots, workspace folders (the VS Code concept)
 
 **Workspace file**:
-An optional `.code-workspace` file a session's **Additional directories** came from. Kept with the list, never handed to the Agent.
+A `.code-workspace` file listing folders (JSONC; relative paths resolve against its directory; only `file:` folders count). Either a session's **Additional directories** came from it (kept with the list, never handed to the Agent), or it is a **Workspace project**.
 _Avoid_: VS Code workspace (when you mean this file)
 
 **Session History**:
@@ -131,11 +131,15 @@ Desktop-only control under a long Session History cwd group that toggles the gro
 _Avoid_: pagination, load more (when you mean this local toggle; no fetch happens)
 
 **Project**:
-An absolute directory the user chose to bring into the app, persisted in hoa-home (one list shared across launch targets and host apps). Desktop Session History shows Tracked sessions only for Projects. Added through the Project Selection Modal (the "Add Project" row or the Composer's "Choose Project", idempotent) and removed only by **Stop tracking**. Never added from Config probe cwds; VS Code adds its Workspace cwd the first time a session is tracked there. Paths compare exact after trailing-separator normalization.
-_Avoid_: tracked cwd, remembered folder, saved cwd, workspace
+An absolute directory, or a **Workspace file** (a **Workspace project**), the user chose to bring into the app, persisted in hoa-home (one list shared across launch targets and host apps). Desktop Session History shows Tracked sessions only for Projects. Added through the Project Selection Modal (the "Add Project" row or the Composer's "Choose Project", idempotent; "Open workspace file…" picks a Workspace file) and removed only by **Stop tracking**. Never added from Config probe cwds; VS Code adds its Workspace cwd the first time a session is tracked there. Paths compare exact after trailing-separator normalization.
+_Avoid_: tracked cwd, remembered folder, saved cwd, workspace (say **Workspace project** only for a Project that is a Workspace file)
+
+**Workspace project**:
+A **Project** whose path is a **Workspace file**. A virtual cwd: it resolves to a Session cwd (the file's first `file:` folder), **Additional directories** (the other folders, in order) and the Workspace file itself, and a Workspace file path is never used as a Session cwd. A Tracked session belongs to the Workspace project it was stamped with, else to the Project at its cwd. When its file is missing, moved, unreadable, outside the readable filesystem scope or lists no `file:` folder, the Project stays in an error state (re-pick or remove) and its Tracked sessions stay dormant.
+_Avoid_: workspace (alone), multi-root project, virtual project
 
 **Project cwd group**:
-A desktop Session History accordion group for one Project, always shown (blank when it has no sessions), sorted alphabetically by directory name (a parent-path caption appears only when two Projects share a basename). Header: "+" (create a session there) and a `⋯` menu (Import, Stop tracking).
+A desktop Session History accordion group for one Project, always shown (blank when it has no sessions), sorted alphabetically by label (a directory's name, a Workspace file's name without extension; a parent-path caption appears only when two Projects share a label). Header: "+" (create a session there) and a `⋯` menu (Import, Stop tracking).
 _Avoid_: empty cwd group, ghost group
 
 **Tracked session**:

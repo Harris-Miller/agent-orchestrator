@@ -5,7 +5,6 @@ import {
   BulkActionBar,
   BulkSelectToggle,
   ConfirmSessionDeleteDialog,
-  directoryBasename,
   ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
   IconTooltipButton,
@@ -15,7 +14,10 @@ import {
   navSessionGroupStableKey,
   PanelHeader,
   pinnedEntriesAtom,
+  projectLabel,
+  projectOfRecord,
   projectsAtom,
+  resolveProject,
   selectedSessionIdAtom,
   sessionEntryKey,
   SessionHistoryRow,
@@ -25,6 +27,7 @@ import {
   useSessionHistorySearch,
   visibleListedSessionHistoryAtom,
   withoutPinned,
+  workspaceFilesAtom,
   workstreamsEnabledAtom,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
@@ -38,7 +41,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
 import { FolderPlus, PanelLeftClose, Pin, Settings, SquarePen } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { UpdatesIndicatorHost } from '../UpdatesIndicatorHost.tsx';
@@ -59,7 +62,11 @@ const withKey = (keys: ReadonlySet<string>, key: string, present: boolean): Read
   return next;
 };
 
-const pinnedCaption = (entry: UnifiedHistoryEntry): string => directoryBasename(entry.cwd);
+/** A pinned row's caption: the Project it belongs to, else its directory. */
+const pinnedCaption =
+  (projects: readonly string[]) =>
+  (entry: UnifiedHistoryEntry): string =>
+    projectLabel(projectOfRecord(entry, projects) ?? entry.cwd);
 
 export const WorkbenchNavRail: FC<{
   readonly onClientError: (error: unknown) => void;
@@ -70,6 +77,7 @@ export const WorkbenchNavRail: FC<{
   const pinnedEntries = useAtomValue(pinnedEntriesAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const projects = useAtomValue(projectsAtom);
+  const workspaceFiles = useAtomValue(workspaceFilesAtom);
   const workstreamsEnabled = useAtomValue(workstreamsEnabledAtom);
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
@@ -78,13 +86,32 @@ export const WorkbenchNavRail: FC<{
   const [importing, setImporting] = useState<{ readonly cwd: string } | undefined>();
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const navigate = useNavigate();
+  // Each Workspace project that cannot be resolved is surfaced once as a client error (the group itself shows the reason).
+  const reportedErrors = useRef(new Set<string>());
+  useEffect(() => {
+    const errored = new Map<string, string>();
+    for (const project of projects) {
+      const resolution = resolveProject(project, workspaceFiles);
+      if (resolution._tag === 'Error') errored.set(project, resolution.message);
+    }
+    for (const [project, message] of errored) {
+      if (!reportedErrors.current.has(project)) {
+        reportedErrors.current.add(project);
+        onClientError(new Error(`Workspace project "${projectLabel(project)}" cannot be used: ${message}`));
+      }
+    }
+    // A fixed (or removed) Project reports again if it breaks later.
+    for (const project of reportedErrors.current) {
+      if (!errored.has(project)) reportedErrors.current.delete(project);
+    }
+  }, [onClientError, projects, workspaceFiles]);
   const search = useSessionHistorySearch({
     // Search covers every loaded Project's sessions (archived or not), nothing else.
     entries: listedHistory,
     scope: 'desktop',
     onClientError,
     selectedSessionId,
-    caption: pinnedCaption,
+    caption: pinnedCaption(projects),
   });
 
   // Pinned rows render once, in the Pinned section; a Project group left with no rows keeps its header (and "+").
@@ -211,7 +238,7 @@ export const WorkbenchNavRail: FC<{
                       <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
                         {pinnedEntries.map(entry => (
                           <SessionHistoryRow
-                            caption={pinnedCaption(entry)}
+                            caption={pinnedCaption(projects)(entry)}
                             entry={entry}
                             key={sessionEntryKey(entry)}
                             onClientError={onClientError}

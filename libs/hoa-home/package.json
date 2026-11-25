@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@lib/context-services": "workspace:^",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "jsonc-parser": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

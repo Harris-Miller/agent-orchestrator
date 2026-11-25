@@ -28,7 +28,7 @@ Absolute directories handed to the Agent beyond the Session cwd, sent only when 
 _Avoid_: Workspace folder (the VS Code root folder), extra roots
 
 **Workspace file**:
-The `.code-workspace` file of a saved multi-root or single-folder VS Code workspace, recorded with a new session's **Additional directories** (see the desktop glossary). An untitled workspace has none.
+The `.code-workspace` file of a saved multi-root or single-folder VS Code workspace, recorded with a new session's **Additional directories** (see the desktop glossary). An untitled workspace has none. Desktop can add it as a **Workspace project**, so sessions started here in a saved workspace appear there.
 _Avoid_: VS Code workspace (when you mean this file)
 
 **Session History**:

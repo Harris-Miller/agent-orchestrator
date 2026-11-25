@@ -1,6 +1,11 @@
 /** Import: pages every usable launch target, merges rows, and confirms a row into a Tracked session. */
 import { assert, describe, it } from '@effect/vitest';
-import { Effect } from 'effect';
+import { resolve } from 'node:path';
+
+import { mapFsTestServices } from '@lib/hoa-home/testing';
+import type { MapFsEntry } from '@lib/hoa-home/testing';
+import type { HostServices } from '@lib/context-services';
+import { Effect, Layer } from 'effect';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 
@@ -35,10 +40,10 @@ const pagedAgent = (pages: Record<string, Page>, loads: string[], failLoad = fal
   },
 });
 
-const setup = Effect.fnUntraced(function* () {
+const setup = Effect.fnUntraced(function* (layer: Layer.Layer<HostServices> = mockHostLayer) {
   const registry = yield* freshRegistry;
   enableProviders(registry, [CLAUDE, CODEX]);
-  const runtime = createHostRuntime(mockHostLayer);
+  const runtime = createHostRuntime(layer);
   const atoms = createImportSessionsAtoms(runtime);
   const ids = () => registry.get(importRowsAtom).map(entry => `${entry.launchTarget}:${entry.sessionId}`);
   return { atoms, ids, registry };
@@ -178,6 +183,52 @@ describe('Import confirm', () => {
       assert.notProperty(snapshot.sessions, 'a');
       assert.isUndefined(registry.get(selectedAtom));
       assert.deepStrictEqual(ids(), [`${CODEX}:a`]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect(
+    'importing into a Workspace project lists its first folder and stamps the confirmed row with the file',
+    () =>
+      Effect.gen(function* () {
+        const store = new Map<string, MapFsEntry>();
+        const workspace = resolve('/ws/app.code-workspace');
+        store.set(workspace, {
+          content: JSON.stringify({ folders: [{ path: '/proj' }, { path: '/lib/a' }] }),
+          kind: 'file',
+        });
+        const { atoms, ids, registry } = yield* setup(Layer.mergeAll(mockHostLayer, mapFsTestServices(store)));
+        const listed: unknown[] = [];
+        const agent = pagedAgent({ '': { sessions: [row('a', '2026-01-01T00:00:00Z')] } }, []);
+        yield* connectFakeAgent(CODEX, {
+          agent: {
+            ...agent.agent,
+            'session/list': (request: { cwd?: string; cursor?: string }) => {
+              listed.push(request.cwd);
+              return agent.agent['session/list'](request);
+            },
+          },
+        });
+        advertise(registry, CODEX, {});
+
+        yield* runAtomFn(registry, atoms.openImportAtomFn, workspace);
+        assert.deepStrictEqual(listed, [resolve('/proj')]);
+        assert.deepStrictEqual(ids(), [`${CODEX}:a`]);
+
+        yield* runAtomFn(registry, atoms.importSessionAtomFn, { launchTarget: CODEX, sessionId: 'a' });
+        const [entry] = registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory;
+        assert.deepStrictEqual(
+          [entry.cwd, entry.workspaceFile, entry.additionalDirectories],
+          [resolve('/proj'), workspace, [resolve('/lib/a')]],
+        );
+      }).pipe(Effect.scoped),
+  );
+
+  it.effect('opening Import for an unresolvable Workspace project fails and lists nothing', () =>
+    Effect.gen(function* () {
+      const { atoms, registry } = yield* setup();
+      const error = yield* Effect.flip(runAtomFn(registry, atoms.openImportAtomFn, '/ws/gone.code-workspace'));
+      assert.strictEqual(error._tag, 'ProjectUnresolved');
+      assert.isUndefined(registry.get(importStateAtom).cwd);
     }).pipe(Effect.scoped),
   );
 });

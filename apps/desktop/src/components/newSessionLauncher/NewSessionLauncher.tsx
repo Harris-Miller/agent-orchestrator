@@ -6,10 +6,10 @@ import {
   enabledLaunchTargetsAtom,
   launchTargetAvailabilityAtom,
   LucideMuiIcon,
-  patchVirtualSessionAtomFn,
   projectDisplayAtom,
   projectsAtom,
   projectsLoadedAtom,
+  selectVirtualProjectAtomFn,
   setVirtualLaunchTargetAtomFn,
   virtualSessionAtom,
 } from '@lib/ui';
@@ -32,18 +32,20 @@ const selectableSx = (selected: boolean, theme: Theme) =>
   }) as const;
 
 const ProjectPill: FC<{
-  readonly cwd: string;
   readonly disabled: boolean;
-  readonly onPick: (cwd: string) => void;
+  readonly onPick: (project: string) => void;
+  /** A directory or a Workspace file. */
+  readonly project: string;
   readonly selected: boolean;
-}> = ({ cwd, disabled, onPick, selected }) => {
-  const { label, parentCaption } = useAtomValue(projectDisplayAtom(cwd));
+}> = ({ disabled, onPick, project, selected }) => {
+  const { error, label, parentCaption } = useAtomValue(projectDisplayAtom(project));
   return (
     <ButtonBase
       aria-pressed={selected}
-      disabled={disabled}
+      disabled={disabled || error !== undefined}
+      title={error}
       onClick={() => {
-        onPick(cwd);
+        onPick(project);
       }}
       sx={theme => ({
         ...selectableSx(selected, theme),
@@ -69,10 +71,11 @@ const ProjectPill: FC<{
 };
 
 export type NewSessionLauncherViewProps = {
+  /** The picked Project: the Virtual draft's Workspace file, else its cwd. */
   readonly cwd: string | undefined;
   readonly disabled: boolean;
   readonly launchTarget: AgentLaunchTarget | undefined;
-  readonly onPickProject: (cwd: string) => void;
+  readonly onPickProject: (project: string) => void;
   readonly onPickTarget: (launchTarget: AgentLaunchTarget) => void;
   readonly projects: readonly string[];
   /** False until projects have loaded; the empty hint is withheld so it cannot flash at startup. */
@@ -171,10 +174,10 @@ export const NewSessionLauncherView: FC<NewSessionLauncherViewProps> = ({
       >
         {projects.map(project => (
           <ProjectPill
-            cwd={project}
             disabled={disabled}
             key={project}
             onPick={onPickProject}
+            project={project}
             selected={cwd === project}
           />
         ))}
@@ -191,16 +194,16 @@ export const NewSessionLauncher: FC<{ readonly onClientError: (error: unknown) =
   const { locked } = useAtomValue(composerAtom);
   const { reasons, usable } = useAtomValue(launchTargetAvailabilityAtom);
   const setLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
-  const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
+  const selectProject = useAtomSet(selectVirtualProjectAtomFn, { mode: 'promise' });
 
   return (
     <NewSessionLauncherView
-      cwd={virtual?.cwd}
+      cwd={virtual?.workspaceFile ?? virtual?.cwd}
       disabled={locked || virtual == null}
       launchTarget={virtual?.launchTarget}
-      onPickProject={cwd => {
-        if (cwd === virtual?.cwd) return;
-        patchVirtual({ cwd }).catch(onClientError);
+      onPickProject={project => {
+        if (project === (virtual?.workspaceFile ?? virtual?.cwd)) return;
+        selectProject(project).catch(onClientError);
       }}
       onPickTarget={target => {
         if (target === virtual?.launchTarget) return;

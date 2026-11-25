@@ -1,14 +1,13 @@
-import { directoryBasename } from './directoryBasename.ts';
+import { projectLabel, projectParentPath } from './projectResolution.ts';
 
 /**
- * Parent path shown under a Project's label, only when another Project shares its basename (case-insensitive);
+ * Parent path shown under a Project's label, only when another Project shares its label (case-insensitive);
  * otherwise undefined. The tooltip always carries the full path.
  */
-export const projectParentCaption = (cwd: string, projects: readonly string[]): string | undefined => {
-  const name = directoryBasename(cwd).toLowerCase();
-  const shared = projects.some(other => other !== cwd && directoryBasename(other).toLowerCase() === name);
+export const projectParentCaption = (project: string, projects: readonly string[]): string | undefined => {
+  const name = projectLabel(project).toLowerCase();
+  const shared = projects.some(other => other !== project && projectLabel(other).toLowerCase() === name);
   if (!shared) return undefined;
-  const trimmed = cwd.replace(/[/\\]+$/, '');
-  const parent = trimmed.slice(0, Math.max(0, trimmed.length - directoryBasename(cwd).length)).replace(/[/\\]+$/, '');
+  const parent = projectParentPath(project);
   return parent.length > 0 ? parent : undefined;
 };

@@ -580,7 +580,7 @@ describe('latest-wins Bind', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const registry = yield* freshRegistry;
-      yield* installFakeAgent(calls, { duringNew: onlyFirst(ensureVirtual(registry)) });
+      yield* installFakeAgent(calls, { duringNew: onlyFirst(Effect.orDie(ensureVirtual(registry))) });
       yield* seedUnbound(registry);
 
       yield* bindVirtualOnUsable(registry, CODEX);
@@ -923,7 +923,7 @@ describe('Send', () => {
       const during: { blob?: ReturnType<typeof blob>; selected?: unknown } = {};
       yield* installFakeAgent(calls, {
         duringSetConfig: Effect.gen(function* () {
-          yield* ensureVirtual(registry, { cwd: '/other', patchCwdIfSelectedVirtual: true });
+          yield* Effect.orDie(ensureVirtual(registry, { cwd: '/other', patchCwdIfSelectedVirtual: true }));
           yield* Effect.orDie(setVirtualLaunchTarget(registry, CLAUDE));
           yield* discardVirtual(registry);
           during.blob = blob(registry);

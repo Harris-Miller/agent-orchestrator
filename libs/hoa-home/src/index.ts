@@ -154,3 +154,10 @@ export {
   WorkstreamsDocumentJsonString,
   WorkstreamsDocumentSchema,
 } from './WorkstreamsDocument.ts';
+export {
+  isWorkspaceFilePath,
+  parseWorkspaceFolders,
+  readWorkspaceFolders,
+  WORKSPACE_FILE_EXTENSION,
+  WorkspaceFileUnresolvable,
+} from './workspaceFile.ts';

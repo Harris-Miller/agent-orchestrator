@@ -42,7 +42,8 @@ import {
 } from '../host/harnessStateTransitions.ts';
 import { awaitHubSettled } from '../host/hubConnection.ts';
 import type { SessionTarget } from '../host/projectSessions.ts';
-import { resolveSessionDirectories } from '../host/sessionDirectories.ts';
+import { normalizeSessionDirectories, resolveSessionDirectories } from '../host/sessionDirectories.ts';
+import type { SessionDirectories } from '../host/sessionDirectories.ts';
 import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import {
   archiveSession as archiveOnAgent,
@@ -69,6 +70,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { removePins } from './pinnedSessions.atoms.ts';
 import { orphanFromWorkstream } from './workstreams.atoms.ts';
 import { projectMembershipAtom, removeProjectEverywhere } from './projects.atoms.ts';
+import { readWorkspaceFileState } from './workspaceFiles.atoms.ts';
 import { reportRequestError } from './reportRequestError.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
@@ -157,6 +159,29 @@ const forEachTargetContinuing = Effect.fnUntraced(function* <E, R>(
 });
 
 /**
+ * Activate's Additional directories: when the session was created from a Workspace file that still resolves, that file's
+ * current folders minus the stored cwd (so edits to the file apply on resume); otherwise the stored list. Any failure to
+ * read it falls back to the stored list, never blocks the activation.
+ */
+const currentWorkspaceDirectories = Effect.fn('currentWorkspaceDirectories')(function* (
+  stored: SessionDirectories,
+  cwd: string | undefined,
+) {
+  const { workspaceFile } = stored;
+  if (workspaceFile === undefined || cwd === undefined) {
+    return stored;
+  }
+  const state = yield* readWorkspaceFileState(workspaceFile);
+  if (state._tag === 'Failed') {
+    return stored;
+  }
+  return normalizeSessionDirectories({
+    additionalDirectories: state.folders.filter(folder => folder !== cwd),
+    workspaceFile,
+  });
+});
+
+/**
  * Activate: open a Session on its agent (`session/resume` when the Agent capabilities allow it and there is history,
  * else `session/load`), unarchiving it first. Selects it unless `keepSelection`. An already active or activating Session
  * is only Selected.
@@ -178,7 +203,7 @@ export const activateSession = Effect.fn('activateSession')(function* (
   const existingSession = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
   const historyEntry = snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId);
   const cwd = resolveSessionCwd(existingSession?.cwd, historyEntry?.cwd);
-  const directories = resolveSessionDirectories(existingSession, historyEntry);
+  const storedDirectories = resolveSessionDirectories(existingSession, historyEntry);
   if (historyEntry?.archived === true) {
     // Unarchive first; the agent-side call is best-effort, so a failure never blocks opening the session.
     updateHarnessSnapshot(registry, arg.launchTarget, current => setSessionArchived(current, arg.sessionId, false));
@@ -221,6 +246,8 @@ export const activateSession = Effect.fn('activateSession')(function* (
     annotateSessionLogs(arg.launchTarget, arg.sessionId),
   );
 
+  // The Workspace file's current folders (minus the stored cwd) replace the stored list; the cwd itself never changes.
+  const directories = yield* currentWorkspaceDirectories(storedDirectories, cwd);
   const previousTranscript = existingSession?.transcript;
   updateHarnessSnapshot(registry, arg.launchTarget, current =>
     beginActivation(current, arg.sessionId, cwd, useResume ? 'resume' : 'load', directories),

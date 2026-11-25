@@ -10,7 +10,9 @@ The workspace file is metadata captured when a Bind is requested and recorded on
 
 ### One folder to two (documented from VS Code source, not observed in a running VS Code)
 
-- `@types/vscode` documents that adding, removing or changing the **first** folder terminates and restarts the extension host (so the deprecated `rootPath` is updated) and that `onDidChangeWorkspaceFolders` does not fire then; it also names the transition from an empty or single-folder workspace into a multi-folder workspace as a restart case.
+The source citations below were read from microsoft/vscode `main` at implementation time and not re-verified against the VS Code version users run.
+
+- `@types/vscode` documents only that adding, removing or changing the **first** workspace folder terminates and restarts the extension host (so the deprecated `rootPath` is updated) and that `onDidChangeWorkspaceFolders` does not fire then. It says nothing about a single-folder to multi-root transition; that claim rests on the two source files below.
 - `src/vs/workbench/services/workspaces/browser/abstractWorkspaceEditingService.ts`: `updateFolders` on a single-folder workspace calls `createAndEnterWorkspace(foldersToAdd)`, then `enterWorkspace`.
 - `src/vs/workbench/services/workspaces/electron-browser/workspaceEditingService.ts`: `enterWorkspace()` calls `extensionService.stopExtensionHosts("Opening a multi-root workspace")`, enters the workspace, then `startExtensionHosts()` (remote windows: `hostService.reload()`), commenting "Restart the extension host: entering a workspace means a new location for storage and potentially a change in the workspace.rootPath property."
 

@@ -9,11 +9,11 @@ The message protocol between the webview Host services Live and the VS Code exte
 _Avoid_: RPC (when you mean this wire)
 
 **Host IPC request**:
-A webview→extension Host IPC message that gets exactly one reply: its own Result, or an Error. It is not a Host services capability: one capability may need several requests (FileSystem uses many), and some requests serve none (Workspace folders, app exit). The Workspace folders request also returns the workspace file of a saved workspace, when there is one.
+A webview→extension Host IPC message that gets exactly one reply: its own Result, or an Error. It is not a Host services capability: one capability may need several requests (FileSystem uses many), and some requests serve none (Workspace folders, app exit).
 _Avoid_: capability, command, RPC call (when you mean one request/Result pair)
 
 **Host IPC push**:
-A one-way Host IPC message that gets no reply: webview→extension stdin chunks and stdin end; extension→webview stdout/stderr chunks, stream ends, process exit, and Workspace folder changes (which carry the workspace file too, when there is one).
+A one-way Host IPC message that gets no reply: webview→extension stdin chunks and stdin end; extension→webview stdout/stderr chunks, stream ends, process exit, and Workspace folder changes.
 _Avoid_: event, notification (the latter is a Notifier term)
 
 **OS snapshot**:

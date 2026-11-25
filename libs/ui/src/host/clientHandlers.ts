@@ -2,7 +2,7 @@
  * ACP Client RPC adapter for a backend harness: turn-correlated session/update,
  * elicitation, permission, real fs text-file handlers over the Host `EditorFiles` service; stub terminal handlers.
  */
-import { EditorFiles } from '@lib/context-services';
+import type { EditorFiles } from '@lib/context-services';
 import { ClientRpcs, makeAcpError } from '@lib/effect-acp';
 import type {
   AcpError,
@@ -104,135 +104,133 @@ const editorFilesError = (): AcpError => makeAcpError(-32603, 'Editor file acces
 
 export const makeClientHandlers = (
   launchTarget: AgentLaunchTarget,
+  editorFiles: EditorFiles,
   onSessionUpdate: (sessionId: string, update: unknown) => void,
   onElicitationCreate: ClientHandlerCallbacks['onElicitationCreate'],
   onPermissionRequest: ClientHandlerCallbacks['onPermissionRequest'],
 ) =>
   ClientRpcs.toLayer(
-    Effect.gen(function* () {
-      const editorFiles = yield* EditorFiles;
-      return {
-        'elicitation/complete': () => Effect.void,
-        'elicitation/create': (request: CreateElicitationRequestBody) => {
-          const sessionId = sessionIdFromElicitationRequest(request);
-          return withTurnCorrelatedSpan(
-            'elicitation/create',
-            launchTarget,
-            sessionId,
-            Effect.gen(function* () {
-              if (sessionId === undefined) {
-                yield* Effect.logWarning('elicitation/create missing session id; cancelling');
-                return { action: 'cancel' as const };
-              }
-              yield* Effect.annotateCurrentSpan(elicitationTelemetry(request));
-              yield* Effect.logInfo('elicitation/create awaiting UI').pipe(
-                Effect.annotateLogs(elicitationTelemetry(request)),
-              );
-              const response = yield* awaitingUser(
-                launchTarget,
-                sessionId,
-                Effect.promise(
-                  () =>
-                    new Promise<CreateElicitationResponseBody>(resolve => {
-                      onElicitationCreate(sessionId, request, resolve);
-                    }),
-                ),
-              );
-              const outcome = elicitationTelemetry(request, response);
-              yield* Effect.annotateCurrentSpan(outcome);
-              yield* Effect.logInfo('elicitation/create answered').pipe(Effect.annotateLogs(outcome));
-              return response;
-            }),
-          );
-        },
-        'fs/read_text_file': (request: ReadTextFileRequest) =>
-          withTurnCorrelatedSpan(
-            'fs/read_text_file',
-            launchTarget,
-            request.sessionId,
-            Effect.gen(function* () {
-              yield* requireEditorFiles(editorFiles);
-              yield* requireAbsolutePath(request.path);
-              const { limit, line } = request;
-              if (line != null && (!Number.isInteger(line) || line < 1)) {
-                return yield* Effect.fail(invalidParams('Invalid line'));
-              }
-              if (limit != null && (!Number.isInteger(limit) || limit < 0)) {
-                return yield* Effect.fail(invalidParams('Invalid limit'));
-              }
-              const content = yield* editorFiles
-                .readText(request.path, {
-                  ...(line == null ? {} : { line }),
-                  ...(limit == null ? {} : { limit }),
-                })
-                .pipe(Effect.mapError(editorFilesError));
-              yield* Effect.annotateCurrentSpan({
-                'fs.content_length': content.length,
-                'fs.windowed': line != null || limit != null,
-              });
-              return { content };
-            }),
-          ),
-        'fs/write_text_file': (request: WriteTextFileRequest) =>
-          withTurnCorrelatedSpan(
-            'fs/write_text_file',
-            launchTarget,
-            request.sessionId,
-            Effect.gen(function* () {
-              yield* requireEditorFiles(editorFiles);
-              yield* requireAbsolutePath(request.path);
-              yield* Effect.annotateCurrentSpan({ 'fs.content_length': request.content.length });
-              yield* editorFiles.writeText(request.path, request.content).pipe(Effect.mapError(editorFilesError));
-              return {};
-            }),
-          ),
-        'session/request_permission': (request: RequestPermissionRequest) =>
-          withTurnCorrelatedSpan(
-            'session/request_permission',
-            launchTarget,
-            request.sessionId,
-            Effect.gen(function* () {
-              yield* Effect.annotateCurrentSpan(permissionTelemetry(request));
-              yield* Effect.logInfo('session/request_permission awaiting UI').pipe(
-                Effect.annotateLogs(permissionTelemetry(request)),
-              );
-              const response = yield* awaitingUser(
-                launchTarget,
-                request.sessionId,
-                Effect.promise(
-                  () =>
-                    new Promise<RequestPermissionResponse>(resolve => {
-                      onPermissionRequest(request.sessionId, request, resolve);
-                    }),
-                ),
-              );
-              const outcome = permissionTelemetry(request, response);
-              yield* Effect.annotateCurrentSpan(outcome);
-              yield* Effect.logInfo('session/request_permission answered').pipe(Effect.annotateLogs(outcome));
-              return response;
-            }),
-          ),
-        'session/update': payload =>
-          withTurnCorrelatedSpan(
-            'session/update',
-            launchTarget,
-            payload.sessionId,
-            Effect.gen(function* () {
-              const summary = summarizeSessionUpdate(payload.update);
-              yield* Effect.annotateCurrentSpan(sessionUpdateTelemetry(summary));
-              const turn = getPromptTurn(launchTarget, payload.sessionId);
-              if (turn !== undefined) {
-                recordSessionUpdate(turn, summary, yield* Clock.currentTimeMillis);
-                yield* recordToolCall(turn, payload.sessionId, summary);
-              }
-              onSessionUpdate(payload.sessionId, payload.update);
-            }),
-          ),
-        'terminal/create': () => Effect.succeed({ terminalId: 'stub-terminal' }),
-        'terminal/kill': () => Effect.succeed({}),
-        'terminal/output': () => Effect.succeed({ output: '', truncated: false }),
-        'terminal/release': () => Effect.succeed({}),
-        'terminal/wait_for_exit': () => Effect.succeed({ exitCode: 0, signal: null }),
-      };
+    Effect.succeed({
+      'elicitation/complete': () => Effect.void,
+      'elicitation/create': (request: CreateElicitationRequestBody) => {
+        const sessionId = sessionIdFromElicitationRequest(request);
+        return withTurnCorrelatedSpan(
+          'elicitation/create',
+          launchTarget,
+          sessionId,
+          Effect.gen(function* () {
+            if (sessionId === undefined) {
+              yield* Effect.logWarning('elicitation/create missing session id; cancelling');
+              return { action: 'cancel' as const };
+            }
+            yield* Effect.annotateCurrentSpan(elicitationTelemetry(request));
+            yield* Effect.logInfo('elicitation/create awaiting UI').pipe(
+              Effect.annotateLogs(elicitationTelemetry(request)),
+            );
+            const response = yield* awaitingUser(
+              launchTarget,
+              sessionId,
+              Effect.promise(
+                () =>
+                  new Promise<CreateElicitationResponseBody>(resolve => {
+                    onElicitationCreate(sessionId, request, resolve);
+                  }),
+              ),
+            );
+            const outcome = elicitationTelemetry(request, response);
+            yield* Effect.annotateCurrentSpan(outcome);
+            yield* Effect.logInfo('elicitation/create answered').pipe(Effect.annotateLogs(outcome));
+            return response;
+          }),
+        );
+      },
+      'fs/read_text_file': (request: ReadTextFileRequest) =>
+        withTurnCorrelatedSpan(
+          'fs/read_text_file',
+          launchTarget,
+          request.sessionId,
+          Effect.gen(function* () {
+            yield* requireEditorFiles(editorFiles);
+            yield* requireAbsolutePath(request.path);
+            const { limit, line } = request;
+            if (line != null && (!Number.isInteger(line) || line < 1)) {
+              return yield* Effect.fail(invalidParams('Invalid line'));
+            }
+            if (limit != null && (!Number.isInteger(limit) || limit < 0)) {
+              return yield* Effect.fail(invalidParams('Invalid limit'));
+            }
+            const content = yield* editorFiles
+              .readText(request.path, {
+                ...(line == null ? {} : { line }),
+                ...(limit == null ? {} : { limit }),
+              })
+              .pipe(Effect.mapError(editorFilesError));
+            yield* Effect.annotateCurrentSpan({
+              'fs.content_length': content.length,
+              'fs.windowed': line != null || limit != null,
+            });
+            return { content };
+          }),
+        ),
+      'fs/write_text_file': (request: WriteTextFileRequest) =>
+        withTurnCorrelatedSpan(
+          'fs/write_text_file',
+          launchTarget,
+          request.sessionId,
+          Effect.gen(function* () {
+            yield* requireEditorFiles(editorFiles);
+            yield* requireAbsolutePath(request.path);
+            yield* Effect.annotateCurrentSpan({ 'fs.content_length': request.content.length });
+            yield* editorFiles.writeText(request.path, request.content).pipe(Effect.mapError(editorFilesError));
+            return {};
+          }),
+        ),
+      'session/request_permission': (request: RequestPermissionRequest) =>
+        withTurnCorrelatedSpan(
+          'session/request_permission',
+          launchTarget,
+          request.sessionId,
+          Effect.gen(function* () {
+            yield* Effect.annotateCurrentSpan(permissionTelemetry(request));
+            yield* Effect.logInfo('session/request_permission awaiting UI').pipe(
+              Effect.annotateLogs(permissionTelemetry(request)),
+            );
+            const response = yield* awaitingUser(
+              launchTarget,
+              request.sessionId,
+              Effect.promise(
+                () =>
+                  new Promise<RequestPermissionResponse>(resolve => {
+                    onPermissionRequest(request.sessionId, request, resolve);
+                  }),
+              ),
+            );
+            const outcome = permissionTelemetry(request, response);
+            yield* Effect.annotateCurrentSpan(outcome);
+            yield* Effect.logInfo('session/request_permission answered').pipe(Effect.annotateLogs(outcome));
+            return response;
+          }),
+        ),
+      'session/update': payload =>
+        withTurnCorrelatedSpan(
+          'session/update',
+          launchTarget,
+          payload.sessionId,
+          Effect.gen(function* () {
+            const summary = summarizeSessionUpdate(payload.update);
+            yield* Effect.annotateCurrentSpan(sessionUpdateTelemetry(summary));
+            const turn = getPromptTurn(launchTarget, payload.sessionId);
+            if (turn !== undefined) {
+              recordSessionUpdate(turn, summary, yield* Clock.currentTimeMillis);
+              yield* recordToolCall(turn, payload.sessionId, summary);
+            }
+            onSessionUpdate(payload.sessionId, payload.update);
+          }),
+        ),
+      'terminal/create': () => Effect.succeed({ terminalId: 'stub-terminal' }),
+      'terminal/kill': () => Effect.succeed({}),
+      'terminal/output': () => Effect.succeed({ output: '', truncated: false }),
+      'terminal/release': () => Effect.succeed({}),
+      'terminal/wait_for_exit': () => Effect.succeed({ exitCode: 0, signal: null }),
     }),
   );

@@ -11,7 +11,7 @@ import type {
   RequestPermissionRequest,
   RequestPermissionResponse,
 } from '@lib/effect-acp';
-import { Cause, Effect, Exit, Layer, Ref } from 'effect';
+import { Cause, Effect, Exit, Ref } from 'effect';
 import {
   ACP_LAUNCH_TARGET,
   CODE_NAMESPACE,
@@ -105,10 +105,11 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       command,
       makeClientHandlers(
         launchTarget,
+        editorFiles,
         handlers.onSessionUpdate,
         handlers.onElicitationCreate,
         handlers.onPermissionRequest,
-      ).pipe(Layer.provide(Layer.succeed(EditorFiles, editorFiles))),
+      ),
       {
         wireTap: {
           onMessage: handlers.onRpcMessage,

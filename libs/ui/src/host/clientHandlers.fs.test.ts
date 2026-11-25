@@ -1,8 +1,8 @@
 import { assert, describe, it } from '@effect/vitest';
-import { EditorFiles, EditorFilesFailed } from '@lib/context-services';
-import type { EditorFilesReadWindow } from '@lib/context-services';
+import { EditorFilesFailed } from '@lib/context-services';
+import type { EditorFiles, EditorFilesReadWindow } from '@lib/context-services';
 import { ClientRpcs } from '@lib/effect-acp';
-import { Effect, Layer } from 'effect';
+import { Effect } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { isAbsolute, join, resolve } from 'node:path';
@@ -16,7 +16,7 @@ type Calls = { reads: { path: string; window?: EditorFilesReadWindow }[]; writes
 const makeClient = (options: { supported?: boolean; fail?: boolean } = {}) =>
   Effect.gen(function* () {
     const calls: Calls = { reads: [], writes: [] };
-    const fake = Layer.succeed(EditorFiles, {
+    const fake: EditorFiles = {
       readText: (path, window) => {
         calls.reads.push(window === undefined ? { path } : { path, window });
         return options.fail === true
@@ -28,13 +28,14 @@ const makeClient = (options: { supported?: boolean; fail?: boolean } = {}) =>
         calls.writes.push({ content, path });
         return options.fail === true ? Effect.fail(new EditorFilesFailed({ message: 'x' })) : Effect.void;
       },
-    });
+    };
     const handlers = makeClientHandlers(
       'claude-agent-acp',
+      fake,
       () => undefined,
       () => undefined,
       () => undefined,
-    ).pipe(Layer.provide(fake));
+    );
     const client = yield* RpcTest.makeClient(ClientRpcs).pipe(Effect.provide(handlers));
     return { calls, client };
   });

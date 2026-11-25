@@ -17,7 +17,7 @@ export const EMPTY_FZF_POSITIONS: ReadonlySet<number> = new Set();
 
 /** Slash-command names hidden from the composer menu per agent. */
 const HIDDEN_COMMAND_NAMES: Readonly<Partial<Record<AgentLaunchTarget, ReadonlySet<string>>>> = {
-  'claude-agent-acp': new Set(['color', 'config', 'dataviz', 'effect', 'fast', 'model']),
+  'claude-agent-acp': new Set(['effect', 'fast']),
   'codex-acp': new Set(['logout']),
 };
 

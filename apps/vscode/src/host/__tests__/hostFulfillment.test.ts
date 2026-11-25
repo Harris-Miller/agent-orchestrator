@@ -5,7 +5,7 @@ import { connectFakePeers } from '@lib/context-services-vscode-webview/testing';
 import { Effect } from 'effect';
 import { beforeEach, vi } from 'vitest';
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
@@ -34,7 +34,17 @@ const vscodeStub = vi.hoisted(() => ({
     showOpenDialog: vi.fn(() => Promise.resolve(undefined as undefined | { fsPath: string }[])),
     state: { focused: true },
   },
-  workspace: { fs: { stat: vi.fn(() => Promise.resolve({ type: 1 })) } },
+  workspace: {
+    applyEdit: vi.fn(() => Promise.resolve(true)),
+    fs: { stat: vi.fn(() => Promise.resolve({ type: 1 })) },
+    textDocuments: [] as unknown[],
+  },
+  WorkspaceEdit: class {
+    readonly replaces: unknown[][] = [];
+    replace(...args: unknown[]) {
+      this.replaces.push(args);
+    }
+  },
 }));
 
 vi.mock('vscode', () => vscodeStub);
@@ -135,6 +145,8 @@ const bytesOf = (values: readonly number[]): ArrayBuffer => new Uint8Array(value
 describe('Host IPC fulfillment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vscodeStub.workspace.textDocuments = [];
+    vscodeStub.workspace.applyEdit.mockResolvedValue(true);
     vscodeStub.window.state.focused = true;
   });
 
@@ -542,4 +554,144 @@ describe('Host IPC fulfillment', () => {
       assert.strictEqual(exitCode(watched.seen), 1);
     }),
   );
+
+  describe('editor files', () => {
+    const openDocument = (fsPath: string, text: string) => {
+      const doc = {
+        getText: () => text,
+        lineCount: text.split('\n').length,
+        save: vi.fn(() => Promise.resolve(true)),
+        uri: { fsPath, scheme: 'file' },
+      };
+      vscodeStub.workspace.textDocuments = [doc];
+      return doc;
+    };
+
+    it.effect('reads the open document (unsaved content) in preference to disk, with a window', () =>
+      Effect.gen(function* () {
+        const { client, tmp } = yield* fulfillment;
+        const file = join(tmp, 'open.txt');
+        writeFileSync(file, 'disk\n');
+        openDocument(file, 'one\ntwo\nthree\n');
+        const full = yield* client.request({ _tag: 'EditorReadTextFile', path: file });
+        assert.strictEqual(full.content, 'one\ntwo\nthree\n');
+        const windowed = yield* client.request({ _tag: 'EditorReadTextFile', limit: 1, line: 2, path: file });
+        assert.strictEqual(windowed.content, 'two\n');
+      }),
+    );
+
+    it.effect('reads from disk when no document is open, and rejects bad input without echoing the path', () =>
+      Effect.gen(function* () {
+        const { client, tmp } = yield* fulfillment;
+        const file = join(tmp, 'disk.txt');
+        writeFileSync(file, 'a\nb\nc');
+        assert.strictEqual(
+          (yield* client.request({ _tag: 'EditorReadTextFile', line: 2, path: file })).content,
+          'b\nc',
+        );
+        const relative = yield* client
+          .request({ _tag: 'EditorReadTextFile', path: 'rel/secret.txt' })
+          .pipe(Effect.flip);
+        assert.notInclude(relative.message, 'secret');
+        const badLine = yield* client.request({ _tag: 'EditorReadTextFile', line: 0, path: file }).pipe(Effect.flip);
+        assert.strictEqual(badLine._tag, 'IpcClientError');
+        const missing = yield* client
+          .request({ _tag: 'EditorReadTextFile', path: join(tmp, 'nope', 'missing.txt') })
+          .pipe(Effect.flip);
+        assert.strictEqual(missing._tag, 'IpcClientError');
+        assert.include(missing.message, 'File not found');
+        assert.notInclude(missing.message, 'missing.txt');
+        assert.notInclude(missing.message, tmp);
+      }),
+    );
+
+    it.effect('writes into an open document via WorkspaceEdit then saves', () =>
+      Effect.gen(function* () {
+        const { client, tmp } = yield* fulfillment;
+        const file = join(tmp, 'open.txt');
+        const doc = openDocument(file, 'old');
+        yield* client.request({ _tag: 'EditorWriteTextFile', content: 'new', path: file });
+        assert.strictEqual(vscodeStub.workspace.applyEdit.mock.calls.length, 1);
+        const edit = (vscodeStub.workspace.applyEdit.mock.calls as unknown as [{ replaces: unknown[][] }][])[0]![0];
+        assert.strictEqual(edit.replaces[0]![0], doc.uri);
+        assert.strictEqual(edit.replaces[0]![2], 'new');
+        assert.strictEqual(doc.save.mock.calls.length, 1);
+        assert.strictEqual(existsSync(file), false);
+      }),
+    );
+
+    it.effect('creates missing files and parent directories when no document is open', () =>
+      Effect.gen(function* () {
+        const { client, tmp } = yield* fulfillment;
+        const file = join(tmp, 'x', 'y', 'new.txt');
+        yield* client.request({ _tag: 'EditorWriteTextFile', content: 'fresh', path: file });
+        assert.strictEqual(readFileSync(file, 'utf8'), 'fresh');
+        assert.strictEqual(vscodeStub.workspace.applyEdit.mock.calls.length, 0);
+      }),
+    );
+
+    it.effect('fails without leaking the path when the document save returns false', () =>
+      Effect.gen(function* () {
+        const { client, tmp } = yield* fulfillment;
+        const file = join(tmp, 'open.txt');
+        const doc = openDocument(file, 'old');
+        doc.save.mockResolvedValueOnce(false);
+        const failed = yield* client
+          .request({ _tag: 'EditorWriteTextFile', content: 'new', path: file })
+          .pipe(Effect.flip);
+        assert.include(failed.message, 'Document save failed');
+        assert.notInclude(failed.message, tmp);
+      }),
+    );
+
+    it.effect('write fs failures carry a fixed message without the path', () =>
+      Effect.gen(function* () {
+        const { client, tmp } = yield* fulfillment;
+        const blocker = join(tmp, 'blocker');
+        writeFileSync(blocker, 'x');
+        // parent is a file, so mkdir/write fails with a path-bearing fs error
+        const failed = yield* client
+          .request({ _tag: 'EditorWriteTextFile', content: 'x', path: join(blocker, 'child.txt') })
+          .pipe(Effect.flip);
+        assert.include(failed.message, 'File write failed');
+        assert.notInclude(failed.message, tmp);
+        assert.notInclude(failed.message, 'child.txt');
+      }),
+    );
+
+    it.effect('write EACCES reports Permission denied without the path', () =>
+      Effect.gen(function* () {
+        if (process.platform === 'win32' || process.getuid?.() === 0) {
+          return;
+        }
+        const { client, tmp } = yield* fulfillment;
+        const dir = join(tmp, 'ro');
+        mkdirSync(dir);
+        chmodSync(dir, 0o500);
+        const failed = yield* client
+          .request({ _tag: 'EditorWriteTextFile', content: 'x', path: join(dir, 'f.txt') })
+          .pipe(Effect.flip, Effect.ensuring(Effect.sync(() => chmodSync(dir, 0o700))));
+        assert.include(failed.message, 'Permission denied');
+        assert.notInclude(failed.message, tmp);
+      }),
+    );
+
+    it.effect('fails when the editor rejects the edit, and rejects relative write paths', () =>
+      Effect.gen(function* () {
+        const { client, tmp } = yield* fulfillment;
+        const file = join(tmp, 'open.txt');
+        const doc = openDocument(file, 'old');
+        vscodeStub.workspace.applyEdit.mockResolvedValue(false);
+        const rejected = yield* client
+          .request({ _tag: 'EditorWriteTextFile', content: 'new', path: file })
+          .pipe(Effect.flip);
+        assert.strictEqual(rejected._tag, 'IpcClientError');
+        assert.strictEqual(doc.save.mock.calls.length, 0);
+        const relative = yield* client
+          .request({ _tag: 'EditorWriteTextFile', content: 'x', path: 'rel/secret.txt' })
+          .pipe(Effect.flip);
+        assert.notInclude(relative.message, 'secret');
+      }),
+    );
+  });
 });

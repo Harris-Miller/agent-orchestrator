@@ -1,4 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
+import { EditorFilesLive } from '@lib/context-services-tauri';
 import { Deferred, Effect, Fiber } from 'effect';
 import { TestClock } from 'effect/testing';
 import { vi } from 'vitest';
@@ -71,7 +72,11 @@ const LT = 'claude-agent-acp' as const;
 const listPayload = listSessionsPayload(LT, '/w');
 
 const run = (events: string[], cached: boolean) =>
-  Effect.forkChild(Effect.scoped(runBackendHarness(LT, makeHandlers(events, cached))) as Effect.Effect<void>);
+  Effect.forkChild(
+    Effect.scoped(runBackendHarness(LT, makeHandlers(events, cached))).pipe(
+      Effect.provide(EditorFilesLive),
+    ) as Effect.Effect<void>,
+  );
 
 describe('runBackendHarness', () => {
   it.effect('with a cached index: usable immediately, no probe, ready, and never lists sessions', () =>

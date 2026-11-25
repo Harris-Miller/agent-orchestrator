@@ -3,6 +3,7 @@
  * Live agent handles are registered with sessionRpc for the attempt's scope; every attempt ends with Connection lost.
  * Inbound session/update is forwarded whole; Session update apply owns demux.
  */
+import { EditorFiles } from '@lib/context-services';
 import { connectAcpAgent } from '@lib/effect-acp';
 import type {
   CreateElicitationRequestBody,
@@ -99,10 +100,12 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     handlers.onPhase('connecting');
 
     const command = yield* makeAcpLaunchCommand(launchTarget);
+    const editorFiles = yield* EditorFiles;
     const connection = yield* connectAcpAgent(
       command,
       makeClientHandlers(
         launchTarget,
+        editorFiles,
         handlers.onSessionUpdate,
         handlers.onElicitationCreate,
         handlers.onPermissionRequest,
@@ -120,7 +123,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     yield* Effect.logInfo('ACP harness connected').pipe(Effect.annotateLogs({ [PROCESS_PID]: connection.handle.pid }));
 
     const initializeResult = yield* agent.initialize({
-      clientCapabilities: clientCapabilitiesFor(launchTarget),
+      clientCapabilities: clientCapabilitiesFor(launchTarget, { editorFiles: editorFiles.supported }),
       protocolVersion: 1,
     });
     const capabilities = agentCapabilitiesFrom(launchTarget, initializeResult);

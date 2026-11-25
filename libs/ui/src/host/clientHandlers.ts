@@ -1,13 +1,17 @@
 /**
  * ACP Client RPC adapter for a backend harness: turn-correlated session/update,
- * elicitation, permission; stub fs/terminal handlers.
+ * elicitation, permission, real fs text-file handlers over the Host `EditorFiles` service; stub terminal handlers.
  */
-import { ClientRpcs } from '@lib/effect-acp';
+import type { EditorFiles } from '@lib/context-services';
+import { ClientRpcs, makeAcpError } from '@lib/effect-acp';
 import type {
+  AcpError,
   CreateElicitationRequestBody,
   CreateElicitationResponseBody,
+  ReadTextFileRequest,
   RequestPermissionRequest,
   RequestPermissionResponse,
+  WriteTextFileRequest,
 } from '@lib/effect-acp';
 import { Clock, Effect, Predicate } from 'effect';
 import { ACP_PARENT_SESSION_ID, sessionAttributes } from '@lib/hub/telemetryKeys';
@@ -85,8 +89,22 @@ const awaitingUser = Effect.fnUntraced(function* <A>(
   );
 });
 
+const ABSOLUTE_PATH = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/;
+const invalidParams = (message: string): AcpError => makeAcpError(-32602, message);
+
+/** Fails with the ACP error for a Host that cannot serve editor files. */
+const requireEditorFiles = (editorFiles: EditorFiles): Effect.Effect<void, AcpError> =>
+  editorFiles.supported ? Effect.void : Effect.fail(makeAcpError(-32601, 'Method not supported'));
+
+const requireAbsolutePath = (path: string): Effect.Effect<void, AcpError> =>
+  ABSOLUTE_PATH.test(path) ? Effect.void : Effect.fail(invalidParams('Path must be absolute'));
+
+/** The Host's failure text can name the path (Private data): the Agent gets a generic message. */
+const editorFilesError = (): AcpError => makeAcpError(-32603, 'Editor file access failed');
+
 export const makeClientHandlers = (
   launchTarget: AgentLaunchTarget,
+  editorFiles: EditorFiles,
   onSessionUpdate: (sessionId: string, update: unknown) => void,
   onElicitationCreate: ClientHandlerCallbacks['onElicitationCreate'],
   onPermissionRequest: ClientHandlerCallbacks['onPermissionRequest'],
@@ -126,8 +144,47 @@ export const makeClientHandlers = (
           }),
         );
       },
-      'fs/read_text_file': () => Effect.succeed({ content: '' }),
-      'fs/write_text_file': () => Effect.succeed({}),
+      'fs/read_text_file': (request: ReadTextFileRequest) =>
+        withTurnCorrelatedSpan(
+          'fs/read_text_file',
+          launchTarget,
+          request.sessionId,
+          Effect.gen(function* () {
+            yield* requireEditorFiles(editorFiles);
+            yield* requireAbsolutePath(request.path);
+            const { limit, line } = request;
+            if (line != null && (!Number.isInteger(line) || line < 1)) {
+              return yield* Effect.fail(invalidParams('Invalid line'));
+            }
+            if (limit != null && (!Number.isInteger(limit) || limit < 0)) {
+              return yield* Effect.fail(invalidParams('Invalid limit'));
+            }
+            const content = yield* editorFiles
+              .readText(request.path, {
+                ...(line == null ? {} : { line }),
+                ...(limit == null ? {} : { limit }),
+              })
+              .pipe(Effect.mapError(editorFilesError));
+            yield* Effect.annotateCurrentSpan({
+              'fs.content_length': content.length,
+              'fs.windowed': line != null || limit != null,
+            });
+            return { content };
+          }),
+        ),
+      'fs/write_text_file': (request: WriteTextFileRequest) =>
+        withTurnCorrelatedSpan(
+          'fs/write_text_file',
+          launchTarget,
+          request.sessionId,
+          Effect.gen(function* () {
+            yield* requireEditorFiles(editorFiles);
+            yield* requireAbsolutePath(request.path);
+            yield* Effect.annotateCurrentSpan({ 'fs.content_length': request.content.length });
+            yield* editorFiles.writeText(request.path, request.content).pipe(Effect.mapError(editorFilesError));
+            return {};
+          }),
+        ),
       'session/request_permission': (request: RequestPermissionRequest) =>
         withTurnCorrelatedSpan(
           'session/request_permission',

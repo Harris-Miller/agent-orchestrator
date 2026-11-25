@@ -1,12 +1,12 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
-import { DEFAULT_THEME_FONT, ORIGINAL_COLORS } from '../theme/themes.ts';
-import type { ThemeId } from '../theme/themeId.ts';
+import { DEFAULT_DARK_COLORS, DEFAULT_THEME_FONT } from '../theme/themes.ts';
+import type { ThemeId } from '../theme/themes.ts';
 
 import { createThemeAtoms, hostThemeAtom } from './theme.atoms.ts';
 
-const hostTheme = { colors: ORIGINAL_COLORS, font: DEFAULT_THEME_FONT };
+const hostTheme = { colors: DEFAULT_DARK_COLORS, font: DEFAULT_THEME_FONT };
 
 const makeAtoms = () => {
   const matchVscodeThemeAtom = Atom.make(true);

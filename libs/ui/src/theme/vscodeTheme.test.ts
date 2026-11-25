@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { DEFAULT_THEME_FONT, LATTE_COLORS, ORIGINAL_COLORS } from './themes.ts';
+import { DEFAULT_DARK_COLORS, DEFAULT_LIGHT_COLORS, DEFAULT_THEME_FONT } from './themes.ts';
 import { themeFromVscode } from './vscodeTheme.ts';
 
 /** Fake variable reader: unset names read as `''`, exactly like a missing `--vscode-*` property. */
@@ -82,15 +82,15 @@ describe('themeFromVscode', () => {
     assert.strictEqual(colors.bgPaper, '#222222');
   });
 
-  it('falls back to Original for dark kinds with every field set', () => {
+  it('falls back to Default (Dark) for dark kinds with every field set', () => {
     for (const kind of ['vscode-dark', 'vscode-high-contrast', undefined, 'something-new']) {
       const { colors, font } = themeFromVscode(readerOf({}), kind);
 
       assert.strictEqual(colors.mode, 'dark');
-      assert.strictEqual(colors.bgDefault, ORIGINAL_COLORS.bgDefault);
-      assert.strictEqual(colors.bgPaper, ORIGINAL_COLORS.bgPaper);
-      assert.strictEqual(colors.textPrimary, ORIGINAL_COLORS.textPrimary);
-      assert.strictEqual(colors.primaryMain, ORIGINAL_COLORS.primaryMain);
+      assert.strictEqual(colors.bgDefault, DEFAULT_DARK_COLORS.bgDefault);
+      assert.strictEqual(colors.bgPaper, DEFAULT_DARK_COLORS.bgPaper);
+      assert.strictEqual(colors.textPrimary, DEFAULT_DARK_COLORS.textPrimary);
+      assert.strictEqual(colors.primaryMain, DEFAULT_DARK_COLORS.primaryMain);
       assert.deepStrictEqual(font, DEFAULT_THEME_FONT);
       for (const [key, value] of Object.entries(colors)) {
         assert.isTrue(value.length > 0, `${kind}: ${key} is empty`);
@@ -98,15 +98,15 @@ describe('themeFromVscode', () => {
     }
   });
 
-  it('falls back to Latte for light kinds with every field set', () => {
+  it('falls back to Default (Light) for light kinds with every field set', () => {
     for (const kind of ['vscode-light', 'vscode-high-contrast-light']) {
       const { colors } = themeFromVscode(readerOf({}), kind);
 
       assert.strictEqual(colors.mode, 'light');
-      assert.strictEqual(colors.bgDefault, LATTE_COLORS.bgDefault);
-      assert.strictEqual(colors.bgPaper, LATTE_COLORS.bgPaper);
-      assert.strictEqual(colors.textPrimary, LATTE_COLORS.textPrimary);
-      assert.strictEqual(colors.primaryMain, LATTE_COLORS.primaryMain);
+      assert.strictEqual(colors.bgDefault, DEFAULT_LIGHT_COLORS.bgDefault);
+      assert.strictEqual(colors.bgPaper, DEFAULT_LIGHT_COLORS.bgPaper);
+      assert.strictEqual(colors.textPrimary, DEFAULT_LIGHT_COLORS.textPrimary);
+      assert.strictEqual(colors.primaryMain, DEFAULT_LIGHT_COLORS.primaryMain);
       for (const [key, value] of Object.entries(colors)) {
         assert.isTrue(value.length > 0, `${kind}: ${key} is empty`);
       }

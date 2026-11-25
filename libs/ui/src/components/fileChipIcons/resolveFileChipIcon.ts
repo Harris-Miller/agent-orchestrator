@@ -1,7 +1,8 @@
 import { Link } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-import type { ThemeId } from '../../theme/themeId.ts';
+import { THEME_COLORS } from '../../theme/themes.ts';
+import type { ThemeId } from '../../theme/themes.ts';
 
 import type { FileIconPackId } from './packId.ts';
 import { getPackSvg, svgToDataUrl } from './packs.ts';
@@ -40,13 +41,10 @@ const EXT_TO_KEY: Readonly<Record<string, string>> = {
 };
 
 export const packIdForTheme = (themeId: ThemeId): FileIconPackId => {
-  if (themeId === 'original') {
+  if (themeId === 'default-dark') {
     return 'original';
   }
-  if (themeId === 'latte') {
-    return 'catppuccin-latte';
-  }
-  return 'catppuccin-mocha';
+  return THEME_COLORS[themeId].mode === 'light' ? 'catppuccin-latte' : 'catppuccin-mocha';
 };
 
 /** Path-like / `file:` → file map; bare URLs with a scheme → Link. */

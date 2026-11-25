@@ -4,7 +4,6 @@ import { alpha, createTheme, darken } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
 
 import { CheckGlyph, RadioGlyph } from './ControlGlyphs.tsx';
-import type { ThemeId } from './themeId.ts';
 import { FONT_FAMILY_UI, PANEL_HEADER_HEIGHT, RADIUS } from './tokens.ts';
 
 declare module '@mui/material/styles' {
@@ -995,15 +994,15 @@ export const createAppTheme = (c: ThemeColors, font: ThemeFont = DEFAULT_THEME_F
   });
 };
 
-const ORIGINAL_SECONDARY_MAIN = '#d48fff';
+const DEFAULT_DARK_SECONDARY_MAIN = '#d48fff';
 
-export const ORIGINAL_COLORS: ThemeColors = {
+export const DEFAULT_DARK_COLORS: ThemeColors = {
   alertInfoBg: '#1a2a43',
   alertWarningBg: '#3e2724',
   bgDefault: '#13171b',
   bgPaper: '#1d2027',
-  commandChipBackground: alpha(ORIGINAL_SECONDARY_MAIN, 0.08),
-  commandChipForeground: ORIGINAL_SECONDARY_MAIN,
+  commandChipBackground: alpha(DEFAULT_DARK_SECONDARY_MAIN, 0.08),
+  commandChipForeground: DEFAULT_DARK_SECONDARY_MAIN,
   composerBackground: '#1d2027',
   // Soft hairline (Cursor-like); panel seams come from Allotment, not doubled pane borders
   divider: 'rgba(255, 255, 255, 0.09)',
@@ -1026,7 +1025,7 @@ export const ORIGINAL_COLORS: ThemeColors = {
   secondaryContainedHover: '#b476dc',
   secondaryDark: '#9d62c4',
   secondaryLight: '#e1adff',
-  secondaryMain: ORIGINAL_SECONDARY_MAIN,
+  secondaryMain: DEFAULT_DARK_SECONDARY_MAIN,
   successDark: '#00664d',
   successLight: '#43bf9f',
   successMain: '#008765',
@@ -1034,7 +1033,7 @@ export const ORIGINAL_COLORS: ThemeColors = {
   textMuted: '#a0a7b5',
   textPrimary: '#f3f7ff',
   textSecondary: 'rgba(214, 223, 242, 0.70)',
-  userMessageBackground: alpha(ORIGINAL_SECONDARY_MAIN, 0.32),
+  userMessageBackground: alpha(DEFAULT_DARK_SECONDARY_MAIN, 0.32),
   warningDark: '#9f351c',
   warningLight: '#ff8a66',
   warningMain: '#e15428',
@@ -1176,17 +1175,376 @@ const CATPPUCCIN = {
     text: '#cdd6f4',
     yellow: '#f9e2af',
   },
-} as const satisfies Record<Exclude<ThemeId, 'original'>, CatppuccinFlavor>;
+} as const satisfies Record<string, CatppuccinFlavor>;
 
 export const LATTE_COLORS: ThemeColors = fromCatppuccin(CATPPUCCIN.latte);
 
-export const themes: Record<ThemeId, Theme> = {
-  frappe: createAppTheme(fromCatppuccin(CATPPUCCIN.frappe)),
-  latte: createAppTheme(LATTE_COLORS),
-  macchiato: createAppTheme(fromCatppuccin(CATPPUCCIN.macchiato)),
-  mocha: createAppTheme(fromCatppuccin(CATPPUCCIN.mocha)),
-  original: createAppTheme(ORIGINAL_COLORS),
+/** Default (Light): Default (Dark)'s layout and accent hues, darkened to pass contrast on light surfaces. */
+export const DEFAULT_LIGHT_COLORS: ThemeColors = {
+  alertInfoBg: '#e4effd',
+  alertWarningBg: '#fdece4',
+  bgDefault: '#f3f5f8',
+  bgPaper: '#ffffff',
+  commandChipBackground: alpha('#8f3fc9', 0.08),
+  commandChipForeground: '#8f3fc9',
+  composerBackground: '#ffffff',
+  divider: 'rgba(15, 23, 42, 0.10)',
+  errorDark: '#8f1d2c',
+  errorLight: '#e5566a',
+  errorMain: '#c4283c',
+  infoDark: '#124f8f',
+  infoLight: '#4c97ff',
+  infoMain: '#1a6fc2',
+  mode: 'light',
+  onAccent: '#ffffff',
+  primaryContained: '#1f6fd6',
+  primaryContainedHover: '#1a5cb3',
+  primaryDark: '#1550a0',
+  primaryLight: '#60a7ff',
+  primaryMain: '#1f6fd6',
+  scrollbarThumb: '#c3cad6',
+  scrollbarTrack: '#f3f5f8',
+  secondaryContained: '#8f3fc9',
+  secondaryContainedHover: '#7a33ad',
+  secondaryDark: '#6c2a9a',
+  secondaryLight: '#b476dc',
+  secondaryMain: '#8f3fc9',
+  successDark: '#085c44',
+  successLight: '#2fa383',
+  successMain: '#0f7a5c',
+  switchTrackOff: '#c3cad6',
+  textMuted: '#5f6b7d',
+  textPrimary: '#1a2230',
+  textSecondary: 'rgba(26, 34, 48, 0.70)',
+  userMessageBackground: alpha('#8f3fc9', 0.14),
+  warningDark: '#8f2f0a',
+  warningLight: '#e8742e',
+  warningMain: '#c2410c',
 };
 
-/** Default / Original theme — prefer `themes[themeId]` when selecting. */
-export const theme = themes.original;
+/** Hand-picked scheme → app tokens for the popular editor themes. Missing tokens derive like `fromCatppuccin`. */
+type Scheme = {
+  readonly bgDefault: string;
+  readonly bgPaper: string;
+  readonly composer: string;
+  readonly error: string;
+  readonly info: string;
+  readonly infoAlt: string;
+  readonly mode: 'dark' | 'light';
+  readonly onAccent: string;
+  readonly primary: string;
+  readonly primaryAlt: string;
+  readonly scrollbarThumb: string;
+  readonly scrollbarTrack: string;
+  readonly secondary: string;
+  readonly secondaryAlt: string;
+  readonly success: string;
+  readonly surface: string;
+  readonly text: string;
+  readonly textMuted: string;
+  readonly textSecondary: string;
+  readonly warning: string;
+  readonly warningAlt: string;
+};
+
+const fromScheme = (s: Scheme): ThemeColors => ({
+  alertInfoBg: alpha(s.info, 0.14),
+  alertWarningBg: alpha(s.warning, 0.14),
+  bgDefault: s.bgDefault,
+  bgPaper: s.bgPaper,
+  commandChipBackground: alpha(s.secondary, 0.08),
+  commandChipForeground: s.secondary,
+  composerBackground: s.composer,
+  divider: s.mode === 'dark' ? alpha('#ffffff', 0.09) : alpha(s.text, 0.15),
+  errorDark: darken(s.error, 0.2),
+  errorLight: s.error,
+  errorMain: s.error,
+  infoDark: darken(s.info, 0.2),
+  infoLight: s.infoAlt,
+  infoMain: s.info,
+  mode: s.mode,
+  onAccent: s.onAccent,
+  primaryContained: s.primary,
+  primaryContainedHover: darken(s.primary, 0.1),
+  primaryDark: darken(s.primary, 0.15),
+  primaryLight: s.primaryAlt,
+  primaryMain: s.primary,
+  scrollbarThumb: s.scrollbarThumb,
+  scrollbarTrack: s.scrollbarTrack,
+  secondaryContained: s.secondary,
+  secondaryContainedHover: darken(s.secondary, 0.1),
+  secondaryDark: darken(s.secondary, 0.15),
+  secondaryLight: s.secondaryAlt,
+  secondaryMain: s.secondary,
+  successDark: darken(s.success, 0.2),
+  successLight: s.success,
+  successMain: s.success,
+  switchTrackOff: s.scrollbarThumb,
+  textMuted: s.textMuted,
+  textPrimary: s.text,
+  textSecondary: s.textSecondary,
+  userMessageBackground: alpha(s.surface, s.mode === 'dark' ? 0.6 : 0.5),
+  warningDark: darken(s.warning, 0.2),
+  warningLight: s.warningAlt,
+  warningMain: s.warning,
+});
+
+const DRACULA_COLORS = fromScheme({
+  bgDefault: '#21222c',
+  bgPaper: '#282a36',
+  composer: '#44475a',
+  error: '#ff5555',
+  info: '#8be9fd',
+  infoAlt: '#8be9fd',
+  mode: 'dark',
+  onAccent: '#282a36',
+  primary: '#bd93f9',
+  primaryAlt: '#ff79c6',
+  scrollbarThumb: '#44475a',
+  scrollbarTrack: '#21222c',
+  secondary: '#ff79c6',
+  secondaryAlt: '#ff79c6',
+  success: '#50fa7b',
+  surface: '#44475a',
+  text: '#f8f8f2',
+  textMuted: '#6272a4',
+  textSecondary: alpha('#f8f8f2', 0.72),
+  warning: '#ffb86c',
+  warningAlt: '#f1fa8c',
+});
+
+const NORD_COLORS = fromScheme({
+  bgDefault: '#2e3440',
+  bgPaper: '#3b4252',
+  composer: '#434c5e',
+  error: '#bf616a',
+  info: '#81a1c1',
+  infoAlt: '#88c0d0',
+  mode: 'dark',
+  onAccent: '#2e3440',
+  primary: '#88c0d0',
+  primaryAlt: '#8fbcbb',
+  scrollbarThumb: '#4c566a',
+  scrollbarTrack: '#2e3440',
+  secondary: '#b48ead',
+  secondaryAlt: '#b48ead',
+  success: '#a3be8c',
+  surface: '#434c5e',
+  text: '#eceff4',
+  textMuted: '#81a1c1',
+  textSecondary: '#d8dee9',
+  warning: '#ebcb8b',
+  warningAlt: '#d08770',
+});
+
+const TOKYO_NIGHT_COLORS = fromScheme({
+  bgDefault: '#16161e',
+  bgPaper: '#1a1b26',
+  composer: '#292e42',
+  error: '#f7768e',
+  info: '#7dcfff',
+  infoAlt: '#7aa2f7',
+  mode: 'dark',
+  onAccent: '#1a1b26',
+  primary: '#7aa2f7',
+  primaryAlt: '#7dcfff',
+  scrollbarThumb: '#414868',
+  scrollbarTrack: '#16161e',
+  secondary: '#bb9af7',
+  secondaryAlt: '#bb9af7',
+  success: '#9ece6a',
+  surface: '#292e42',
+  text: '#c0caf5',
+  textMuted: '#565f89',
+  textSecondary: '#a9b1d6',
+  warning: '#e0af68',
+  warningAlt: '#ff9e64',
+});
+
+const GITHUB_DARK_COLORS = fromScheme({
+  bgDefault: '#010409',
+  bgPaper: '#0d1117',
+  composer: '#161b22',
+  error: '#f85149',
+  info: '#58a6ff',
+  infoAlt: '#58a6ff',
+  mode: 'dark',
+  onAccent: '#ffffff',
+  primary: '#2f81f7',
+  primaryAlt: '#58a6ff',
+  scrollbarThumb: '#30363d',
+  scrollbarTrack: '#010409',
+  secondary: '#a371f7',
+  secondaryAlt: '#a371f7',
+  success: '#3fb950',
+  surface: '#161b22',
+  text: '#e6edf3',
+  textMuted: '#7d8590',
+  textSecondary: alpha('#e6edf3', 0.72),
+  warning: '#d29922',
+  warningAlt: '#db6d28',
+});
+
+const ONE_DARK_COLORS = fromScheme({
+  bgDefault: '#21252b',
+  bgPaper: '#282c34',
+  composer: '#2c313a',
+  error: '#e06c75',
+  info: '#56b6c2',
+  infoAlt: '#56b6c2',
+  mode: 'dark',
+  onAccent: '#21252b',
+  primary: '#61afef',
+  primaryAlt: '#56b6c2',
+  scrollbarThumb: '#3e4451',
+  scrollbarTrack: '#21252b',
+  secondary: '#c678dd',
+  secondaryAlt: '#c678dd',
+  success: '#98c379',
+  surface: '#3e4451',
+  text: '#abb2bf',
+  textMuted: '#5c6370',
+  textSecondary: alpha('#abb2bf', 0.8),
+  warning: '#e5c07b',
+  warningAlt: '#d19a66',
+});
+
+const GITHUB_LIGHT_COLORS = fromScheme({
+  bgDefault: '#f6f8fa',
+  bgPaper: '#ffffff',
+  composer: '#ffffff',
+  error: '#d1242f',
+  info: '#0969da',
+  infoAlt: '#0969da',
+  mode: 'light',
+  onAccent: '#ffffff',
+  primary: '#0969da',
+  primaryAlt: '#0969da',
+  scrollbarThumb: '#d0d7de',
+  scrollbarTrack: '#f6f8fa',
+  secondary: '#8250df',
+  secondaryAlt: '#8250df',
+  success: '#1a7f37',
+  surface: '#d0d7de',
+  text: '#1f2328',
+  textMuted: '#656d76',
+  textSecondary: '#656d76',
+  warning: '#9a6700',
+  warningAlt: '#bc4c00',
+});
+
+const ONE_LIGHT_COLORS = fromScheme({
+  bgDefault: '#f0f0f1',
+  bgPaper: '#fafafa',
+  composer: '#fafafa',
+  error: '#e45649',
+  info: '#0184bc',
+  infoAlt: '#0184bc',
+  mode: 'light',
+  onAccent: '#ffffff',
+  primary: '#4078f2',
+  primaryAlt: '#4078f2',
+  scrollbarThumb: '#dbdbdc',
+  scrollbarTrack: '#f0f0f1',
+  secondary: '#a626a4',
+  secondaryAlt: '#a626a4',
+  success: '#50a14f',
+  surface: '#eaeaeb',
+  text: '#383a42',
+  textMuted: '#a0a1a7',
+  textSecondary: alpha('#383a42', 0.7),
+  warning: '#c18401',
+  warningAlt: '#986801',
+});
+
+const SOLARIZED_LIGHT_COLORS = fromScheme({
+  bgDefault: '#eee8d5',
+  bgPaper: '#fdf6e3',
+  composer: '#fdf6e3',
+  error: '#dc322f',
+  info: '#2aa198',
+  infoAlt: '#2aa198',
+  mode: 'light',
+  onAccent: '#fdf6e3',
+  primary: '#268bd2',
+  primaryAlt: '#268bd2',
+  scrollbarThumb: '#93a1a1',
+  scrollbarTrack: '#eee8d5',
+  secondary: '#6c71c4',
+  secondaryAlt: '#6c71c4',
+  success: '#859900',
+  surface: '#eee8d5',
+  text: '#586e75',
+  textMuted: '#93a1a1',
+  textSecondary: '#657b83',
+  warning: '#b58900',
+  warningAlt: '#cb4b16',
+});
+
+const ROSE_PINE_DAWN_COLORS = fromScheme({
+  bgDefault: '#f2e9e1',
+  bgPaper: '#faf4ed',
+  composer: '#fffaf3',
+  error: '#b4637a',
+  info: '#286983',
+  infoAlt: '#56949f',
+  mode: 'light',
+  onAccent: '#fffaf3',
+  primary: '#907aa9',
+  primaryAlt: '#d7827e',
+  scrollbarThumb: '#dfdad9',
+  scrollbarTrack: '#f2e9e1',
+  secondary: '#286983',
+  secondaryAlt: '#56949f',
+  success: '#56949f',
+  surface: '#dfdad9',
+  text: '#575279',
+  textMuted: '#9893a5',
+  textSecondary: '#797593',
+  warning: '#ea9d34',
+  warningAlt: '#d7827e',
+});
+
+/** The one registry: every selectable palette. Mode comes from the colors, so a palette can't sit in the wrong slot. */
+const PALETTES = [
+  { colors: DEFAULT_LIGHT_COLORS, id: 'default-light', label: 'Default (Light)' },
+  { colors: DEFAULT_DARK_COLORS, id: 'default-dark', label: 'Default (Dark)' },
+  { colors: GITHUB_LIGHT_COLORS, id: 'github-light', label: 'GitHub Light' },
+  { colors: ONE_LIGHT_COLORS, id: 'one-light', label: 'One Light' },
+  { colors: SOLARIZED_LIGHT_COLORS, id: 'solarized-light', label: 'Solarized Light' },
+  { colors: ROSE_PINE_DAWN_COLORS, id: 'rose-pine-dawn', label: 'Rosé Pine Dawn' },
+  { colors: LATTE_COLORS, id: 'latte', label: 'Catppuccin Latte' },
+  { colors: GITHUB_DARK_COLORS, id: 'github-dark', label: 'GitHub Dark' },
+  { colors: ONE_DARK_COLORS, id: 'one-dark', label: 'One Dark' },
+  { colors: DRACULA_COLORS, id: 'dracula', label: 'Dracula' },
+  { colors: TOKYO_NIGHT_COLORS, id: 'tokyo-night', label: 'Tokyo Night' },
+  { colors: NORD_COLORS, id: 'nord', label: 'Nord' },
+  { colors: fromCatppuccin(CATPPUCCIN.frappe), id: 'frappe', label: 'Catppuccin Frappé' },
+  { colors: fromCatppuccin(CATPPUCCIN.macchiato), id: 'macchiato', label: 'Catppuccin Macchiato' },
+  { colors: fromCatppuccin(CATPPUCCIN.mocha), id: 'mocha', label: 'Catppuccin Mocha' },
+] as const;
+
+export type ThemeId = (typeof PALETTES)[number]['id'];
+
+type PaletteEntry = { readonly colors: ThemeColors; readonly id: ThemeId; readonly label: string };
+
+const PALETTE_LIST: readonly PaletteEntry[] = PALETTES;
+
+export const THEME_IDS: readonly ThemeId[] = PALETTE_LIST.map(p => p.id);
+export const LIGHT_THEME_IDS: readonly ThemeId[] = PALETTE_LIST.filter(p => p.colors.mode === 'light').map(p => p.id);
+export const DARK_THEME_IDS: readonly ThemeId[] = PALETTE_LIST.filter(p => p.colors.mode === 'dark').map(p => p.id);
+
+export const THEME_LABELS: Record<ThemeId, string> = Object.fromEntries(
+  PALETTE_LIST.map(p => [p.id, p.label]),
+) as Record<ThemeId, string>;
+
+export const THEME_COLORS: Record<ThemeId, ThemeColors> = Object.fromEntries(
+  PALETTE_LIST.map(p => [p.id, p.colors]),
+) as Record<ThemeId, ThemeColors>;
+
+export const themes: Record<ThemeId, Theme> = Object.fromEntries(
+  PALETTE_LIST.map(p => [p.id, createAppTheme(p.colors)]),
+) as Record<ThemeId, Theme>;
+
+/** Default (Dark) theme — prefer `themes[themeId]` when selecting. */
+export const theme = themes['default-dark'];

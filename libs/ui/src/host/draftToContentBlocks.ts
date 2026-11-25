@@ -1,7 +1,8 @@
 /**
  * Map a composer draft string to an ordered ACP `prompt` ContentBlock list.
  *
- * FS markdown links become `resource` (UTF-8 text up to TEXT_EMBED_MAX_BYTES) / `resource_link` (everything else); everything else stays in `text`.
+ * FS markdown links become `resource` (UTF-8 text up to TEXT_EMBED_MAX_BYTES) or `resource_link`
+ * (binary, unreadable, directory, oversized, or no embeddedContext); non-link draft content stays in `text`.
  * Image attachments / image-like `resource_link`s are moved to the front and de-duplicated by uri.
  * With the Agent capability `promptImage`, attachments become `type: "image"`; otherwise `resource_link`.
  */

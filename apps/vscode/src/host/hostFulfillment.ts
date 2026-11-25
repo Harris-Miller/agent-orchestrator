@@ -21,6 +21,7 @@ import { access, copyFile, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile
 import { homedir as osHomedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { assertAbsolutePath, samePath, sliceTextLines } from './editorFilePaths';
 import { fileWorkspaceFilePath, fileWorkspaceFolderPaths } from './fileWorkspaceFolderPaths';
 import { resolveAntigravitySpawn } from './antigravitySpawn';
 import { isProviderCurrentJsonPath } from './providerStatePath';
@@ -102,6 +103,32 @@ export const makeHostIpcFulfillment = (deps: {
         throw new Error('Bundled resource missing');
       }
       return { path: absolute };
+    },
+    EditorReadTextFile: async message => {
+      assertAbsolutePath(message.path);
+      const open = vscode.workspace.textDocuments.find(
+        doc => doc.uri.scheme === 'file' && samePath(doc.uri.fsPath, message.path),
+      );
+      const text = open === undefined ? await readFile(message.path, 'utf8') : open.getText();
+      return { content: sliceTextLines(text, message.line, message.limit) };
+    },
+    EditorWriteTextFile: async message => {
+      assertAbsolutePath(message.path);
+      const open = vscode.workspace.textDocuments.find(
+        doc => doc.uri.scheme === 'file' && samePath(doc.uri.fsPath, message.path),
+      );
+      if (open === undefined) {
+        await mkdir(dirname(message.path), { recursive: true });
+        await writeFile(message.path, message.content, 'utf8');
+        return {};
+      }
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(open.uri, new vscode.Range(0, 0, open.lineCount, 0), message.content);
+      if (!(await vscode.workspace.applyEdit(edit))) {
+        throw new Error('Editor rejected the edit');
+      }
+      await open.save();
+      return {};
     },
     FileDialogPickFiles: async message => {
       const filters =

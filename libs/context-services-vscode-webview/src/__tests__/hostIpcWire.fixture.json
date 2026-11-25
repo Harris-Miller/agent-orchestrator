@@ -34,10 +34,10 @@
         "type": "string",
         "enum": ["BundledResolve"]
       },
-      "id": {
+      "resourcePath": {
         "type": "string"
       },
-      "resourcePath": {
+      "id": {
         "type": "string"
       }
     },
@@ -51,41 +51,24 @@
         "type": "string",
         "enum": ["BundledResolveResult"]
       },
-      "id": {
+      "path": {
         "type": "string"
       },
-      "path": {
+      "id": {
         "type": "string"
       }
     },
     "required": ["_tag", "id", "path"],
     "additionalProperties": true
   },
-  "Error": {
+  "EditorReadTextFile": {
     "type": "object",
     "properties": {
       "_tag": {
         "type": "string",
-        "enum": ["Error"]
+        "enum": ["EditorReadTextFile"]
       },
-      "id": {
-        "type": "string"
-      },
-      "message": {
-        "type": "string"
-      }
-    },
-    "required": ["_tag", "id", "message"],
-    "additionalProperties": true
-  },
-  "Exit": {
-    "type": "object",
-    "properties": {
-      "_tag": {
-        "type": "string",
-        "enum": ["Exit"]
-      },
-      "code": {
+      "limit": {
         "anyOf": [
           {
             "type": "number"
@@ -93,14 +76,85 @@
           {
             "type": "string",
             "enum": ["Infinity", "-Infinity", "NaN"]
+          },
+          {
+            "type": "null"
           }
         ]
       },
-      "handleId": {
+      "line": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "string",
+            "enum": ["Infinity", "-Infinity", "NaN"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "path": {
+        "type": "string"
+      },
+      "id": {
         "type": "string"
       }
     },
-    "required": ["_tag", "code", "handleId"],
+    "required": ["_tag", "id", "path"],
+    "additionalProperties": true
+  },
+  "EditorReadTextFileResult": {
+    "type": "object",
+    "properties": {
+      "_tag": {
+        "type": "string",
+        "enum": ["EditorReadTextFileResult"]
+      },
+      "content": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      }
+    },
+    "required": ["_tag", "content", "id"],
+    "additionalProperties": true
+  },
+  "EditorWriteTextFile": {
+    "type": "object",
+    "properties": {
+      "_tag": {
+        "type": "string",
+        "enum": ["EditorWriteTextFile"]
+      },
+      "content": {
+        "type": "string"
+      },
+      "path": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      }
+    },
+    "required": ["_tag", "content", "id", "path"],
+    "additionalProperties": true
+  },
+  "EditorWriteTextFileResult": {
+    "type": "object",
+    "properties": {
+      "_tag": {
+        "type": "string",
+        "enum": ["EditorWriteTextFileResult"]
+      },
+      "id": {
+        "type": "string"
+      }
+    },
+    "required": ["_tag", "id"],
     "additionalProperties": true
   },
   "FileDialogPickFiles": {
@@ -136,9 +190,6 @@
           }
         ]
       },
-      "id": {
-        "type": "string"
-      },
       "multiple": {
         "anyOf": [
           {
@@ -148,6 +199,9 @@
             "type": "null"
           }
         ]
+      },
+      "id": {
+        "type": "string"
       }
     },
     "required": ["_tag", "id"],
@@ -160,14 +214,14 @@
         "type": "string",
         "enum": ["FileDialogPickFilesResult"]
       },
-      "id": {
-        "type": "string"
-      },
       "paths": {
         "type": "array",
         "items": {
           "type": "string"
         }
+      },
+      "id": {
+        "type": "string"
       }
     },
     "required": ["_tag", "id", "paths"],
@@ -183,10 +237,10 @@
       "content": {
         "type": "string"
       },
-      "id": {
+      "path": {
         "type": "string"
       },
-      "path": {
+      "id": {
         "type": "string"
       }
     },
@@ -217,10 +271,10 @@
       "fromPath": {
         "type": "string"
       },
-      "id": {
+      "toPath": {
         "type": "string"
       },
-      "toPath": {
+      "id": {
         "type": "string"
       }
     },
@@ -248,10 +302,10 @@
         "type": "string",
         "enum": ["FsExists"]
       },
-      "id": {
+      "path": {
         "type": "string"
       },
-      "path": {
+      "id": {
         "type": "string"
       }
     },
@@ -282,9 +336,6 @@
         "type": "string",
         "enum": ["FsMakeDirectory"]
       },
-      "id": {
-        "type": "string"
-      },
       "options": {
         "anyOf": [
           {
@@ -309,6 +360,9 @@
         ]
       },
       "path": {
+        "type": "string"
+      },
+      "id": {
         "type": "string"
       }
     },
@@ -335,9 +389,6 @@
       "_tag": {
         "type": "string",
         "enum": ["FsMakeTempDirectory"]
-      },
-      "id": {
-        "type": "string"
       },
       "options": {
         "anyOf": [
@@ -371,6 +422,9 @@
             "type": "null"
           }
         ]
+      },
+      "id": {
+        "type": "string"
       }
     },
     "required": ["_tag", "id"],
@@ -383,10 +437,10 @@
         "type": "string",
         "enum": ["FsMakeTempDirectoryResult"]
       },
-      "id": {
+      "path": {
         "type": "string"
       },
-      "path": {
+      "id": {
         "type": "string"
       }
     },
@@ -400,10 +454,10 @@
         "type": "string",
         "enum": ["FsReadFile"]
       },
-      "id": {
+      "path": {
         "type": "string"
       },
-      "path": {
+      "id": {
         "type": "string"
       }
     },
@@ -432,10 +486,10 @@
         "type": "string",
         "enum": ["FsReadFileString"]
       },
-      "id": {
+      "path": {
         "type": "string"
       },
-      "path": {
+      "id": {
         "type": "string"
       }
     },
@@ -466,9 +520,6 @@
         "type": "string",
         "enum": ["FsRemove"]
       },
-      "id": {
-        "type": "string"
-      },
       "options": {
         "anyOf": [
           {
@@ -493,6 +544,9 @@
         ]
       },
       "path": {
+        "type": "string"
+      },
+      "id": {
         "type": "string"
       }
     },
@@ -520,10 +574,10 @@
         "type": "string",
         "enum": ["FsStat"]
       },
-      "id": {
+      "path": {
         "type": "string"
       },
-      "path": {
+      "id": {
         "type": "string"
       }
     },
@@ -565,9 +619,6 @@
           }
         ]
       },
-      "id": {
-        "type": "string"
-      },
       "mtime": {
         "anyOf": [
           {
@@ -596,6 +647,9 @@
       "type": {
         "type": "string",
         "enum": ["Directory", "File", "SymbolicLink", "Unknown"]
+      },
+      "id": {
+        "type": "string"
       }
     },
     "required": ["_tag", "id", "size", "type"],
@@ -609,10 +663,10 @@
         "enum": ["FsWriteFile"]
       },
       "bytes": {},
-      "id": {
+      "path": {
         "type": "string"
       },
-      "path": {
+      "id": {
         "type": "string"
       }
     },
@@ -643,10 +697,10 @@
       "content": {
         "type": "string"
       },
-      "id": {
+      "path": {
         "type": "string"
       },
-      "path": {
+      "id": {
         "type": "string"
       }
     },
@@ -688,13 +742,13 @@
           "type": "string"
         }
       },
-      "id": {
-        "type": "string"
-      },
       "method": {
         "type": "string"
       },
       "url": {
+        "type": "string"
+      },
+      "id": {
         "type": "string"
       }
     },
@@ -722,9 +776,6 @@
           "type": "string"
         }
       },
-      "id": {
-        "type": "string"
-      },
       "status": {
         "anyOf": [
           {
@@ -737,6 +788,9 @@
         ]
       },
       "statusText": {
+        "type": "string"
+      },
+      "id": {
         "type": "string"
       }
     },
@@ -781,17 +835,14 @@
         "type": "string",
         "enum": ["OpenFile"]
       },
-      "id": {
-        "type": "string"
-      },
       "line": {
         "anyOf": [
           {
             "type": "number"
           },
           {
-            "enum": ["Infinity", "-Infinity", "NaN"],
-            "type": "string"
+            "type": "string",
+            "enum": ["Infinity", "-Infinity", "NaN"]
           },
           {
             "type": "null"
@@ -799,6 +850,9 @@
         ]
       },
       "path": {
+        "type": "string"
+      },
+      "id": {
         "type": "string"
       }
     },
@@ -861,10 +915,10 @@
         "type": "string",
         "enum": ["OpenUrl"]
       },
-      "id": {
+      "url": {
         "type": "string"
       },
-      "url": {
+      "id": {
         "type": "string"
       }
     },
@@ -921,10 +975,10 @@
       "homedir": {
         "type": "string"
       },
-      "id": {
+      "platform": {
         "type": "string"
       },
-      "platform": {
+      "id": {
         "type": "string"
       }
     },
@@ -945,9 +999,6 @@
         }
       },
       "command": {
-        "type": "string"
-      },
-      "id": {
         "type": "string"
       },
       "options": {
@@ -1028,6 +1079,9 @@
             "type": "null"
           }
         ]
+      },
+      "id": {
+        "type": "string"
       }
     },
     "required": ["_tag", "args", "command", "id"],
@@ -1043,9 +1097,6 @@
       "handleId": {
         "type": "string"
       },
-      "id": {
-        "type": "string"
-      },
       "pid": {
         "anyOf": [
           {
@@ -1056,96 +1107,12 @@
             "enum": ["Infinity", "-Infinity", "NaN"]
           }
         ]
+      },
+      "id": {
+        "type": "string"
       }
     },
     "required": ["_tag", "handleId", "id", "pid"],
-    "additionalProperties": true
-  },
-  "StderrChunk": {
-    "type": "object",
-    "properties": {
-      "_tag": {
-        "type": "string",
-        "enum": ["StderrChunk"]
-      },
-      "bytes": {},
-      "handleId": {
-        "type": "string"
-      }
-    },
-    "required": ["_tag", "bytes", "handleId"],
-    "additionalProperties": true
-  },
-  "StderrEnd": {
-    "type": "object",
-    "properties": {
-      "_tag": {
-        "type": "string",
-        "enum": ["StderrEnd"]
-      },
-      "handleId": {
-        "type": "string"
-      }
-    },
-    "required": ["_tag", "handleId"],
-    "additionalProperties": true
-  },
-  "StdinChunk": {
-    "type": "object",
-    "properties": {
-      "_tag": {
-        "type": "string",
-        "enum": ["StdinChunk"]
-      },
-      "bytes": {},
-      "handleId": {
-        "type": "string"
-      }
-    },
-    "required": ["_tag", "bytes", "handleId"],
-    "additionalProperties": true
-  },
-  "StdinEnd": {
-    "type": "object",
-    "properties": {
-      "_tag": {
-        "type": "string",
-        "enum": ["StdinEnd"]
-      },
-      "handleId": {
-        "type": "string"
-      }
-    },
-    "required": ["_tag", "handleId"],
-    "additionalProperties": true
-  },
-  "StdoutChunk": {
-    "type": "object",
-    "properties": {
-      "_tag": {
-        "type": "string",
-        "enum": ["StdoutChunk"]
-      },
-      "bytes": {},
-      "handleId": {
-        "type": "string"
-      }
-    },
-    "required": ["_tag", "bytes", "handleId"],
-    "additionalProperties": true
-  },
-  "StdoutEnd": {
-    "type": "object",
-    "properties": {
-      "_tag": {
-        "type": "string",
-        "enum": ["StdoutEnd"]
-      },
-      "handleId": {
-        "type": "string"
-      }
-    },
-    "required": ["_tag", "handleId"],
     "additionalProperties": true
   },
   "WindowFocus": {
@@ -1193,6 +1160,141 @@
     "required": ["_tag", "id"],
     "additionalProperties": true
   },
+  "WorkspaceFoldersResult": {
+    "type": "object",
+    "properties": {
+      "_tag": {
+        "type": "string",
+        "enum": ["WorkspaceFoldersResult"]
+      },
+      "paths": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "workspaceFile": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      }
+    },
+    "required": ["_tag", "id", "paths"],
+    "additionalProperties": true
+  },
+  "StdinChunk": {
+    "type": "object",
+    "properties": {
+      "_tag": {
+        "type": "string",
+        "enum": ["StdinChunk"]
+      },
+      "bytes": {},
+      "handleId": {
+        "type": "string"
+      }
+    },
+    "required": ["_tag", "bytes", "handleId"],
+    "additionalProperties": true
+  },
+  "StdinEnd": {
+    "type": "object",
+    "properties": {
+      "_tag": {
+        "type": "string",
+        "enum": ["StdinEnd"]
+      },
+      "handleId": {
+        "type": "string"
+      }
+    },
+    "required": ["_tag", "handleId"],
+    "additionalProperties": true
+  },
+  "Exit": {
+    "type": "object",
+    "properties": {
+      "_tag": {
+        "type": "string",
+        "enum": ["Exit"]
+      },
+      "code": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "string",
+            "enum": ["Infinity", "-Infinity", "NaN"]
+          }
+        ]
+      },
+      "handleId": {
+        "type": "string"
+      }
+    },
+    "required": ["_tag", "code", "handleId"],
+    "additionalProperties": true
+  },
+  "StderrChunk": {
+    "type": "object",
+    "properties": {
+      "_tag": {
+        "type": "string",
+        "enum": ["StderrChunk"]
+      },
+      "bytes": {},
+      "handleId": {
+        "type": "string"
+      }
+    },
+    "required": ["_tag", "bytes", "handleId"],
+    "additionalProperties": true
+  },
+  "StderrEnd": {
+    "type": "object",
+    "properties": {
+      "_tag": {
+        "type": "string",
+        "enum": ["StderrEnd"]
+      },
+      "handleId": {
+        "type": "string"
+      }
+    },
+    "required": ["_tag", "handleId"],
+    "additionalProperties": true
+  },
+  "StdoutChunk": {
+    "type": "object",
+    "properties": {
+      "_tag": {
+        "type": "string",
+        "enum": ["StdoutChunk"]
+      },
+      "bytes": {},
+      "handleId": {
+        "type": "string"
+      }
+    },
+    "required": ["_tag", "bytes", "handleId"],
+    "additionalProperties": true
+  },
+  "StdoutEnd": {
+    "type": "object",
+    "properties": {
+      "_tag": {
+        "type": "string",
+        "enum": ["StdoutEnd"]
+      },
+      "handleId": {
+        "type": "string"
+      }
+    },
+    "required": ["_tag", "handleId"],
+    "additionalProperties": true
+  },
   "WorkspaceFoldersChanged": {
     "type": "object",
     "properties": {
@@ -1213,27 +1315,21 @@
     "required": ["_tag", "paths"],
     "additionalProperties": true
   },
-  "WorkspaceFoldersResult": {
+  "Error": {
     "type": "object",
     "properties": {
       "_tag": {
         "type": "string",
-        "enum": ["WorkspaceFoldersResult"]
+        "enum": ["Error"]
       },
       "id": {
         "type": "string"
       },
-      "paths": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "workspaceFile": {
+      "message": {
         "type": "string"
       }
     },
-    "required": ["_tag", "id", "paths"],
+    "required": ["_tag", "id", "message"],
     "additionalProperties": true
   }
 }

@@ -145,14 +145,19 @@ export const mcpToolPreapprovalMeta = (
 /**
  * `clientCapabilities` for this launch target's initialize request (AIR offer: `sessionIndex` + `sessionFailure` for
  * Claude / Codex, plus `loadReplayEnd` and `backgroundSubagents` for Claude, plus `recommendedValue` for both).
+ * `fs` is offered only when the Host serves editor files (`options.editorFiles`; not desktop).
  * `sessionFailure` is client-side only: declaring it makes the adapters send typed failure rows instead of plain-text
  * chunks (e.g. Codex `Warning:` text), so the client filters nothing.
  */
-export const clientCapabilitiesFor = (launchTarget: AgentLaunchTarget): InitializeRequest['clientCapabilities'] => ({
+export const clientCapabilitiesFor = (
+  launchTarget: AgentLaunchTarget,
+  options: { readonly editorFiles: boolean },
+): InitializeRequest['clientCapabilities'] => ({
   ...(PROVIDER_QUIRKS[launchTarget].airClientCapabilities.length > 0
     ? { _meta: airMeta({ capabilities: PROVIDER_QUIRKS[launchTarget].airClientCapabilities }) }
     : {}),
   elicitation: { form: {}, url: {} },
+  ...(options.editorFiles ? { fs: { readTextFile: true, writeTextFile: true } } : {}),
   session: { configOptions: { boolean: {} } },
   subagents: {},
 });

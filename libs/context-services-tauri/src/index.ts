@@ -3,6 +3,7 @@ export { BundledResourceLive } from './BundledResourceLive.ts';
 export { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
 export { ClipboardLive } from './ClipboardLive.ts';
 export { ConfigProviderLive } from './ConfigProviderLive.ts';
+export { EditorFilesLive } from './EditorFilesLive.ts';
 export { FileDialogLive } from './FileDialogLive.ts';
 export { FileSystemLive } from './FileSystemLive.ts';
 export { mapTauriArchToNode, mapTauriPlatformToNode } from './mapTauriPlatform.ts';

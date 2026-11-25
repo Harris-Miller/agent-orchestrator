@@ -4,18 +4,19 @@ import { useState } from 'react';
 import type { FC } from 'react';
 
 import { patchVirtualSessionAtomFn } from '../../../atoms/boundHarnessAtoms.ts';
+import { virtualDirectoryDefaultsAtom } from '../../../atoms/cwdStrip.atoms.ts';
 import { virtualMaterializingAtom, virtualSessionAtom } from '../../../atoms/virtualSession.atoms.ts';
 import { AdditionalDirectoriesDialog } from '../../AdditionalDirectoriesDialog.tsx';
 import { useDirectoryPicker } from '../../DirectoryPickerContext.tsx';
 
 /**
  * The Virtual session's Additional directories for this session only, in the shared editor (the host's directory picker
- * adds, when it has one). `defaults` is what "Reset" goes back to: the Project's defaults and Workspace folders.
+ * adds, when it has one). "Reset" goes back to what its Project or Workspace gives.
  */
-export const VirtualDirectoriesButton: FC<{
-  readonly defaults: readonly string[];
-  readonly onClientError: (error: unknown) => void;
-}> = ({ defaults, onClientError }) => {
+export const VirtualDirectoriesButton: FC<{ readonly onClientError: (error: unknown) => void }> = ({
+  onClientError,
+}) => {
+  const defaults = useAtomValue(virtualDirectoryDefaultsAtom);
   const virtual = useAtomValue(virtualSessionAtom);
   const inFlight = useAtomValue(virtualMaterializingAtom);
   const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
@@ -45,7 +46,7 @@ export const VirtualDirectoriesButton: FC<{
           onClose={() => {
             setOpen(false);
           }}
-          onReset={() => defaults}
+          resetTo={() => defaults}
           onSave={directories => {
             patchVirtual({ additionalDirectories: [...directories] }).catch(onClientError);
           }}

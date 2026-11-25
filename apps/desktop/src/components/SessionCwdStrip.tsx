@@ -3,18 +3,15 @@ import {
   addProjectAtomFn,
   extraFoldersIgnoredAtom,
   LucideMuiIcon,
-  projectDefaultsAtom,
   projectLabel,
   projectOfRecord,
   projectsAtom,
-  resolveProject,
   selectedAtom,
   selectedSessionAtom,
   selectVirtualProjectAtomFn,
   VirtualDirectoriesButton,
   virtualMaterializingAtom,
   virtualSessionAtom,
-  workspaceFilesAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Tooltip from '@mui/material/Tooltip';
@@ -32,8 +29,6 @@ export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => v
   const inFlight = useAtomValue(virtualMaterializingAtom);
   const extraFoldersIgnored = useAtomValue(extraFoldersIgnoredAtom);
   const projects = useAtomValue(projectsAtom);
-  const workspaceFiles = useAtomValue(workspaceFilesAtom);
-  const projectDefaults = useAtomValue(projectDefaultsAtom);
   const selectProject = useAtomSet(selectVirtualProjectAtomFn, { mode: 'promise' });
   const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -49,11 +44,6 @@ export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => v
   const label =
     cwd === undefined ? 'Choose Project' : projectLabel(projectOfRecord({ ...record, cwd }, projects) ?? cwd);
   const canPick = isVirtual && !inFlight;
-  // What "Reset" in the directories editor goes back to: the Project's folders and defaults.
-  const draftProject = cwd === undefined ? undefined : (projectOfRecord({ ...record, cwd }, projects) ?? cwd);
-  const resolved =
-    draftProject === undefined ? undefined : resolveProject(draftProject, workspaceFiles, projectDefaults);
-  const projectDirectories = resolved?._tag === 'Ready' ? resolved.additionalDirectories : [];
 
   return (
     <>
@@ -94,7 +84,7 @@ export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => v
           </Tooltip>
         ) : null}
       </Box>
-      {isVirtual ? <VirtualDirectoriesButton defaults={projectDirectories} onClientError={onClientError} /> : null}
+      {isVirtual ? <VirtualDirectoriesButton onClientError={onClientError} /> : null}
       {pickerOpen && isVirtual ? (
         <CreateSessionDirectoryPicker
           confirmLabel="Select"

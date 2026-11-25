@@ -25,26 +25,18 @@ export const AdditionalDirectoriesDialog: FC<{
   readonly facts?: readonly { readonly label: string; readonly value: string }[];
   readonly initial: readonly string[];
   readonly onClose: () => void;
-  /** Present when the list has something to go back to; receives the dialog's setter for the list. */
-  readonly onReset?: () => readonly string[];
+  /** Present when the list has something to go back to: the list "Reset to Project defaults" puts back (saved with Save). */
+  readonly resetTo?: () => readonly string[];
   readonly onSave: (directories: readonly string[]) => void;
   readonly title: string;
-}> = ({ description, facts = [], initial, onClose, onReset, onSave, title }) => {
+}> = ({ description, facts = [], initial, onClose, onSave, resetTo, title }) => {
   const renderPicker = useDirectoryPicker();
   const [directories, setDirectories] = useState<readonly string[]>(initial);
   const [picking, setPicking] = useState(false);
 
   return (
     <>
-      <Dialog
-        fullWidth
-        maxWidth="sm"
-        onClick={event => {
-          event.stopPropagation();
-        }}
-        onClose={onClose}
-        open
-      >
+      <Dialog fullWidth maxWidth="sm" onClose={onClose} open>
         <DialogTitle>{title}</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 1 }}>{description}</DialogContentText>
@@ -98,10 +90,10 @@ export const AdditionalDirectoriesDialog: FC<{
           )}
         </DialogContent>
         <DialogActions>
-          {onReset === undefined ? null : (
+          {resetTo === undefined ? null : (
             <Button
               onClick={() => {
-                setDirectories(onReset());
+                setDirectories(resetTo());
               }}
               sx={{ mr: 'auto' }}
             >

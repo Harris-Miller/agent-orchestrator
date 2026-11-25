@@ -22,14 +22,15 @@ export const SessionDirectoriesDialog: FC<{
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
   const open = session !== undefined && session.status !== 'inactive';
   const current = resolveSessionDirectories(session, entry);
+  const followsFile = entry.workspaceFile !== undefined && entry.directoriesEdited !== true;
 
   return (
     <AdditionalDirectoriesDialog
-      description={
+      description={`${
         open
           ? 'This session is open and keeps its directories. Changes apply the next time it is activated.'
           : 'Changes apply the next time this session is activated.'
-      }
+      }${followsFile ? ' Once changed, the list no longer follows the workspace file.' : ''}`}
       facts={[
         { label: 'Session cwd', value: entry.cwd },
         ...(entry.workspaceFile === undefined ? [] : [{ label: 'Workspace file', value: entry.workspaceFile }]),

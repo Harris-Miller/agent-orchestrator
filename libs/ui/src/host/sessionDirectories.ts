@@ -29,6 +29,14 @@ export const normalizeSessionDirectories = (directories: SessionDirectories | un
   };
 };
 
+/** `row` without the fields only the Harness may set (an Agent-supplied row never carries directories or the edited marker). */
+export const omitSessionDirectories = <T extends Readonly<Record<string, unknown>>>(
+  row: T,
+): Omit<T, 'additionalDirectories' | 'directoriesEdited' | 'workspaceFile'> => {
+  const { additionalDirectories: _directories, directoriesEdited: _edited, workspaceFile: _file, ...rest } = row;
+  return rest;
+};
+
 /**
  * Activate resolve, like `resolveSessionCwd`: each field from the snapshot Session, else from its History entry. A History
  * entry the user edited wins as a whole (an empty edited list stays empty).

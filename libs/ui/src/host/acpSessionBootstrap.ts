@@ -16,7 +16,7 @@ import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import type { AvailableCommand, SessionTranscript } from './sessionUpdateReducer.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
-import { normalizeSessionDirectories } from './sessionDirectories.ts';
+import { normalizeSessionDirectories, omitSessionDirectories } from './sessionDirectories.ts';
 import type { SessionDirectories } from './sessionDirectories.ts';
 import type { SubagentRecord } from './subagent.ts';
 
@@ -250,12 +250,7 @@ export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | un
   }
 
   // Directories only enter through the Harness's own session creation/tracking, never an Agent-supplied list row.
-  const {
-    additionalDirectories: _additionalDirectories,
-    directoriesEdited: _directoriesEdited,
-    workspaceFile: _workspaceFile,
-    ...row
-  } = entry;
+  const row = omitSessionDirectories(entry);
   return decodeHistoryEntry({
     ...row,
     cwd: entry.cwd,
@@ -274,12 +269,7 @@ export const normalizeSessionInfoFromNew = (
     return undefined;
   }
 
-  const {
-    additionalDirectories: _additionalDirectories,
-    directoriesEdited: _directoriesEdited,
-    workspaceFile: _workspaceFile,
-    ...row
-  } = result;
+  const row = omitSessionDirectories(result);
   return decodeHistoryEntry({
     ...row,
     ...normalizeSessionDirectories(directories),

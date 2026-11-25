@@ -1,3 +1,4 @@
+import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
@@ -185,14 +186,16 @@ export const SessionActionsMenu: FC<{
         </MenuItem>
       </Menu>
       {directoriesOpen ? (
-        <SessionDirectoriesDialog
-          entry={entry}
-          onClientError={onClientError}
-          onClose={() => {
-            setDirectoriesOpen(false);
-            onInteractionChange?.(false);
-          }}
-        />
+        // The dialog and its directory picker are portals, but React events still bubble to the activatable row.
+        <Box component="span" onClick={stopPropagation} onKeyDown={stopPropagation} sx={{ display: 'contents' }}>
+          <SessionDirectoriesDialog
+            entry={entry}
+            onClientError={onClientError}
+            onClose={() => {
+              setDirectoriesOpen(false);
+            }}
+          />
+        </Box>
       ) : null}
     </>
   );

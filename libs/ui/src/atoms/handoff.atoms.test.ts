@@ -158,6 +158,30 @@ describe('handoffSessionAtomFn', () => {
     }),
   );
 
+  it.effect(
+    'the target of an edited source keeps the edited marker, so the workspace file never replaces the list',
+    () =>
+      Effect.gen(function* () {
+        yield* installFakeHub([]);
+        const received: McpReceived[] = [];
+        const { registry } = yield* sourceSession(
+          received,
+          { duringPrompt: Effect.suspend(() => submitHandoff(received, 'the plan')) },
+          { additionalDirectories: ['/lib/a'], directoriesEdited: true, workspaceFile: '/w/app.code-workspace' },
+        );
+        yield* installFakeAgent([], { additionalDirectories: true }, CLAUDE);
+        const { handoffSessionAtomFn } = createHandoffAtoms(createHostRuntime(mockHostLayer));
+        registry.mount(handoffSessionAtomFn);
+
+        yield* runAtomFn(registry, handoffSessionAtomFn, handoffArg);
+
+        const targetEntry = registry
+          .get(backendHarnessSnapshotAtom(CLAUDE))
+          .sessionHistory.find(entry => entry.sessionId === 'claude-1');
+        assert.strictEqual(targetEntry?.directoriesEdited, true);
+      }),
+  );
+
   it.effect('fails with HandoffError when the turn ends without submit_handoff, and creates no target', () =>
     Effect.gen(function* () {
       yield* installFakeHub([]);

@@ -1,7 +1,7 @@
 /**
  * Map a composer draft string to an ordered ACP `prompt` ContentBlock list.
  *
- * FS markdown links become `resource` / `resource_link`; everything else stays in `text`.
+ * FS markdown links become `resource` (UTF-8 text up to TEXT_EMBED_MAX_BYTES) / `resource_link` (everything else); everything else stays in `text`.
  * Image attachments / image-like `resource_link`s are moved to the front and de-duplicated by uri.
  * With the Agent capability `promptImage`, attachments become `type: "image"`; otherwise `resource_link`.
  */
@@ -20,7 +20,6 @@ import {
 import type { ComposerImageAttachment } from './composerImageAttachment.ts';
 
 export const TEXT_EMBED_MAX_BYTES = 256 * 1024;
-export const BLOB_EMBED_MAX_BYTES = 1024 * 1024;
 
 const MARKDOWN_LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;
 const WINDOWS_ABS_RE = /^[A-Za-z]:[\\/]/;
@@ -86,8 +85,6 @@ const resourceLinkBlock = (uri: string, name: string): ContentBlock => ({ name, 
 
 const resourceTextBlock = (uri: string, text: string): ContentBlock => ({ resource: { text, uri }, type: 'resource' });
 
-const resourceBlobBlock = (uri: string, blob: string): ContentBlock => ({ resource: { blob, uri }, type: 'resource' });
-
 /** True for filesystem hrefs (absolute, relative, or `file://`); false for other URI schemes. */
 export const isFileSystemHref = (href: string): boolean => {
   if (href.startsWith('file://')) {
@@ -100,15 +97,6 @@ export const isFileSystemHref = (href: string): boolean => {
     return false;
   }
   return href.length > 0;
-};
-
-const bytesToBase64 = (bytes: Uint8Array): string => {
-  const chunk = 0x8000;
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
 };
 
 const decodeUtf8Text = (bytes: Uint8Array): string | undefined => {
@@ -189,7 +177,7 @@ const linkToBlock = Effect.fn('draftToContentBlocks.linkToBlock')(function* (
   }
 
   const size = ByteSize.toNumberUnsafe(info.value.size);
-  if (!Number.isFinite(size) || size > BLOB_EMBED_MAX_BYTES) {
+  if (!Number.isFinite(size) || size > TEXT_EMBED_MAX_BYTES) {
     return resourceLinkBlock(uri, name);
   }
 
@@ -203,11 +191,7 @@ const linkToBlock = Effect.fn('draftToContentBlocks.linkToBlock')(function* (
     return resourceLinkBlock(uri, name);
   }
 
-  if (bytes.value.byteLength <= TEXT_EMBED_MAX_BYTES) {
-    return resourceTextBlock(uri, text);
-  }
-
-  return resourceBlobBlock(uri, bytesToBase64(bytes.value));
+  return resourceTextBlock(uri, text);
 });
 
 export const draftToContentBlocks = Effect.fn('draftToContentBlocks')(function* (

@@ -17,6 +17,7 @@ import {
   targetsWithMorePages,
 } from '../host/importSessions.ts';
 import type { ImportState } from '../host/importSessions.ts';
+import { normalizeSessionDirectories } from '../host/sessionDirectories.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
 import { listSessionsPage } from '../host/sessionRpc.ts';
 
@@ -31,6 +32,7 @@ import { spawnedChildrenSnapshotAtom, wasSpawnedChildIn } from './spawnedSubagen
 import { untrackSession } from './trackedSessions.ts';
 import { activateSession } from './sessionLifecycle.ts';
 import { trackSession } from './trackSession.ts';
+import { requireProjectReady, resolveProjectIn } from './workspaceFiles.atoms.ts';
 import { select } from './virtualSession.atoms.ts';
 
 /** The Confirm failed: `session/load` did not succeed, so nothing was tracked. */
@@ -81,8 +83,10 @@ export const createImportSessionsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 
   /** Opens Import for `cwd`: resets the state and fetches the first page of every usable launch target. */
   const openImportAtomFn = atomRuntime
     .fn(
-      Effect.fn('openImportAtomFn', { root: true })(function* (cwd: string, get: Atom.FnContext) {
-        get.registry.update(importStateAtom, current => initialImportState(cwd, current.generation + 1));
+      Effect.fn('openImportAtomFn', { root: true })(function* (project: string, get: Atom.FnContext) {
+        // Only the Session cwd is listed (`session/list` is cwd-only); rows are attributed to `project` when confirmed.
+        const { cwd } = yield* requireProjectReady(get.registry, project);
+        get.registry.update(importStateAtom, current => initialImportState(cwd, current.generation + 1, project));
         yield* loadPages(get, targetsWithMorePages(get.registry.get(importStateAtom)));
       }),
       { concurrent: true },
@@ -139,7 +143,20 @@ export const createImportSessionsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 
         if (row === undefined) {
           return yield* new ImportSessionFailed({ message: 'This session is no longer in the import list' });
         }
-        const { launchTarget: _launchTarget, ...historyEntry } = row satisfies UnifiedHistoryEntry;
+        const { launchTarget: _launchTarget, ...listed } = row satisfies UnifiedHistoryEntry;
+        // A row imported into a Workspace project is stamped with its file and the other folders, so it groups there.
+        const { project } = get.registry.get(importStateAtom);
+        const resolution = project === undefined ? undefined : resolveProjectIn(get.registry, project);
+        const historyEntry =
+          resolution?._tag === 'Ready'
+            ? {
+                ...listed,
+                ...normalizeSessionDirectories({
+                  additionalDirectories: resolution.additionalDirectories,
+                  workspaceFile: resolution.workspaceFile,
+                }),
+              }
+            : listed;
         yield* trackSession(get.registry, launchTarget, historyEntry);
 
         yield* activateSession(get.registry, { launchTarget, sessionId });

@@ -1,6 +1,6 @@
 # Projects replace Tracked cwds
 
-_Partly superseded by [ADR 0009](./0009-vscode-adds-its-workspace-cwd-as-a-project.md): VS Code also writes the file._
+_Partly superseded by [ADR 0009](./0009-vscode-adds-its-workspace-cwd-as-a-project.md): VS Code also writes the file. Amended: a Project path may also be a `.code-workspace` file (a Workspace project), see desktop ADR 0022._
 
 Supersedes [ADR 0006](./0006-tracked-cwds-in-one-root-file.md). The user's chosen directories are **Projects**, stored in `~/.hoa/projects.json` as `{ projects: string[] }` (provisional shape). `tracked-cwds.json` is no longer read or written.
 
@@ -10,3 +10,5 @@ Supersedes [ADR 0006](./0006-tracked-cwds-in-one-root-file.md). The user's chose
 - **Paths compare exact** after trailing-separator normalization (no symlink or case folding).
 
 No migration, per root ADR 0001: consumers delete `tracked-cwds.json` and re-add their Projects.
+
+**Amendment (Workspace projects).** The list is still `string[]`: a path ending `.code-workspace` is a Workspace project, resolved to its first `file:` folder (the Session cwd) plus Additional directories when read (desktop ADR 0022). Desktop reads workspace files through the home-scoped filesystem, so a file outside the home directory shows as an unresolvable Workspace project in v1.

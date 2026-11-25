@@ -24,18 +24,22 @@ export type ImportTargetState = {
 };
 
 export type ImportState = {
+  /** The Session cwd listed: the Project itself, or a Workspace project's first folder. */
   readonly cwd: string | undefined;
   /** Bumped by every open of Import, so a page answered for an earlier open is dropped. */
   readonly generation: number;
+  /** The Project the Import was opened for (what confirmed rows are attributed to); absent for a plain cwd. */
+  readonly project?: string;
   readonly rows: readonly UnifiedHistoryEntry[];
   readonly targets: Readonly<Record<AgentLaunchTarget, ImportTargetState>>;
 };
 
 const idleTarget: ImportTargetState = { cursor: undefined, error: undefined, pages: 0, seen: [], status: 'idle' };
 
-export const initialImportState = (cwd: string | undefined, generation: number): ImportState => ({
+export const initialImportState = (cwd: string | undefined, generation: number, project?: string): ImportState => ({
   cwd,
   generation,
+  ...(project === undefined ? {} : { project }),
   rows: [],
   targets: Object.fromEntries(
     MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => [launchTarget, idleTarget]),

@@ -87,4 +87,35 @@ describe('projectMembership', () => {
     assert.isFalse(projectMembership(on(next), null, selected, '/q', none).selectedInProject);
     assert.isFalse(projectMembership(on(next), null, { _tag: 'Virtual' }, '/p', none).selectedInProject);
   });
+
+  describe('Workspace projects', () => {
+    const W = '/w/app.code-workspace';
+    const projects = ['/p', W];
+    const next = {
+      ...base,
+      sessions: {
+        inDirectory: { ...initialSessionSnapshot('inDirectory', 'active'), cwd: '/p' },
+        inWorkspace: { ...initialSessionSnapshot('inWorkspace', 'active'), cwd: '/p', workspaceFile: W },
+      },
+    };
+
+    it('splits two Projects sharing a first folder by the Workspace file the session carries', () => {
+      const ids = (project: string) =>
+        projectMembership(on(next), null, undefined, project, none, projects).activeSessions.map(s => s.sessionId);
+      assert.deepStrictEqual(ids('/p'), ['inDirectory']);
+      assert.deepStrictEqual(ids(W), ['inWorkspace']);
+    });
+
+    it('leaves a session stamped with a Workspace file that is not a Project in its directory Project', () => {
+      const m = projectMembership(on(next), null, undefined, '/p', none, ['/p']);
+      assert.deepStrictEqual(m.activeSessions.map(s => s.sessionId).toSorted(), ['inDirectory', 'inWorkspace']);
+    });
+
+    it('reads the Workspace file of the Bound Virtual blob when its session has no cwd yet', () => {
+      const bare = { ...base, sessions: { bound: initialSessionSnapshot('bound', 'active') } };
+      const virtual = { cwd: '/p', launchTarget: target, sessionId: 'bound', workspaceFile: W };
+      assert.isTrue(projectMembership(on(bare), virtual, undefined, W, none, projects).virtualBoundInProject);
+      assert.isFalse(projectMembership(on(bare), virtual, undefined, '/p', none, projects).virtualBoundInProject);
+    });
+  });
 });

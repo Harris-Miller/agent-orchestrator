@@ -77,4 +77,32 @@ describe('groupAndSortSessionsForNav', () => {
       ['/x/app2', '/x/app10', '/b/Apple', '/z/apple', '/a/zebra'],
     );
   });
+
+  it('groups a Workspace project by the file its rows were stamped with, the rest under the directory Project', () => {
+    const W = '/w/app.code-workspace';
+    const groups = groupAndSortSessionsForNav(
+      [
+        { ...row('/a', 'in-workspace', '2024-01-01T00:00:00.000Z'), workspaceFile: W },
+        row('/a', 'plain', '2024-01-02T00:00:00.000Z'),
+        { ...row('/a', 'other-workspace', '2024-01-03T00:00:00.000Z'), workspaceFile: '/w/other.code-workspace' },
+        row('/elsewhere', 'ungrouped', '2024-01-04T00:00:00.000Z'),
+      ],
+      ['/a', W],
+    );
+    assert.deepStrictEqual(
+      groups.map(group => [group.cwd, group.sessions.map(entry => entry.sessionId)]),
+      [
+        ['/a', ['other-workspace', 'plain']],
+        [W, ['in-workspace']],
+      ],
+    );
+  });
+
+  it('keeps a Workspace project with no rows and sorts it by its file name', () => {
+    const groups = groupAndSortSessionsForNav([], ['/z/beta', '/y/alpha.code-workspace']);
+    assert.deepStrictEqual(
+      groups.map(group => group.cwd),
+      ['/y/alpha.code-workspace', '/z/beta'],
+    );
+  });
 });

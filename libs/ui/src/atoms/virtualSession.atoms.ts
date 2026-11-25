@@ -67,6 +67,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { applyRecommendedValues, applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
 import { trackSession } from './trackSession.ts';
+import { requireProjectReady } from './workspaceFiles.atoms.ts';
 import { sessionCwdAtom, workspaceDirectoriesAtom } from './workspaceFolderPaths.atoms.ts';
 import { adoptIntoWorkstream, pendingWorkstreamAtom } from './workstreams.atoms.ts';
 import { annotateLaunchTargetLogs, annotateSessionLogs } from '../host/sessionTelemetry.ts';
@@ -91,8 +92,16 @@ type LastCreateDefaults = {
 };
 
 export type EnsureVirtualSessionArg = {
-  /** When set, write this cwd onto the blob (cwd-group (+) always; New Session only when creating/re-selecting). */
+  /**
+   * When set, write this cwd onto the blob (cwd-group (+) always; New Session only when creating/re-selecting).
+   */
   readonly cwd?: string;
+  /**
+   * A desktop Project (a directory or a Workspace file) to start in, in place of `cwd`: resolved here (`resolveProject`) so
+   * only its first folder is ever the cwd, with the other folders and the file replacing the blob's directories (a directory
+   * Project clears them). Fails with {@link ProjectUnresolved} when the Project cannot be resolved.
+   */
+  readonly project?: string;
   /**
    * When Selected is already Virtual, still patch `cwd` if provided (cwd-group (+)).
    * Create / (+) without this is a pure no-op when already Selected Virtual.
@@ -224,8 +233,11 @@ const seedFromLastDefaults = (registry: Registry): Pick<VirtualSession, 'configV
   };
 };
 
-/** Ensure one Virtual blob + Select Virtual. See EnsureVirtualSessionArg for cwd-group vs Create. */
-const ensureBlob = (registry: Registry, arg: EnsureVirtualSessionArg): void => {
+/**
+ * Ensure one Virtual blob + Select Virtual. See EnsureVirtualSessionArg for cwd-group vs Create. `directories` are the
+ * Additional directories and Workspace file of a Workspace project `arg.cwd` was resolved from.
+ */
+const ensureBlob = (registry: Registry, arg: EnsureVirtualSessionArg, directories?: SessionDirectories): void => {
   if (registry.get(virtualMaterializingAtom)) {
     return;
   }
@@ -234,12 +246,16 @@ const ensureBlob = (registry: Registry, arg: EnsureVirtualSessionArg): void => {
   const existing = registry.get(virtualSessionAtom);
   // A blob on the Workspace cwd carries the workspace's Additional directories and workspace file. The cwd must be
   // defined: with no Workspace folder (or on desktop) both sides are undefined and a blob is never stamped with directories.
+  // A resolved desktop Project's directories (possibly none) replace the blob's.
   const withDirectories = (blob: VirtualSession): VirtualSession => {
-    if (arg.cwd === undefined || arg.cwd !== registry.get(sessionCwdAtom)) {
-      return blob;
-    }
-    const { additionalDirectories, workspaceFile } = registry.get(workspaceDirectoriesAtom);
-    return { ...blob, additionalDirectories, workspaceFile };
+    const carried =
+      directories ??
+      (arg.cwd !== undefined && arg.cwd === registry.get(sessionCwdAtom)
+        ? registry.get(workspaceDirectoriesAtom)
+        : undefined);
+    return carried === undefined
+      ? blob
+      : { ...blob, additionalDirectories: carried.additionalDirectories, workspaceFile: carried.workspaceFile };
   };
 
   if (selected?._tag === 'Virtual') {
@@ -743,9 +759,20 @@ export const ensureVirtual = Effect.fn('ensureVirtual')(function* (
   registry: Registry,
   arg: EnsureVirtualSessionArg = {},
 ) {
+  // A Workspace file is never a cwd: resolve a Project to its first folder + Additional directories before anything binds.
+  const project = arg.project === undefined ? undefined : yield* requireProjectReady(registry, arg.project);
   yield* mutateThenRebind(registry, {
     mutate: () => {
-      ensureBlob(registry, arg);
+      ensureBlob(
+        registry,
+        project === undefined ? arg : { ...arg, cwd: project.cwd },
+        project === undefined
+          ? undefined
+          : normalizeSessionDirectories({
+              additionalDirectories: project.additionalDirectories,
+              workspaceFile: project.workspaceFile,
+            }),
+      );
     },
   });
 });
@@ -788,6 +815,20 @@ export const editVirtual = Effect.fn('editVirtual')(function* (registry: Registr
       ((edit.cwd !== undefined && edit.cwd !== before.cwd) ||
         (edit.additionalDirectories !== undefined &&
           !sameDirectories(edit.additionalDirectories, before.additionalDirectories))),
+  });
+});
+
+/**
+ * Picks a Project for the Virtual session (the Composer's Project picker): its resolved cwd, Additional directories and
+ * Workspace file replace the blob's, so a directory Project clears a Workspace project's. Fails with
+ * {@link ProjectUnresolved} for a Workspace project whose file cannot be resolved.
+ */
+export const selectVirtualProject = Effect.fn('selectVirtualProject')(function* (registry: Registry, project: string) {
+  const resolved = yield* requireProjectReady(registry, project);
+  yield* editVirtual(registry, {
+    additionalDirectories: [...resolved.additionalDirectories],
+    cwd: resolved.cwd,
+    workspaceFile: resolved.workspaceFile,
   });
 });
 
@@ -1129,6 +1170,10 @@ export const createVirtualSessionAtoms = (runtime: HostRuntimeBag) => {
     .fn((edit: VirtualEdit, get: Atom.FnContext) => editVirtual(get.registry, edit))
     .pipe(Atom.keepAlive);
 
+  const selectVirtualProjectAtomFn = atomRuntime
+    .fn((project: string, get: Atom.FnContext) => selectVirtualProject(get.registry, project))
+    .pipe(Atom.keepAlive);
+
   const setVirtualLaunchTargetAtomFn = atomRuntime
     .fn((launchTarget: AgentLaunchTarget | undefined, get: Atom.FnContext) =>
       setVirtualLaunchTarget(get.registry, launchTarget),
@@ -1138,6 +1183,7 @@ export const createVirtualSessionAtoms = (runtime: HostRuntimeBag) => {
   return {
     ensureVirtualSessionAtomFn,
     patchVirtualSessionAtomFn,
+    selectVirtualProjectAtomFn,
     setVirtualLaunchTargetAtomFn,
   };
 };

@@ -45,8 +45,8 @@ export const createWorkstreamActionAtoms = ({ atomRuntime }: Pick<HostRuntimeBag
     .pipe(Atom.keepAlive);
 
   const startSessionInWorkstreamAtomFn = atomRuntime
-    .fn((arg: { readonly workstreamId: string; readonly cwd: string }, get: Atom.FnContext) =>
-      startSessionInWorkstream(get.registry, arg.workstreamId, arg.cwd),
+    .fn((arg: { readonly project: string; readonly workstreamId: string }, get: Atom.FnContext) =>
+      startSessionInWorkstream(get.registry, arg.workstreamId, arg.project),
     )
     .pipe(Atom.keepAlive);
 

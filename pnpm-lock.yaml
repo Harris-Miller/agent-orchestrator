@@ -290,6 +290,9 @@ catalogs:
     happy-dom:
       specifier: ^21.0.4
       version: 21.0.4
+    jsonc-parser:
+      specifier: ^3.3.1
+      version: 3.3.1
     lexical:
       specifier: ^0.52.0
       version: 0.52.0
@@ -939,6 +942,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.4
+      jsonc-parser:
+        specifier: 'catalog:'
+        version: 3.3.1
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'

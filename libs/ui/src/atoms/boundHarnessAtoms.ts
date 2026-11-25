@@ -141,8 +141,12 @@ export const { idleSweepAtom } = createIdleSweepAtoms(atomRuntime);
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);
 
-export const { ensureVirtualSessionAtomFn, patchVirtualSessionAtomFn, setVirtualLaunchTargetAtomFn } =
-  createVirtualSessionAtoms(hostBag);
+export const {
+  ensureVirtualSessionAtomFn,
+  patchVirtualSessionAtomFn,
+  selectVirtualProjectAtomFn,
+  setVirtualLaunchTargetAtomFn,
+} = createVirtualSessionAtoms(hostBag);
 
 export const { pinSessionAtomFn, unpinSessionAtomFn } = createPinnedSessionsAtoms(hostBag);
 

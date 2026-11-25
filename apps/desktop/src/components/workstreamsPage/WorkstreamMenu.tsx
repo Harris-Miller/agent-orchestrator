@@ -4,8 +4,8 @@ import {
   adoptSessionAtomFn,
   cwdCaption,
   deleteWorkstreamAtomFn,
-  directoryBasename,
   LucideMuiIcon,
+  projectLabel,
   projectsAtom,
   sessionEntryKey,
   setWorkstreamArchivedAtomFn,
@@ -103,14 +103,14 @@ export const WorkstreamMenu: FC<{
         open={sub !== null}
       >
         {sub?.kind === 'new'
-          ? projects.map(cwd => (
+          ? projects.map(project => (
               <MenuItem
-                key={cwd}
+                key={project}
                 onClick={() => {
-                  run(startSession({ cwd, workstreamId: ws.id }));
+                  run(startSession({ project, workstreamId: ws.id }));
                 }}
               >
-                {directoryBasename(cwd)}
+                {projectLabel(project)}
               </MenuItem>
             ))
           : adoptable.map(entry => (

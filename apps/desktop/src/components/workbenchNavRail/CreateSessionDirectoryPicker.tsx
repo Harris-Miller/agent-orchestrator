@@ -1,5 +1,5 @@
 import { useAtomValue } from '@effect/atom-react';
-import { alwaysHiddenGlobsAtom, FONT_FAMILY_MONO, LucideMuiIcon } from '@lib/ui';
+import { alwaysHiddenGlobsAtom, FONT_FAMILY_MONO, LucideMuiIcon, pickWorkspaceFile } from '@lib/ui';
 import { listShallowDirectories } from '@lib/ui/fd-listing';
 import { hostRunPromise } from '@lib/ui/host-runtime';
 import Box from '@mui/material/Box';
@@ -62,12 +62,13 @@ const Keycap: FC<{ readonly label: string }> = ({ label }) => (
   </Box>
 );
 
-/** Directory picker only — caller owns what happens with the chosen cwd (Virtual session cwd, etc.). */
+/** Project picker: a directory, or "Open workspace file…" for a `.code-workspace` file. The caller owns what happens with the chosen Project path. */
 export const CreateSessionDirectoryPicker: FC<{
   /** Label of the confirm button ("Select" in the Composer, "Add Project" in the rail). */
   readonly confirmLabel: string;
   readonly onClose: () => void;
-  readonly onSelectDirectory: (cwd: string) => void;
+  /** The chosen Project path: a directory, or a Workspace file. */
+  readonly onSelectDirectory: (project: string) => void;
 }> = ({ confirmLabel, onClose, onSelectDirectory }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
@@ -190,6 +191,21 @@ export const CreateSessionDirectoryPicker: FC<{
     }
     onSelectDirectory(browsePath);
     onClose();
+  };
+
+  /** Workspace file: handed to the caller like a directory; it is the caller that resolves it to a Project. */
+  const openWorkspaceFile = () => {
+    hostRunPromise(pickWorkspaceFile)
+      .then(picked => {
+        if (picked === undefined) {
+          return;
+        }
+        onSelectDirectory(picked);
+        onClose();
+      })
+      .catch((cause: unknown) => {
+        setError(errorMessage(cause));
+      });
   };
 
   const openFinder = () => {
@@ -430,6 +446,15 @@ export const CreateSessionDirectoryPicker: FC<{
             label={<Typography variant="caption">Show hidden</Typography>}
             sx={{ m: 0 }}
           />
+          <Button
+            onClick={() => {
+              openWorkspaceFile();
+            }}
+            size="small"
+            sx={{ textTransform: 'none' }}
+          >
+            Open workspace file…
+          </Button>
           <Button
             onClick={() => {
               openFinder();

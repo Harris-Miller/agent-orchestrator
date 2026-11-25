@@ -1,14 +1,17 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { UnifiedHistoryEntry } from '@lib/ui';
 import {
+  addProjectAtomFn,
   ensureVirtualSessionAtomFn,
   LucideMuiIcon,
+  pickWorkspaceFile,
   projectDisplayAtom,
   projectMembershipAtom,
   sessionEntryKey,
   SessionHistoryRow,
   stopTrackingProjectAtomFn,
 } from '@lib/ui';
+import { hostRunPromise } from '@lib/ui/host-runtime';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -25,7 +28,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { Download, Ellipsis, EyeOff, Folder, FolderOpen, SquarePen } from 'lucide-react';
+import { Download, Ellipsis, EyeOff, Folder, FolderOpen, RefreshCw, SquarePen, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -62,16 +65,30 @@ export const ProjectGroup: FC<{
   showAllRows,
 }) => {
   const { cwd } = group;
-  const { label, parentCaption } = useAtomValue(projectDisplayAtom(cwd));
+  const { error, label, parentCaption } = useAtomValue(projectDisplayAtom(cwd));
   const { activeSessions } = useAtomValue(projectMembershipAtom(cwd));
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const stopTracking = useAtomSet(stopTrackingProjectAtomFn, { mode: 'promise' });
+  const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [confirmingStop, setConfirmingStop] = useState(false);
   const overflowCount = group.sessions.length - CWD_GROUP_ROW_LIMIT;
 
   const runStopTracking = () => {
     stopTracking(cwd).catch(onClientError);
+  };
+
+  /** Re-pick for an errored Workspace project: add the chosen file as a Project, then remove this one. */
+  const runRepick = () => {
+    hostRunPromise(pickWorkspaceFile)
+      .then(async picked => {
+        if (picked === undefined) {
+          return;
+        }
+        await addProject(picked);
+        await stopTracking(cwd);
+      })
+      .catch(onClientError);
   };
 
   return (
@@ -103,6 +120,17 @@ export const ProjectGroup: FC<{
                   {parentCaption}
                 </Typography>
               )}
+              {error === undefined ? null : (
+                <Typography
+                  color="error"
+                  component="span"
+                  sx={{ alignItems: 'center', display: 'flex', gap: 0.5 }}
+                  variant="caption"
+                >
+                  <LucideMuiIcon icon={TriangleAlert} sx={{ fontSize: 12 }} />
+                  {error}
+                </Typography>
+              )}
             </Box>
           </Tooltip>
           <IconButton
@@ -122,10 +150,11 @@ export const ProjectGroup: FC<{
             aria-label={`Create session in ${label}`}
             className="header-action"
             component="span"
+            disabled={error !== undefined}
             edge="end"
             onClick={event => {
               event.stopPropagation();
-              ensureVirtualSession({ cwd, patchCwdIfSelectedVirtual: true }).catch(() => undefined);
+              ensureVirtualSession({ patchCwdIfSelectedVirtual: true, project: cwd }).catch(onClientError);
             }}
             size="small"
             sx={{ flexShrink: 0 }}
@@ -160,7 +189,21 @@ export const ProjectGroup: FC<{
         }}
         open={menuAnchor !== null}
       >
+        {error === undefined ? null : (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              runRepick();
+            }}
+          >
+            <ListItemIcon sx={{ color: 'inherit', minWidth: 32 }}>
+              <LucideMuiIcon fontSize="small" icon={RefreshCw} />
+            </ListItemIcon>
+            Re-pick workspace file…
+          </MenuItem>
+        )}
         <MenuItem
+          disabled={error !== undefined}
           onClick={() => {
             setMenuAnchor(null);
             onImport(cwd);
@@ -185,7 +228,7 @@ export const ProjectGroup: FC<{
           <ListItemIcon sx={{ color: 'inherit', minWidth: 32 }}>
             <LucideMuiIcon fontSize="small" icon={EyeOff} />
           </ListItemIcon>
-          Stop tracking
+          {error === undefined ? 'Stop tracking' : 'Remove'}
         </MenuItem>
       </Menu>
       <Dialog

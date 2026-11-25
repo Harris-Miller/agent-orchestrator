@@ -55,9 +55,9 @@ export const setWorkstreamArchivedIn = Effect.fn('setWorkstreamArchivedIn')(func
 export const startSessionInWorkstream = Effect.fn('startSessionInWorkstream')(function* (
   registry: Registry,
   id: string,
-  cwd: string,
+  project: string,
 ) {
-  yield* ensureVirtual(registry, { cwd, patchCwdIfSelectedVirtual: true });
+  yield* ensureVirtual(registry, { patchCwdIfSelectedVirtual: true, project });
   const blob = registry.get(virtualSessionAtom);
   registry.set(pendingWorkstreamAtom, blob === null ? null : { blobId: blob.id, workstreamId: id });
 });

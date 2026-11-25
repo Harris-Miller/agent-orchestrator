@@ -20,9 +20,20 @@ describe('sessionListScope', () => {
   });
 
   it('listCwdsForScope lists every Project, the one Workspace cwd, or nothing', () => {
-    assert.deepStrictEqual(listCwdsForScope({ _tag: 'Projects' }, ['/a', '/b']), ['/a', '/b']);
-    assert.deepStrictEqual(listCwdsForScope({ _tag: 'Cwd', cwd: '/ws' }, ['/a']), ['/ws']);
-    assert.deepStrictEqual(listCwdsForScope({ _tag: 'Skip' }, ['/a']), []);
+    assert.deepStrictEqual(listCwdsForScope({ _tag: 'Projects' }, ['/a', '/b'], {}), ['/a', '/b']);
+    assert.deepStrictEqual(listCwdsForScope({ _tag: 'Cwd', cwd: '/ws' }, ['/a'], {}), ['/ws']);
+    assert.deepStrictEqual(listCwdsForScope({ _tag: 'Skip' }, ['/a'], {}), []);
+  });
+
+  it('listCwdsForScope lists a Workspace project by its first folder, and an errored one by nothing', () => {
+    const states = {
+      '/w/ok.code-workspace': { _tag: 'Resolved' as const, folders: ['/a', '/b'] },
+      '/w/bad.code-workspace': { _tag: 'Failed' as const, message: 'gone' },
+    };
+    assert.deepStrictEqual(
+      listCwdsForScope({ _tag: 'Projects' }, ['/w/ok.code-workspace', '/w/bad.code-workspace', '/a'], states),
+      ['/a'],
+    );
   });
 
   it('listSessionsPayload sends the AIR meta only to sessionIndex launch targets', () => {

@@ -39,3 +39,6 @@ export const elicitationResponded = (input: {
 }) => makeAnalyticsEvent('elicitation_responded', { action: input.action, mode: input.mode });
 
 export const projectTrackingStopped = () => makeAnalyticsEvent('project_tracking_stopped');
+
+/** The Project kind only, never its path: a directory, or a `.code-workspace` file. */
+export const projectAdded = (kind: 'directory' | 'workspace_file') => makeAnalyticsEvent('project_added', { kind });

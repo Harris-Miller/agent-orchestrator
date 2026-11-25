@@ -6,10 +6,10 @@ import {
   enabledLaunchTargetsAtom,
   launchTargetAvailabilityAtom,
   LucideMuiIcon,
-  patchVirtualSessionAtomFn,
   projectDisplayAtom,
   projectsAtom,
   projectsLoadedAtom,
+  selectVirtualProjectAtomFn,
   setVirtualLaunchTargetAtomFn,
   virtualSessionAtom,
 } from '@lib/ui';
@@ -37,11 +37,12 @@ const ProjectPill: FC<{
   readonly onPick: (cwd: string) => void;
   readonly selected: boolean;
 }> = ({ cwd, disabled, onPick, selected }) => {
-  const { label, parentCaption } = useAtomValue(projectDisplayAtom(cwd));
+  const { error, label, parentCaption } = useAtomValue(projectDisplayAtom(cwd));
   return (
     <ButtonBase
       aria-pressed={selected}
-      disabled={disabled}
+      disabled={disabled || error !== undefined}
+      title={error}
       onClick={() => {
         onPick(cwd);
       }}
@@ -69,6 +70,7 @@ const ProjectPill: FC<{
 };
 
 export type NewSessionLauncherViewProps = {
+  /** The picked Project: the Virtual draft's Workspace file, else its cwd. */
   readonly cwd: string | undefined;
   readonly disabled: boolean;
   readonly launchTarget: AgentLaunchTarget | undefined;
@@ -191,16 +193,16 @@ export const NewSessionLauncher: FC<{ readonly onClientError: (error: unknown) =
   const { locked } = useAtomValue(composerAtom);
   const { reasons, usable } = useAtomValue(launchTargetAvailabilityAtom);
   const setLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
-  const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
+  const selectProject = useAtomSet(selectVirtualProjectAtomFn, { mode: 'promise' });
 
   return (
     <NewSessionLauncherView
-      cwd={virtual?.cwd}
+      cwd={virtual?.workspaceFile ?? virtual?.cwd}
       disabled={locked || virtual == null}
       launchTarget={virtual?.launchTarget}
-      onPickProject={cwd => {
-        if (cwd === virtual?.cwd) return;
-        patchVirtual({ cwd }).catch(onClientError);
+      onPickProject={project => {
+        if (project === (virtual?.workspaceFile ?? virtual?.cwd)) return;
+        selectProject(project).catch(onClientError);
       }}
       onPickTarget={target => {
         if (target === virtual?.launchTarget) return;

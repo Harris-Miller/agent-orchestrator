@@ -12,3 +12,5 @@ Bind (`session/new` for the Virtual draft) used to share one lifecycle lock with
 
 - A `session/new` per superseded switch may be created and deleted; teardown failures are logged and never block the replacement Bind or Send.
 - Send can sit pending indefinitely while a provider is stuck before `usable` (no timeout, no cancel); switching provider re-awaits.
+
+**Workspace projects.** Picking a Workspace project for the Virtual session resolves it first (desktop ADR 0022): the blob carries the first folder as its cwd and the rest as Additional directories, so the Bind key never holds a Workspace file path.

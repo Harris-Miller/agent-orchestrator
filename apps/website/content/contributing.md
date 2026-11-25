@@ -23,7 +23,7 @@ A `pnpm run tauri:dev` app reloads on every frontend edit and restarts on every 
 ## Branches and pull requests
 
 - Branch from **`develop`** and open your pull request into `develop`. `main` only takes release merges.
-- Title the pull request `<Tag>: <Short description>`, for example `Fix: Keep queued prompts after a turn is cancelled`. If the PR closes issues, end the title with ` (#123)`, or ` (#123, #456)` for several, in ascending order. The tag decides whether the change ships in the next release: `New`, `Update`, `Fix` and `Breaking` do; `Docs`, `Build`, `Upgrade` and `Chore` don't.
+- Title the pull request `<Tag>: <Short description>`, for example `Fix: Keep queued prompts after a turn is cancelled`. The tag decides whether the change ships in the next release: `New`, `Update`, `Fix` and `Breaking` do; `Docs`, `Build`, `Upgrade` and `Chore` don't.
 
 Before you open it:
 

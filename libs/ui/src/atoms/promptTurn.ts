@@ -117,7 +117,7 @@ const slimImageRefsFromAttachments = (
     mimeType: attachment.mimeType,
     name: attachment.name,
     previewDataUrl: attachment.previewDataUrl,
-    uri: attachment.uri,
+    ...(attachment.uri === undefined ? {} : { uri: attachment.uri }),
   }));
 
 const refusal = (verb: 'Sending' | 'Steering', action: ComposerAction) =>

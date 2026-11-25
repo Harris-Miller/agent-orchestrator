@@ -39,18 +39,23 @@ const mount = (
   options: {
     readonly availableCommands?: readonly AvailableCommand[];
     readonly onChange?: (next: ComposerPromptChange) => void;
+    readonly onPasteImages?: (files: readonly File[]) => void;
+    readonly onDropCapture?: (event: React.DragEvent) => void;
   } = {},
 ) => {
   const props = {
     availableCommands: options.availableCommands,
     disabled: false,
     onChange: options.onChange ?? (() => undefined),
+    onPasteImages: options.onPasteImages,
     onSubmit: () => undefined,
     placeholder: 'Message',
   };
   const tree = (next: string) => (
     <ThemeProvider theme={theme}>
-      <ComposerPromptEditor {...props} value={next} />
+      <div onDrop={options.onDropCapture}>
+        <ComposerPromptEditor {...props} value={next} />
+      </div>
     </ThemeProvider>
   );
   const view = render(tree(value));
@@ -202,6 +207,88 @@ describe('ComposerPromptEditor Markdown styling', () => {
       yield* eventually(() => {
         assert.isTrue(last?.adjacentToToken);
       });
+    }),
+  );
+});
+
+const pasteWith = (items: { readonly files: File[]; readonly text: string }) => {
+  const clipboardData = {
+    files: items.files,
+    getData: (type: string) => (type === 'text/plain' ? items.text : ''),
+    items: [],
+    types: items.files.length > 0 ? ['Files', ...(items.text === '' ? [] : ['text/plain'])] : ['text/plain'],
+  };
+  const pasteEvent = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(pasteEvent, 'clipboardData', { value: clipboardData });
+  lexicalEditor().dispatchCommand(PASTE_COMMAND, pasteEvent);
+  return pasteEvent;
+};
+
+const imageFile = () => new File([new Uint8Array([1])], 'a.png', { type: 'image/png' });
+
+describe('ComposerPromptEditor image paste and drop', () => {
+  it.effect('forwards an image-only paste and inserts no text', () =>
+    Effect.gen(function* () {
+      const received: File[][] = [];
+      mount('', {
+        onPasteImages: files => {
+          received.push([...files]);
+        },
+      });
+      editable().focus();
+      const file = imageFile();
+      const event = pasteWith({ files: [file], text: '' });
+      yield* eventually(() => {
+        assert.strictEqual(received.length, 1);
+      });
+      assert.deepStrictEqual(received[0], [file]);
+      assert.isTrue(event.defaultPrevented);
+      assert.strictEqual(editable().textContent, '');
+    }),
+  );
+
+  it.effect('leaves a text + image paste to Lexical', () =>
+    Effect.gen(function* () {
+      let calls = 0;
+      mount('', {
+        onPasteImages: () => {
+          calls += 1;
+        },
+      });
+      editable().focus();
+      lexicalEditor().update(() => {
+        $getRoot().selectEnd();
+      });
+      pasteWith({ files: [imageFile()], text: 'hello' });
+      yield* eventually(() => {
+        assert.strictEqual(editable().textContent, 'hello');
+      });
+      assert.strictEqual(calls, 0);
+    }),
+  );
+
+  it.effect('lets a native file drop bubble to the parent without inserting text', () =>
+    Effect.gen(function* () {
+      const dropped: File[][] = [];
+      mount('', {
+        onDropCapture: event => {
+          dropped.push([...event.dataTransfer.files]);
+        },
+      });
+      const file = imageFile();
+      const drop = new Event('drop', { bubbles: true, cancelable: true });
+      Object.defineProperty(drop, 'dataTransfer', {
+        value: { files: [file], getData: () => '', items: [], types: ['Files'] },
+      });
+      editable().dispatchEvent(drop);
+      yield* Effect.promise(
+        () =>
+          new Promise<void>(resolve => {
+            setTimeout(resolve, 20);
+          }),
+      );
+      assert.deepStrictEqual(dropped, [[file]]);
+      assert.strictEqual(editable().textContent, '');
     }),
   );
 });

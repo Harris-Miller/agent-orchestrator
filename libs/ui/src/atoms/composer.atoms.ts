@@ -5,8 +5,8 @@
  * Interface:
  * - Read model: {@link composerAtom}.
  * - AtomFns ({@link createComposerAtoms}): `editComposerAtomFn` edits the Selected target's draft;
- *   `attachComposerImagesAtomFn` adds images that finish later (Host FileDialog or absolute image paths, see
- *   {@link ComposerImageSource}) and fails with `ImageAttachmentRejected | FileDialogFailed`;
+ *   `attachComposerImagesAtomFn` adds images that finish later (Host FileDialog, absolute image paths, or pasted /
+ *   dropped `File`s, see {@link ComposerImageSource}) and fails with `ImageAttachmentRejected | FileDialogFailed`;
  *   `submitComposerAtomFn` performs the current Composer action when it is Send or Steering, otherwise does nothing.
  *   While Steering is offered, its argument picks Steering or Queue (default: the `midTurnSend` User setting).
  *   `unqueueComposerAtomFn` puts the Queued message back into the draft. Prompt turn cancel stays `cancelPromptAtomFn`,
@@ -21,8 +21,10 @@
  *   Nothing Selected means no dialog and no change.
  * - Its images are merged into that target's attachments as they are when it finishes (anything added or removed
  *   meanwhile is kept), de-duplicated by `uri`; nothing new means no write.
- * - Caps are judged on the merged list; a rejected batch changes nothing. A Pick also checks the count against the
- *   latest list before reading any file.
+ * - Caps are judged on the merged list; a rejected batch changes nothing. A Pick or Files also checks the count
+ *   against the latest list before reading any file.
+ * - Files (paste / drop) have no `uri`, so they are never de-duplicated, and they fail closed (nothing attached) when
+ *   the target's Agent does not accept images (`promptCapabilities.image`).
  * - Attaches are concurrent: a later one never interrupts an earlier one. A caller's result reflects every attach
  *   in flight (the fn atom joins them all).
  * - A Virtual target whose blob is gone (or replaced by a newer one), or whose Lifecycle lock is held, when the
@@ -48,12 +50,16 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { composerGates } from '../host/composerAction.ts';
 import type { ComposerGates } from '../host/composerAction.ts';
 import {
+  AGENT_NO_IMAGES_MESSAGE,
   appendUniqueComposerAttachments,
+  composerImageAttachmentFromFile,
   composerImageAttachmentFromPath,
-  IMAGE_ATTACH_MAX_COUNT,
   IMAGE_DIALOG_FILTERS,
   ImageAttachmentRejected,
   imageAttachmentsRejection,
+  imageCountRejection,
+  imageSizeRejection,
+  isAllowedImageMimeType,
 } from '../host/composerImageAttachment.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import type { AvailableCommand } from '../host/sessionUpdateReducer.ts';
@@ -62,6 +68,7 @@ import {
   backendHarnessSnapshotAtom,
   selectedAtom,
   selectedBackendHarnessBackgroundActiveAtom,
+  selectedBackendHarnessImagePromptSupportedAtom,
   selectedBackendHarnessSteeringSupportedAtom,
   selectedSessionAtom,
   selectedSessionLaunchTargetAtom,
@@ -121,6 +128,8 @@ export type Composer = ComposerGates & {
   /** From the Selected Session, or the Bound Virtual session. */
   readonly availableCommands: readonly AvailableCommand[];
   readonly draft: string;
+  /** The target's Agent accepts image prompt content (`promptCapabilities.image`); gates paste / drop. */
+  readonly imagePromptSupported: boolean;
   /** What Steering, when offered, does by default (the `midTurnSend` User setting). */
   readonly midTurnSend: MidTurnSend;
   /** The Selected Session's Queued message; `undefined` with none (always for Virtual). */
@@ -139,7 +148,9 @@ export type ComposerImageSource =
   /** Host FileDialog, images only, multiple. */
   | { readonly _tag: 'Pick' }
   /** Absolute image paths (an image Filesystem Mention, or image paths resolved from the draft). */
-  | { readonly _tag: 'Paths'; readonly paths: readonly string[] };
+  | { readonly _tag: 'Paths'; readonly paths: readonly string[] }
+  /** Pasted / dropped image files (bytes, no path). */
+  | { readonly _tag: 'Files'; readonly files: readonly File[] };
 
 type Draft = { readonly attachments: readonly ComposerImageAttachment[]; readonly draft: string };
 
@@ -174,6 +185,7 @@ export const composerAtom = Atom.make((get): Composer => {
         sendPending: get(virtualSendPendingAtom),
       }),
       availableCommands: bound?.availableCommands ?? NO_COMMANDS,
+      imagePromptSupported: harness?.agentCapabilities.promptImage === true,
       midTurnSend: get(midTurnSendModeAtom),
       queued: undefined,
       target: { _tag: 'Virtual', blobId: virtual?.id, launchTarget },
@@ -197,6 +209,7 @@ export const composerAtom = Atom.make((get): Composer => {
       steeringSupported: get(selectedBackendHarnessSteeringSupportedAtom),
     }),
     availableCommands: session?.availableCommands ?? NO_COMMANDS,
+    imagePromptSupported: get(selectedBackendHarnessImagePromptSupportedAtom),
     midTurnSend: get(midTurnSendModeAtom),
     queued: sessionId === undefined ? undefined : get(sessionQueuedAtom(sessionId)),
     target:
@@ -241,6 +254,35 @@ const currentAttachments = (registry: Registry, target: ComposerTarget): readonl
   const virtual = registry.get(virtualSessionAtom);
   return virtual !== null && virtual.id === target.blobId ? virtual.attachments : [];
 };
+
+/** Pre-checks (capability, count, MIME, size) then reads pasted / dropped files. */
+const readFiles = (registry: Registry, target: ComposerTarget, files: readonly File[]) =>
+  Effect.gen(function* () {
+    // The Composer already derived this for the captured target.
+    if (!registry.get(composerAtom).imagePromptSupported) {
+      return yield* new ImageAttachmentRejected({ message: AGENT_NO_IMAGES_MESSAGE });
+    }
+    if (files.length === 0) {
+      return [];
+    }
+    const countRejected = imageCountRejection(currentAttachments(registry, target).length + files.length);
+    if (countRejected !== undefined) {
+      return yield* countRejected;
+    }
+    for (const file of files) {
+      const mime = file.type.toLowerCase();
+      if (!isAllowedImageMimeType(mime)) {
+        return yield* new ImageAttachmentRejected({
+          message: `Unsupported image type: ${mime.length > 0 ? mime : 'unknown'}`,
+        });
+      }
+      const sizeRejected = imageSizeRejection(file.name.length > 0 ? file.name : 'pasted-image', file.size);
+      if (sizeRejected !== undefined) {
+        return yield* sizeRejected;
+      }
+    }
+    return yield* Effect.forEach(files, composerImageAttachmentFromFile, { concurrency: 'unbounded' });
+  });
 
 /** Read and clear a Session's draft in one synchronous step. */
 const takeSessionDraft = (registry: Registry, sessionId: string): Draft => {
@@ -347,22 +389,29 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
           return;
         }
         yield* Effect.annotateCurrentSpan('composer.attach.source', source._tag);
-        const paths =
-          source._tag === 'Paths'
-            ? source.paths
-            : yield* (yield* FileDialog).pickFiles({ filters: [...IMAGE_DIALOG_FILTERS], multiple: true });
-        if (paths.length === 0) {
-          return;
+        let picked: readonly ComposerImageAttachment[];
+        if (source._tag === 'Files') {
+          picked = yield* readFiles(registry, target, source.files);
+          if (picked.length === 0) {
+            return;
+          }
+        } else {
+          const paths =
+            source._tag === 'Paths'
+              ? source.paths
+              : yield* (yield* FileDialog).pickFiles({ filters: [...IMAGE_DIALOG_FILTERS], multiple: true });
+          if (paths.length === 0) {
+            return;
+          }
+          const countRejected =
+            source._tag === 'Pick'
+              ? imageCountRejection(currentAttachments(registry, target).length + paths.length)
+              : undefined;
+          if (countRejected !== undefined) {
+            return yield* countRejected;
+          }
+          picked = yield* Effect.forEach(paths, composerImageAttachmentFromPath, { concurrency: 'unbounded' });
         }
-        if (
-          source._tag === 'Pick' &&
-          currentAttachments(registry, target).length + paths.length > IMAGE_ATTACH_MAX_COUNT
-        ) {
-          return yield* new ImageAttachmentRejected({
-            message: `At most ${String(IMAGE_ATTACH_MAX_COUNT)} images can be attached`,
-          });
-        }
-        const picked = yield* Effect.forEach(paths, composerImageAttachmentFromPath, { concurrency: 'unbounded' });
         let rejected: ImageAttachmentRejected | undefined;
         updateDraft(registry, target, current => {
           const merged = appendUniqueComposerAttachments(current.attachments, picked);

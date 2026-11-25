@@ -32,7 +32,8 @@ export type ComposerImageAttachment = {
   readonly name: string;
   /** `data:<mime>;base64,…` for composer / transcript `<img>` previews. */
   readonly previewDataUrl: string;
-  readonly uri: string;
+  /** Absent for pasted / dropped bytes (no filesystem path). */
+  readonly uri?: string;
 };
 
 /** Attachments rejected (MIME / size / count / read / encode failure). */
@@ -40,6 +41,23 @@ export class ImageAttachmentRejected extends Schema.TaggedError<ImageAttachmentR
   cause: Schema.optional(Schema.Unknown),
   message: Schema.String,
 }) {}
+
+/** Shown when paste / drop / attach targets an Agent without `promptCapabilities.image`. */
+export const AGENT_NO_IMAGES_MESSAGE = 'This Agent does not accept images';
+
+/** Count-cap rejection when `total` images would be attached; `undefined` within the cap. */
+export const imageCountRejection = (total: number): ImageAttachmentRejected | undefined =>
+  total > IMAGE_ATTACH_MAX_COUNT
+    ? new ImageAttachmentRejected({ message: `At most ${String(IMAGE_ATTACH_MAX_COUNT)} images can be attached` })
+    : undefined;
+
+/** Per-image size rejection for `name` of `byteLength`; `undefined` within the cap. */
+export const imageSizeRejection = (name: string, byteLength: number): ImageAttachmentRejected | undefined =>
+  byteLength > IMAGE_ATTACH_MAX_BYTES_PER
+    ? new ImageAttachmentRejected({
+        message: `Image ${name} exceeds ${String(IMAGE_ATTACH_MAX_BYTES_PER / (1024 * 1024))} MiB`,
+      })
+    : undefined;
 
 export const mimeTypeForImagePath = (path: string): string | undefined => {
   const lower = path.toLowerCase();
@@ -92,10 +110,9 @@ export const isImageLikeResourceLink = (block: unknown): boolean => {
 export const imageAttachmentsRejection = (
   attachments: readonly ComposerImageAttachment[],
 ): ImageAttachmentRejected | undefined => {
-  if (attachments.length > IMAGE_ATTACH_MAX_COUNT) {
-    return new ImageAttachmentRejected({
-      message: `At most ${String(IMAGE_ATTACH_MAX_COUNT)} images can be attached`,
-    });
+  const countRejected = imageCountRejection(attachments.length);
+  if (countRejected !== undefined) {
+    return countRejected;
   }
 
   let total = 0;
@@ -105,10 +122,9 @@ export const imageAttachmentsRejection = (
         message: `Unsupported image type: ${attachment.mimeType}`,
       });
     }
-    if (attachment.byteLength > IMAGE_ATTACH_MAX_BYTES_PER) {
-      return new ImageAttachmentRejected({
-        message: `Image ${attachment.name} exceeds ${String(IMAGE_ATTACH_MAX_BYTES_PER / (1024 * 1024))} MiB`,
-      });
+    const sizeRejected = imageSizeRejection(attachment.name, attachment.byteLength);
+    if (sizeRejected !== undefined) {
+      return sizeRejected;
     }
     total += attachment.byteLength;
   }
@@ -159,10 +175,9 @@ export const composerImageAttachmentFromPath = Effect.fn('composerImageAttachmen
       ),
     );
 
-  if (bytes.byteLength > IMAGE_ATTACH_MAX_BYTES_PER) {
-    return yield* new ImageAttachmentRejected({
-      message: `Image ${basenameForName(pathApi, absolutePath)} exceeds ${String(IMAGE_ATTACH_MAX_BYTES_PER / (1024 * 1024))} MiB`,
-    });
+  const sizeRejected = imageSizeRejection(basenameForName(pathApi, absolutePath), bytes.byteLength);
+  if (sizeRejected !== undefined) {
+    return yield* sizeRejected;
   }
 
   const fileUrl = yield* pathApi.toFileUrl(absolutePath).pipe(Effect.option);
@@ -196,10 +211,12 @@ export const appendUniqueComposerAttachments = (
   existing: readonly ComposerImageAttachment[],
   next: readonly ComposerImageAttachment[],
 ): readonly ComposerImageAttachment[] => {
-  const seen = new Set(existing.map(attachment => attachment.uri));
+  const seen = new Set(existing.flatMap(attachment => (attachment.uri === undefined ? [] : [attachment.uri])));
   const out = [...existing];
   for (const attachment of next) {
-    if (!seen.has(attachment.uri)) {
+    if (attachment.uri === undefined) {
+      out.push(attachment);
+    } else if (!seen.has(attachment.uri)) {
       seen.add(attachment.uri);
       out.push(attachment);
     }
@@ -207,17 +224,55 @@ export const appendUniqueComposerAttachments = (
   return out;
 };
 
-export const attachmentToResourceLinkBlock = (attachment: ComposerImageAttachment): ContentBlock => ({
-  mimeType: attachment.mimeType,
-  name: attachment.name,
-  size: attachment.byteLength,
-  type: 'resource_link',
-  uri: attachment.uri,
+/** Fails closed for a uri-less attachment: pasted bytes are never sent as a `resource_link`. */
+export const attachmentToResourceLinkBlock = (
+  attachment: ComposerImageAttachment,
+): Effect.Effect<ContentBlock, ImageAttachmentRejected> =>
+  attachment.uri === undefined
+    ? Effect.fail(
+        new ImageAttachmentRejected({ message: `${attachment.name} cannot be sent: the Agent does not accept images` }),
+      )
+    : Effect.succeed({
+        mimeType: attachment.mimeType,
+        name: attachment.name,
+        size: attachment.byteLength,
+        type: 'resource_link',
+        uri: attachment.uri,
+      });
+
+const EXT_FOR_MIME: Readonly<Record<string, string>> = {
+  'image/gif': 'gif',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+
+/** Read a pasted / dropped `File` into a composer attachment (no `uri`). Caller pre-checks MIME and size. */
+export const composerImageAttachmentFromFile = Effect.fn('composerImageAttachmentFromFile')(function* (file: File) {
+  const mimeType = file.type.toLowerCase();
+  const name = file.name.length > 0 ? file.name : `pasted-image.${EXT_FOR_MIME[mimeType] ?? 'png'}`;
+  // No cause: the platform error may carry private data.
+  const buffer = yield* Effect.tryPromise({
+    catch: () => new ImageAttachmentRejected({ message: `Could not read ${name}` }),
+    try: () => file.arrayBuffer(),
+  });
+  const bytes = new Uint8Array(buffer);
+  const previewDataUrl = yield* Effect.try({
+    catch: cause => new ImageAttachmentRejected({ cause, message: `Could not encode ${name}` }),
+    try: () => imageBytesToDataUrl(bytes, mimeType),
+  });
+  return {
+    byteLength: bytes.byteLength,
+    id: crypto.randomUUID(),
+    mimeType,
+    name,
+    previewDataUrl,
+  } satisfies ComposerImageAttachment;
 });
 
 /**
- * ACP `type: "image"` from a composer attachment. Always includes `uri` (Composer send contract);
- * schema keeps `uri` optional for inbound/history.
+ * ACP `type: "image"` from a composer attachment. Includes `uri` when the attachment has one
+ * (pasted / dropped bytes have none).
  */
 export const attachmentToImageBlock = (
   attachment: ComposerImageAttachment,
@@ -234,6 +289,6 @@ export const attachmentToImageBlock = (
     data,
     mimeType: attachment.mimeType,
     type: 'image' as const,
-    uri: attachment.uri,
+    ...(attachment.uri === undefined ? {} : { uri: attachment.uri }),
   });
 };

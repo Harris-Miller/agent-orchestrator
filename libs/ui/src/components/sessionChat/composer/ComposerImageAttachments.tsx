@@ -19,9 +19,9 @@ const AttachmentTile: FC<{
   readonly disabled: boolean;
   readonly onRemove: (id: string) => void;
 }> = ({ attachment, disabled, onRemove }) => {
-  const useLightbox = useOpenFileSupport() === 'unsupported';
+  const useLightbox = useOpenFileSupport() === 'unsupported' || attachment.uri === undefined;
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const hostLinkProps = useChatLinkProps(attachment.uri);
+  const hostLinkProps = useChatLinkProps(attachment.uri ?? '');
   const linkProps = useLightbox
     ? chatLinkHandlers(() => {
         setLightboxOpen(true);

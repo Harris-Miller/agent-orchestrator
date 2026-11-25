@@ -6,7 +6,7 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { Paperclip } from 'lucide-react';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
-import type { FC, ReactNode, SubmitEvent } from 'react';
+import type { DragEvent, FC, ReactNode, SubmitEvent } from 'react';
 
 import {
   selectedBackendHarnessAntigravityAuthUrlAtom,
@@ -20,6 +20,8 @@ import {
 } from '../../../atoms/boundHarnessAtoms.ts';
 import { useSelectedSessionFsListing } from '../../../atoms/useSelectedSessionFsListing.ts';
 import type { MidTurnSend } from '../../../atoms/userSettings/userSettings.atoms.ts';
+import { AGENT_NO_IMAGES_MESSAGE, ImageAttachmentRejected } from '../../../host/composerImageAttachment.ts';
+import { classifyFileDrop, filesFromDataTransfer } from '../../../host/composerImageTransfer.ts';
 import { isNotSignedIn } from '../../../host/harnessFailure.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
 import { AntigravitySignInControls } from '../../AntigravitySignInControls.tsx';
@@ -71,6 +73,7 @@ export const Composer: FC<{
     canEdit,
     controlsEnabled,
     draft,
+    imagePromptSupported,
     locked: chromeLocked,
     queued,
   } = composer;
@@ -127,6 +130,66 @@ export const Composer: FC<{
       .finally(() => {
         focusComposerEndRef.current?.();
       });
+  };
+
+  const [dragActive, setDragActive] = useState(false);
+
+  /** Shared by paste and drop. The attach atom re-checks capability; this just avoids needless reads. */
+  const attachFiles = useCallback(
+    (files: readonly File[]) => {
+      if (!canEdit) {
+        return;
+      }
+      if (!imagePromptSupported) {
+        // No Agent chosen yet (fresh Virtual Composer): nothing to blame, so fail silently.
+        if (selectedLaunchTarget !== undefined) {
+          onClientError(new ImageAttachmentRejected({ message: AGENT_NO_IMAGES_MESSAGE }));
+        }
+        return;
+      }
+      attachImages({ _tag: 'Files', files })
+        .catch(onClientError)
+        .finally(() => {
+          focusComposerEndRef.current?.();
+        });
+    },
+    [attachImages, canEdit, imagePromptSupported, onClientError, selectedLaunchTarget],
+  );
+
+  const hasFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files');
+  const onDragOver = (event: DragEvent) => {
+    if (!hasFiles(event)) {
+      return;
+    }
+    event.preventDefault();
+    setDragActive(canEdit);
+  };
+  const onDragLeave = (event: DragEvent) => {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) {
+      return;
+    }
+    setDragActive(false);
+  };
+  // File drops need HTML5 DnD: desktop's `tauri.conf.json` sets `dragDropEnabled: false` (Tauri otherwise intercepts them on Windows).
+  const onDrop = (event: DragEvent) => {
+    setDragActive(false);
+    if (!hasFiles(event)) {
+      return;
+    }
+    // Always claim a file drop so the webview never navigates to it.
+    event.preventDefault();
+    if (!canEdit) {
+      return;
+    }
+    const result = classifyFileDrop({ files: filesFromDataTransfer(event.dataTransfer) });
+    if (result._tag === 'Images') {
+      attachFiles(result.files);
+      if (result.skippedMessage !== undefined) {
+        onClientError(new ImageAttachmentRejected({ message: result.skippedMessage }));
+      }
+    } else if (result._tag === 'NotImages') {
+      onClientError(new ImageAttachmentRejected({ message: result.message }));
+    }
   };
 
   // Enter, the form and the other-mode Send button perform only Send or Steering, never Prompt turn cancel (desktop
@@ -218,7 +281,16 @@ export const Composer: FC<{
             }}
           />
         </Box>
-        <Paper sx={[composerPaperSx, { position: 'relative' }]}>
+        <Paper
+          onDragLeave={onDragLeave}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+          sx={[
+            composerPaperSx,
+            { position: 'relative' },
+            dragActive && { outline: '2px dashed', outlineColor: 'primary.main', outlineOffset: -2 },
+          ]}
+        >
           <ComposerCommandMenu {...commandMenuProps} />
           <ComposerMentionMenu {...mentionMenuProps} />
           {queued === undefined ? null : (
@@ -257,6 +329,7 @@ export const Composer: FC<{
             focusEndRef={focusComposerEndRef}
             key={isVirtual ? 'virtual' : (selectedSessionId ?? 'none')}
             onChange={onComposerChange}
+            onPasteImages={imagePromptSupported ? attachFiles : undefined}
             onEscape={selectedSession?.pendingElicitation === undefined ? undefined : cancelElicitation}
             onSubmit={() => {
               submitDraft();

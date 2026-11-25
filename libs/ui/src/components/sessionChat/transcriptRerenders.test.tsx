@@ -80,11 +80,12 @@ it.effect('subagent child chunks do not re-render the ChatTranscript', () =>
       });
     };
 
+    // warm-up
     for (let i = 0; i < 10; i += 1) {
       act(() => {
         feed(i);
       });
-    } // warm-up
+    }
     commits.clear();
     for (let i = 0; i < CHUNKS; i += 1) {
       act(() => {
@@ -93,5 +94,11 @@ it.effect('subagent child chunks do not re-render the ChatTranscript', () =>
     }
 
     assert.strictEqual(commits.get('ChatTranscript') ?? 0, 0);
+
+    // Positive control: an own-session update must commit, proving the Profiler is live and 's1' is the selected session.
+    act(() => {
+      updateHarnessSnapshot(registry, CODEX, current => applyLiveSessionUpdate(current, 's1', chunk(0)).snapshot);
+    });
+    assert.isAtLeast(commits.get('ChatTranscript') ?? 0, 1);
   }).pipe(Effect.scoped),
 );

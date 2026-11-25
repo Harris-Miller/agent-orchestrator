@@ -116,19 +116,14 @@ describe('filterAvailableCommandMatches', () => {
   });
 
   it('hides per-agent blocklisted slash commands from the menu', () => {
-    const mixed = [
-      { description: 'Color', isSkill: false, name: 'color' },
-      { description: 'Config', isSkill: false, name: 'config' },
-      { description: 'Dataviz', isSkill: false, name: 'dataviz' },
-      { description: 'Effect', isSkill: false, name: 'effect' },
-      { description: 'Fast', isSkill: false, name: 'fast' },
-      { description: 'Model', isSkill: false, name: 'model' },
-      { description: 'Logout', isSkill: false, name: 'logout' },
-      { description: 'Status', isSkill: false, name: 'status' },
-    ] as const;
+    const mixed = ['color', 'config', 'dataviz', 'effect', 'fast', 'model', 'logout', 'status'].map(name => ({
+      description: name,
+      isSkill: false,
+      name,
+    }));
     assert.deepStrictEqual(
       filterAvailableCommandMatches(mixed, 'slash', '', 'claude-agent-acp').map(match => match.command.name),
-      ['logout', 'status'],
+      ['color', 'config', 'dataviz', 'model', 'logout', 'status'],
     );
     assert.deepStrictEqual(
       filterAvailableCommandMatches(mixed, 'slash', '', 'codex-acp').map(match => match.command.name),
@@ -147,16 +142,16 @@ describe('cross-provider skills', () => {
     { isSkill: true, name: 'caveman' },
     { isSkill: true, name: 'dataviz' },
   ];
-  it('$ lists only skills (hidden names dropped); / lists everything', () => {
+  it('$ lists only skills; / lists everything', () => {
     assert.deepStrictEqual(
       filterAvailableCommandMatches(claude, 'dollar', '', 'claude-agent-acp').map(m => m.command.name),
-      ['caveman'],
+      ['caveman', 'dataviz'],
     );
     assert.deepStrictEqual(
       filterAvailableCommandMatches([...claude, { isSkill: true, name: '$tdd' }], 'slash', '', 'claude-agent-acp').map(
         m => m.command.name,
       ),
-      ['status', 'caveman', '$tdd'],
+      ['status', 'caveman', 'dataviz', '$tdd'],
     );
   });
 });

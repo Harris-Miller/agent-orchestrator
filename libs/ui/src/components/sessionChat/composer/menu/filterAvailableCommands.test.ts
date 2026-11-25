@@ -116,16 +116,11 @@ describe('filterAvailableCommandMatches', () => {
   });
 
   it('hides per-agent blocklisted slash commands from the menu', () => {
-    const mixed = [
-      { description: 'Color', isSkill: false, name: 'color' },
-      { description: 'Config', isSkill: false, name: 'config' },
-      { description: 'Dataviz', isSkill: false, name: 'dataviz' },
-      { description: 'Effect', isSkill: false, name: 'effect' },
-      { description: 'Fast', isSkill: false, name: 'fast' },
-      { description: 'Model', isSkill: false, name: 'model' },
-      { description: 'Logout', isSkill: false, name: 'logout' },
-      { description: 'Status', isSkill: false, name: 'status' },
-    ] as const;
+    const mixed = ['color', 'config', 'dataviz', 'effect', 'fast', 'model', 'logout', 'status'].map(name => ({
+      description: name,
+      isSkill: false,
+      name,
+    }));
     assert.deepStrictEqual(
       filterAvailableCommandMatches(mixed, 'slash', '', 'claude-agent-acp').map(match => match.command.name),
       ['color', 'config', 'dataviz', 'model', 'logout', 'status'],

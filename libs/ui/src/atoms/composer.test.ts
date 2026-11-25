@@ -912,3 +912,64 @@ describe('Queue: a Queued message is sent as a new Prompt turn once the in-fligh
     }).pipe(Effect.scoped),
   );
 });
+
+describe('pasted / dropped image Files', () => {
+  const file = (name: string, type: string, bytes = 4) => new File([new Uint8Array(bytes)], name, { type });
+  const allowImages = (h: { readonly registry: Registry }, promptImage = true) => {
+    updateHarnessSnapshot(h.registry, CODEX, current => ({
+      ...current,
+      agentCapabilities: { ...steeringCapabilities, promptImage },
+    }));
+  };
+
+  it.effect('attaches without a uri', () =>
+    Effect.gen(function* () {
+      const h = yield* harness();
+      allowImages(h);
+      const exit = yield* h.attach({ _tag: 'Files', files: [file('', 'image/png')] });
+      assert.isTrue(Exit.isSuccess(exit));
+      const [attachment] = h.registry.get(composerAtom).attachments;
+      assert.isUndefined(attachment?.uri);
+      assert.strictEqual(attachment?.name, 'pasted-image.png');
+      assert.strictEqual(attachment?.byteLength, 4);
+      assert.isTrue(h.registry.get(composerAtom).imagePromptSupported);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('two pastes of the same bytes both attach', () =>
+    Effect.gen(function* () {
+      const h = yield* harness();
+      allowImages(h);
+      yield* h.attach({ _tag: 'Files', files: [file('a.png', 'image/png')] });
+      yield* h.attach({ _tag: 'Files', files: [file('a.png', 'image/png')] });
+      assert.strictEqual(h.registry.get(composerAtom).attachments.length, 2);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('fails closed without image capability', () =>
+    Effect.gen(function* () {
+      const h = yield* harness();
+      allowImages(h, false);
+      const exit = yield* h.attach({ _tag: 'Files', files: [file('a.png', 'image/png')] });
+      assert.instanceOf(Option.getOrUndefined(Exit.findErrorOption(exit)), ImageAttachmentRejected);
+      assert.strictEqual(h.registry.get(composerAtom).attachments.length, 0);
+      assert.isFalse(h.registry.get(composerAtom).imagePromptSupported);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('rejects a disallowed MIME, an oversize file and a count overflow', () =>
+    Effect.gen(function* () {
+      const h = yield* harness();
+      allowImages(h);
+      for (const files of [
+        [file('a.bmp', 'image/bmp')],
+        [file('big.png', 'image/png', 5 * 1024 * 1024 + 1)],
+        Array.from({ length: 11 }, () => file('a.png', 'image/png')),
+      ]) {
+        const exit = yield* h.attach({ _tag: 'Files', files });
+        assert.instanceOf(Option.getOrUndefined(Exit.findErrorOption(exit)), ImageAttachmentRejected);
+      }
+      assert.strictEqual(h.registry.get(composerAtom).attachments.length, 0);
+    }).pipe(Effect.scoped),
+  );
+});

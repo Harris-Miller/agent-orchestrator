@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import type { FileSystem } from 'effect';
-import { ByteSize, Effect, Layer, Option } from 'effect';
+import { ByteSize, Effect, Exit, Layer, Option } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
@@ -291,6 +291,40 @@ describe('promptBlocksFromComposerDraft images with promptCapabilities.image', (
         { text: 'see ', type: 'text' },
       ]);
     }).pipe(Effect.provide(withFs(new Map([['/tmp/a.png', { bytes: encoder.encode('\x89PNG'), type: 'File' }]])))),
+  );
+});
+
+describe('promptBlocksFromComposerDraft uri-less (pasted) attachments', () => {
+  const pasted = (): ComposerImageAttachment => {
+    const { uri: _uri, ...rest } = pngAttachment();
+    return rest;
+  };
+
+  it.effect('promptImage → image block without a uri key', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('hi', {
+        attachments: [pasted()],
+        cwd: '/session',
+        agentCapabilities: { ...NO_AGENT_CAPABILITIES, promptImage: true },
+      });
+      assert.deepStrictEqual(blocks, [
+        { data: 'thumb', mimeType: 'image/png', type: 'image' },
+        { text: 'hi', type: 'text' },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map()))),
+  );
+
+  it.effect('no promptImage → fails closed', () =>
+    Effect.gen(function* () {
+      const exit = yield* Effect.exit(
+        promptBlocksFromComposerDraft('hi', {
+          attachments: [pasted()],
+          cwd: '/session',
+          agentCapabilities: NO_AGENT_CAPABILITIES,
+        }),
+      );
+      assert.instanceOf(Option.getOrUndefined(Exit.findErrorOption(exit)), ImageAttachmentRejected);
+    }).pipe(Effect.provide(withFs(new Map()))),
   );
 });
 

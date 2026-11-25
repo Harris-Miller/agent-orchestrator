@@ -22,6 +22,7 @@ import type { ComposerCommandMenuKeyHandlers } from './plugins/CommandMenuKeyPlu
 import { EditablePlugin } from './plugins/EditablePlugin.tsx';
 import { EscapePlugin } from './plugins/EscapePlugin.tsx';
 import { ExternalValuePlugin } from './plugins/ExternalValuePlugin.tsx';
+import { ImagePastePlugin } from './plugins/ImagePastePlugin.tsx';
 import { FocusEndApiPlugin } from './plugins/FocusEndApiPlugin.tsx';
 import { MarkerRevealPlugin } from './plugins/MarkerRevealPlugin.tsx';
 import { QuoteBarPlugin } from './plugins/QuoteBarPlugin.tsx';
@@ -44,6 +45,8 @@ export type ComposerPromptEditorProps = {
   readonly onChange: (next: ComposerPromptChange) => void;
   /** Esc when no typeahead menu consumed it. Return nothing; the editor swallows the key only if set. */
   readonly onEscape?: () => void;
+  /** Image-only paste; when set, clipboard images go here (text pastes are untouched). */
+  readonly onPasteImages?: (files: readonly File[]) => void;
   readonly onSubmit: () => void;
   readonly placeholder: string;
   /** When set, applied after an external `value` sync, then cleared by the editor. */
@@ -84,6 +87,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
   focusEndRef,
   onChange,
   onEscape,
+  onPasteImages,
   onSubmit,
   placeholder,
   syncCursorRef,
@@ -231,6 +235,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       <QuoteBarPlugin />
       <ChipDeletePlugin />
       {onEscape === undefined ? null : <EscapePlugin onEscape={onEscape} />}
+      {onPasteImages === undefined ? null : <ImagePastePlugin onPasteImages={onPasteImages} />}
       <SubmitOnEnterPlugin menuOpen={commandMenu?.open === true} onSubmit={onSubmit} />
       <CommandMenuKeyPlugin commandMenu={commandMenu} />
     </LexicalExtensionComposer>

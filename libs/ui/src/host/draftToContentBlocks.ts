@@ -300,7 +300,7 @@ export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposer
   const sendAsImage = options.agentCapabilities.promptImage;
   const attachmentBlocks: ContentBlock[] = sendAsImage
     ? yield* Effect.forEach(attachments, attachmentToImageBlock)
-    : attachments.map(attachmentToResourceLinkBlock);
+    : yield* Effect.forEach(attachments, attachmentToResourceLinkBlock);
 
   const frontImageBlocks = [...attachmentBlocks, ...draftImageLinks];
   if (frontImageBlocks.length === 0) {

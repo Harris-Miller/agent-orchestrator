@@ -32,7 +32,8 @@ export type ComposerImageAttachment = {
   readonly name: string;
   /** `data:<mime>;base64,…` for composer / transcript `<img>` previews. */
   readonly previewDataUrl: string;
-  readonly uri: string;
+  /** Absent for pasted / dropped bytes (no filesystem path). */
+  readonly uri?: string;
 };
 
 /** Attachments rejected (MIME / size / count / read / encode failure). */
@@ -196,10 +197,12 @@ export const appendUniqueComposerAttachments = (
   existing: readonly ComposerImageAttachment[],
   next: readonly ComposerImageAttachment[],
 ): readonly ComposerImageAttachment[] => {
-  const seen = new Set(existing.map(attachment => attachment.uri));
+  const seen = new Set(existing.flatMap(attachment => (attachment.uri === undefined ? [] : [attachment.uri])));
   const out = [...existing];
   for (const attachment of next) {
-    if (!seen.has(attachment.uri)) {
+    if (attachment.uri === undefined) {
+      out.push(attachment);
+    } else if (!seen.has(attachment.uri)) {
       seen.add(attachment.uri);
       out.push(attachment);
     }
@@ -207,17 +210,55 @@ export const appendUniqueComposerAttachments = (
   return out;
 };
 
-export const attachmentToResourceLinkBlock = (attachment: ComposerImageAttachment): ContentBlock => ({
-  mimeType: attachment.mimeType,
-  name: attachment.name,
-  size: attachment.byteLength,
-  type: 'resource_link',
-  uri: attachment.uri,
+/** Fails closed for a uri-less attachment: pasted bytes are never sent as a `resource_link`. */
+export const attachmentToResourceLinkBlock = (
+  attachment: ComposerImageAttachment,
+): Effect.Effect<ContentBlock, ImageAttachmentRejected> =>
+  attachment.uri === undefined
+    ? Effect.fail(
+        new ImageAttachmentRejected({ message: `${attachment.name} cannot be sent: the Agent does not accept images` }),
+      )
+    : Effect.succeed({
+        mimeType: attachment.mimeType,
+        name: attachment.name,
+        size: attachment.byteLength,
+        type: 'resource_link',
+        uri: attachment.uri,
+      });
+
+const EXT_FOR_MIME: Readonly<Record<string, string>> = {
+  'image/gif': 'gif',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+
+/** Read a pasted / dropped `File` into a composer attachment (no `uri`). Caller pre-checks MIME and size. */
+export const composerImageAttachmentFromFile = Effect.fn('composerImageAttachmentFromFile')(function* (file: File) {
+  const mimeType = file.type.toLowerCase();
+  const name = file.name.length > 0 ? file.name : `pasted-image.${EXT_FOR_MIME[mimeType] ?? 'png'}`;
+  // No cause: the platform error may carry private data.
+  const buffer = yield* Effect.tryPromise({
+    catch: () => new ImageAttachmentRejected({ message: `Could not read ${name}` }),
+    try: () => file.arrayBuffer(),
+  });
+  const bytes = new Uint8Array(buffer);
+  const previewDataUrl = yield* Effect.try({
+    catch: cause => new ImageAttachmentRejected({ cause, message: `Could not encode ${name}` }),
+    try: () => imageBytesToDataUrl(bytes, mimeType),
+  });
+  return {
+    byteLength: bytes.byteLength,
+    id: crypto.randomUUID(),
+    mimeType,
+    name,
+    previewDataUrl,
+  } satisfies ComposerImageAttachment;
 });
 
 /**
- * ACP `type: "image"` from a composer attachment. Always includes `uri` (Composer send contract);
- * schema keeps `uri` optional for inbound/history.
+ * ACP `type: "image"` from a composer attachment. Includes `uri` when the attachment has one
+ * (pasted / dropped bytes have none).
  */
 export const attachmentToImageBlock = (
   attachment: ComposerImageAttachment,
@@ -234,6 +275,6 @@ export const attachmentToImageBlock = (
     data,
     mimeType: attachment.mimeType,
     type: 'image' as const,
-    uri: attachment.uri,
+    ...(attachment.uri === undefined ? {} : { uri: attachment.uri }),
   });
 };

@@ -8,7 +8,7 @@ export type ClipboardPasteClass =
 
 export type FileDropClass =
   | { readonly _tag: 'Ignore' }
-  | { readonly _tag: 'Images'; readonly files: readonly File[] }
+  | { readonly _tag: 'Images'; readonly files: readonly File[]; readonly skippedMessage?: string }
   | { readonly _tag: 'NotImages'; readonly message: string };
 
 const isImageFile = (file: File): boolean => file.type.startsWith('image/');
@@ -33,7 +33,13 @@ export const classifyFileDrop = ({ files }: { readonly files: readonly File[] })
     return { _tag: 'Ignore' };
   }
   const images = files.filter(isImageFile);
-  return images.length === 0 ? { _tag: 'NotImages', message: NOT_IMAGES_MESSAGE } : { _tag: 'Images', files: images };
+  if (images.length === 0) {
+    return { _tag: 'NotImages', message: NOT_IMAGES_MESSAGE };
+  }
+  // Mixed drop: attach the images but tell the user the rest was skipped.
+  return images.length === files.length
+    ? { _tag: 'Images', files: images }
+    : { _tag: 'Images', files: images, skippedMessage: NOT_IMAGES_MESSAGE };
 };
 
 /** `dt.files`, else file entries of `dt.items` (clipboard screenshots arrive as items). */

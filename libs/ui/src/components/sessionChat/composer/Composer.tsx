@@ -20,7 +20,7 @@ import {
 } from '../../../atoms/boundHarnessAtoms.ts';
 import { useSelectedSessionFsListing } from '../../../atoms/useSelectedSessionFsListing.ts';
 import type { MidTurnSend } from '../../../atoms/userSettings/userSettings.atoms.ts';
-import { ImageAttachmentRejected } from '../../../host/composerImageAttachment.ts';
+import { AGENT_NO_IMAGES_MESSAGE, ImageAttachmentRejected } from '../../../host/composerImageAttachment.ts';
 import { classifyFileDrop, filesFromDataTransfer } from '../../../host/composerImageTransfer.ts';
 import { isNotSignedIn } from '../../../host/harnessFailure.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
@@ -135,20 +135,23 @@ export const Composer: FC<{
   const [dragActive, setDragActive] = useState(false);
 
   /** Shared by paste and drop. The attach atom re-checks capability; this just avoids needless reads. */
-  const attachFiles = (files: readonly File[]) => {
-    if (!canEdit) {
-      return;
-    }
-    if (!imagePromptSupported) {
-      onClientError(new ImageAttachmentRejected({ message: 'This Agent does not accept images' }));
-      return;
-    }
-    attachImages({ _tag: 'Files', files })
-      .catch(onClientError)
-      .finally(() => {
-        focusComposerEndRef.current?.();
-      });
-  };
+  const attachFiles = useCallback(
+    (files: readonly File[]) => {
+      if (!canEdit) {
+        return;
+      }
+      if (!imagePromptSupported) {
+        onClientError(new ImageAttachmentRejected({ message: AGENT_NO_IMAGES_MESSAGE }));
+        return;
+      }
+      attachImages({ _tag: 'Files', files })
+        .catch(onClientError)
+        .finally(() => {
+          focusComposerEndRef.current?.();
+        });
+    },
+    [attachImages, canEdit, imagePromptSupported, onClientError],
+  );
 
   const hasFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files');
   const onDragOver = (event: DragEvent) => {
@@ -159,12 +162,12 @@ export const Composer: FC<{
     setDragActive(canEdit);
   };
   const onDragLeave = (event: DragEvent) => {
-    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) {
       return;
     }
     setDragActive(false);
   };
-  // File drops need HTML5 DnD: on Windows desktop Tauri's `dragDropEnabled` (default true) intercepts them.
+  // File drops need HTML5 DnD: desktop's `tauri.conf.json` sets `dragDropEnabled: false` (Tauri otherwise intercepts them on Windows).
   const onDrop = (event: DragEvent) => {
     setDragActive(false);
     if (!hasFiles(event)) {
@@ -178,6 +181,9 @@ export const Composer: FC<{
     const result = classifyFileDrop({ files: filesFromDataTransfer(event.dataTransfer) });
     if (result._tag === 'Images') {
       attachFiles(result.files);
+      if (result.skippedMessage !== undefined) {
+        onClientError(new ImageAttachmentRejected({ message: result.skippedMessage }));
+      }
     } else if (result._tag === 'NotImages') {
       onClientError(new ImageAttachmentRejected({ message: result.message }));
     }
@@ -320,7 +326,7 @@ export const Composer: FC<{
             focusEndRef={focusComposerEndRef}
             key={isVirtual ? 'virtual' : (selectedSessionId ?? 'none')}
             onChange={onComposerChange}
-            onPasteImages={attachFiles}
+            onPasteImages={imagePromptSupported ? attachFiles : undefined}
             onEscape={selectedSession?.pendingElicitation === undefined ? undefined : cancelElicitation}
             onSubmit={() => {
               submitDraft();

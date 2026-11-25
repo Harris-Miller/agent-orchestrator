@@ -50,14 +50,15 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { composerGates } from '../host/composerAction.ts';
 import type { ComposerGates } from '../host/composerAction.ts';
 import {
+  AGENT_NO_IMAGES_MESSAGE,
   appendUniqueComposerAttachments,
   composerImageAttachmentFromFile,
   composerImageAttachmentFromPath,
-  IMAGE_ATTACH_MAX_BYTES_PER,
-  IMAGE_ATTACH_MAX_COUNT,
   IMAGE_DIALOG_FILTERS,
   ImageAttachmentRejected,
   imageAttachmentsRejection,
+  imageCountRejection,
+  imageSizeRejection,
   isAllowedImageMimeType,
 } from '../host/composerImageAttachment.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
@@ -257,19 +258,16 @@ const currentAttachments = (registry: Registry, target: ComposerTarget): readonl
 /** Pre-checks (capability, count, MIME, size) then reads pasted / dropped files. */
 const readFiles = (registry: Registry, target: ComposerTarget, files: readonly File[]) =>
   Effect.gen(function* () {
-    const supported =
-      target.launchTarget !== undefined &&
-      registry.get(backendHarnessSnapshotAtom(target.launchTarget)).agentCapabilities.promptImage;
-    if (!supported) {
-      return yield* new ImageAttachmentRejected({ message: 'This Agent does not accept images' });
+    // The Composer already derived this for the captured target.
+    if (!registry.get(composerAtom).imagePromptSupported) {
+      return yield* new ImageAttachmentRejected({ message: AGENT_NO_IMAGES_MESSAGE });
     }
     if (files.length === 0) {
       return [];
     }
-    if (currentAttachments(registry, target).length + files.length > IMAGE_ATTACH_MAX_COUNT) {
-      return yield* new ImageAttachmentRejected({
-        message: `At most ${String(IMAGE_ATTACH_MAX_COUNT)} images can be attached`,
-      });
+    const countRejected = imageCountRejection(currentAttachments(registry, target).length + files.length);
+    if (countRejected !== undefined) {
+      return yield* countRejected;
     }
     for (const file of files) {
       const mime = file.type.toLowerCase();
@@ -278,10 +276,9 @@ const readFiles = (registry: Registry, target: ComposerTarget, files: readonly F
           message: `Unsupported image type: ${mime.length > 0 ? mime : 'unknown'}`,
         });
       }
-      if (file.size > IMAGE_ATTACH_MAX_BYTES_PER) {
-        return yield* new ImageAttachmentRejected({
-          message: `Image ${file.name.length > 0 ? file.name : 'pasted-image'} exceeds ${String(IMAGE_ATTACH_MAX_BYTES_PER / (1024 * 1024))} MiB`,
-        });
+      const sizeRejected = imageSizeRejection(file.name.length > 0 ? file.name : 'pasted-image', file.size);
+      if (sizeRejected !== undefined) {
+        return yield* sizeRejected;
       }
     }
     return yield* Effect.forEach(files, composerImageAttachmentFromFile, { concurrency: 'unbounded' });
@@ -406,13 +403,12 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
           if (paths.length === 0) {
             return;
           }
-          if (
-            source._tag === 'Pick' &&
-            currentAttachments(registry, target).length + paths.length > IMAGE_ATTACH_MAX_COUNT
-          ) {
-            return yield* new ImageAttachmentRejected({
-              message: `At most ${String(IMAGE_ATTACH_MAX_COUNT)} images can be attached`,
-            });
+          const countRejected =
+            source._tag === 'Pick'
+              ? imageCountRejection(currentAttachments(registry, target).length + paths.length)
+              : undefined;
+          if (countRejected !== undefined) {
+            return yield* countRejected;
           }
           picked = yield* Effect.forEach(paths, composerImageAttachmentFromPath, { concurrency: 'unbounded' });
         }

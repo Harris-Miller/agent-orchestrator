@@ -29,7 +29,14 @@ describe('classifyFileDrop', () => {
   it('reports non-image files', () => {
     assert.deepStrictEqual(classifyFileDrop({ files: [txt] }), { _tag: 'NotImages', message: NOT_IMAGES_MESSAGE });
   });
-  it('keeps only images from a mixed drop', () => {
-    assert.deepStrictEqual(classifyFileDrop({ files: [txt, png] }), { _tag: 'Images', files: [png] });
+  it('keeps images from a mixed drop and reports the skipped rest', () => {
+    assert.deepStrictEqual(classifyFileDrop({ files: [txt, png] }), {
+      _tag: 'Images',
+      files: [png],
+      skippedMessage: NOT_IMAGES_MESSAGE,
+    });
+  });
+  it('has no skipped message for an images-only drop', () => {
+    assert.deepStrictEqual(classifyFileDrop({ files: [png] }), { _tag: 'Images', files: [png] });
   });
 });

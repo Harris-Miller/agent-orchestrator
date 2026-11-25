@@ -205,12 +205,12 @@ export const selectedBackendHarnessCanForkAtom = Atom.make(
   get => get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.sessionFork === true,
 ).pipe(Atom.keepAlive);
 
-/** Narrows the selected Backend harness snapshot to whether its agent supports steering a running turn. */
 /** Whether the selected Backend harness's Agent accepts image prompt content (primitive, so subscribers skip unrelated updates). */
 export const selectedBackendHarnessImagePromptSupportedAtom = Atom.make(
   get => get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.promptImage === true,
 ).pipe(Atom.keepAlive);
 
+/** Narrows the selected Backend harness snapshot to whether its agent supports steering a running turn. */
 export const selectedBackendHarnessSteeringSupportedAtom = Atom.make(
   get => get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.steeringSupported ?? false,
 ).pipe(Atom.keepAlive);

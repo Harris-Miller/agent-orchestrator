@@ -15,6 +15,7 @@
       {
         "title": "Harness Orchestrating Agents",
         "backgroundThrottling": "disabled",
+        "dragDropEnabled": false,
         "width": 1200,
         "minWidth": 960,
         "height": 900

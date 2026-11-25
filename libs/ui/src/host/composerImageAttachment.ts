@@ -42,6 +42,23 @@ export class ImageAttachmentRejected extends Schema.TaggedError<ImageAttachmentR
   message: Schema.String,
 }) {}
 
+/** Shown when paste / drop / attach targets an Agent without `promptCapabilities.image`. */
+export const AGENT_NO_IMAGES_MESSAGE = 'This Agent does not accept images';
+
+/** Count-cap rejection when `total` images would be attached; `undefined` within the cap. */
+export const imageCountRejection = (total: number): ImageAttachmentRejected | undefined =>
+  total > IMAGE_ATTACH_MAX_COUNT
+    ? new ImageAttachmentRejected({ message: `At most ${String(IMAGE_ATTACH_MAX_COUNT)} images can be attached` })
+    : undefined;
+
+/** Per-image size rejection for `name` of `byteLength`; `undefined` within the cap. */
+export const imageSizeRejection = (name: string, byteLength: number): ImageAttachmentRejected | undefined =>
+  byteLength > IMAGE_ATTACH_MAX_BYTES_PER
+    ? new ImageAttachmentRejected({
+        message: `Image ${name} exceeds ${String(IMAGE_ATTACH_MAX_BYTES_PER / (1024 * 1024))} MiB`,
+      })
+    : undefined;
+
 export const mimeTypeForImagePath = (path: string): string | undefined => {
   const lower = path.toLowerCase();
   const dot = lower.lastIndexOf('.');
@@ -93,10 +110,9 @@ export const isImageLikeResourceLink = (block: unknown): boolean => {
 export const imageAttachmentsRejection = (
   attachments: readonly ComposerImageAttachment[],
 ): ImageAttachmentRejected | undefined => {
-  if (attachments.length > IMAGE_ATTACH_MAX_COUNT) {
-    return new ImageAttachmentRejected({
-      message: `At most ${String(IMAGE_ATTACH_MAX_COUNT)} images can be attached`,
-    });
+  const countRejected = imageCountRejection(attachments.length);
+  if (countRejected !== undefined) {
+    return countRejected;
   }
 
   let total = 0;
@@ -106,10 +122,9 @@ export const imageAttachmentsRejection = (
         message: `Unsupported image type: ${attachment.mimeType}`,
       });
     }
-    if (attachment.byteLength > IMAGE_ATTACH_MAX_BYTES_PER) {
-      return new ImageAttachmentRejected({
-        message: `Image ${attachment.name} exceeds ${String(IMAGE_ATTACH_MAX_BYTES_PER / (1024 * 1024))} MiB`,
-      });
+    const sizeRejected = imageSizeRejection(attachment.name, attachment.byteLength);
+    if (sizeRejected !== undefined) {
+      return sizeRejected;
     }
     total += attachment.byteLength;
   }
@@ -160,10 +175,9 @@ export const composerImageAttachmentFromPath = Effect.fn('composerImageAttachmen
       ),
     );
 
-  if (bytes.byteLength > IMAGE_ATTACH_MAX_BYTES_PER) {
-    return yield* new ImageAttachmentRejected({
-      message: `Image ${basenameForName(pathApi, absolutePath)} exceeds ${String(IMAGE_ATTACH_MAX_BYTES_PER / (1024 * 1024))} MiB`,
-    });
+  const sizeRejected = imageSizeRejection(basenameForName(pathApi, absolutePath), bytes.byteLength);
+  if (sizeRejected !== undefined) {
+    return yield* sizeRejected;
   }
 
   const fileUrl = yield* pathApi.toFileUrl(absolutePath).pipe(Effect.option);

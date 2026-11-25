@@ -1,9 +1,10 @@
+import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import { Archive, ArchiveRestore, Ellipsis, Pencil, Pin, PinOff, Trash2, X } from 'lucide-react';
+import { Archive, ArchiveRestore, Ellipsis, FolderTree, Pencil, Pin, PinOff, Trash2, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { FC, SyntheticEvent } from 'react';
 
@@ -11,6 +12,7 @@ import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { noopClientError } from './noopClientError.ts';
+import { SessionDirectoriesDialog } from './SessionDirectoriesDialog.tsx';
 import { useSessionActions } from './useSessionActions.ts';
 
 // React events bubble through portals: keep menu clicks/keys from reaching an enclosing activate handler.
@@ -42,6 +44,7 @@ export const SessionActionsMenu: FC<{
 }) => {
   const actions = useSessionActions({ canRename: onRenameRequest !== undefined, entry, onBeforeAction, onClientError });
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
+  const [directoriesOpen, setDirectoriesOpen] = useState(false);
 
   // MUI returns focus to the trigger when the Popover closes; start editing only after that, or the input blur-commits.
   const renameRequested = useRef(false);
@@ -158,6 +161,17 @@ export const SessionActionsMenu: FC<{
           </MenuItem>
         )}
         <MenuItem
+          onClick={() => {
+            closeMenu();
+            setDirectoriesOpen(true);
+          }}
+        >
+          <ListItemIcon>
+            <LucideMuiIcon fontSize="small" icon={FolderTree} />
+          </ListItemIcon>
+          <ListItemText>Directories…</ListItemText>
+        </MenuItem>
+        <MenuItem
           disabled={actions.delete.disabled}
           onClick={() => {
             closeMenu();
@@ -171,6 +185,18 @@ export const SessionActionsMenu: FC<{
           <ListItemText>Delete</ListItemText>
         </MenuItem>
       </Menu>
+      {directoriesOpen ? (
+        // The dialog and its directory picker are portals, but React events still bubble to the activatable row.
+        <Box component="span" onClick={stopPropagation} onKeyDown={stopPropagation} sx={{ display: 'contents' }}>
+          <SessionDirectoriesDialog
+            entry={entry}
+            onClientError={onClientError}
+            onClose={() => {
+              setDirectoriesOpen(false);
+            }}
+          />
+        </Box>
+      ) : null}
     </>
   );
 };

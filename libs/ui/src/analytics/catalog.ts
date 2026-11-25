@@ -46,3 +46,7 @@ export const projectAdded = (kind: 'directory' | 'workspace_file') => makeAnalyt
 /** How many default Additional directories the Project now has (0 = cleared), never their paths. */
 export const projectDirectoriesChanged = (directoryCount: number) =>
   makeAnalyticsEvent('project_directories_changed', { directory_count: directoryCount });
+
+/** How many Additional directories the session now has (0 = none), never their paths. */
+export const sessionDirectoriesChanged = (directoryCount: number) =>
+  makeAnalyticsEvent('session_directories_changed', { directory_count: directoryCount });

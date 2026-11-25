@@ -168,7 +168,8 @@ const currentWorkspaceDirectories = Effect.fn('currentWorkspaceDirectories')(fun
   cwd: string | undefined,
 ) {
   const { workspaceFile } = stored;
-  if (workspaceFile === undefined || cwd === undefined) {
+  // The user's own list (desktop ADR 0024) is not replaced by what the file holds now.
+  if (workspaceFile === undefined || cwd === undefined || stored.directoriesEdited === true) {
     return stored;
   }
   const state = yield* readWorkspaceFileState(workspaceFile);

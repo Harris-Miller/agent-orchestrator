@@ -170,9 +170,11 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             return;
           }
           const { cwd, result } = createExit.value;
-          // The workspace file is never sent to the Agent, so the created session does not echo it: carry it over here.
+          // The workspace file is never sent to the Agent, so the created session does not echo it: carry it over here, with
+          // the edited marker (the user's list must not be replaced by the file's folders on a later activation).
           const directories = normalizeSessionDirectories({
             ...createExit.value.directories,
+            directoriesEdited: sourceDirectories.directoriesEdited,
             workspaceFile: sourceDirectories.workspaceFile,
           });
           const { sessionId: targetSessionId } = result;

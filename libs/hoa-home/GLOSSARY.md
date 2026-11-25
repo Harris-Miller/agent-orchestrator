@@ -17,7 +17,7 @@ A User settings `fd` exclude pattern (`alwaysHiddenGlobs`) always applied on Har
 _Avoid_: ignore glob, hide pattern, gitignore entry (when you mean this User settings field)
 
 **Tracked sessions document**:
-The app's own durable record of which sessions it tracks per launch target, grouped by session cwd. Each record holds the session's row snapshot plus the app-owned `archived` flag. Shared by desktop and VS Code. Records of a Project that stopped being tracked are kept until the Project is added again. Every running instance polls the file and applies other instances' changes (add, update, archive flag, Delete) to its Session History only, never touching Agent state. See ADR 0008 and 0011.
+The app's own durable record of which sessions it tracks per launch target, grouped by session cwd. Each record holds the session's row snapshot plus the app-owned `archived` flag, its Additional directories and Workspace file, and `directoriesEdited` once the user edited that list (desktop ADR 0024). Shared by desktop and VS Code. Records of a Project that stopped being tracked are kept until the Project is added again. Every running instance polls the file and applies other instances' changes (add, update, archive flag, Delete) to its Session History only, never touching Agent state. See ADR 0008 and 0011.
 _Avoid_: session index, session cache, live session list
 
 **Pinned sessions document**:

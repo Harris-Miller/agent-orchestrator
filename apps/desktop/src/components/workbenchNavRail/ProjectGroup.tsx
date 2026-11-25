@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { UnifiedHistoryEntry } from '@lib/ui';
 import {
+  AdditionalDirectoriesDialog,
   ensureVirtualSessionAtomFn,
   LucideMuiIcon,
   pickWorkspaceFile,
@@ -47,8 +48,6 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
-
-import { AdditionalDirectoriesDialog } from './AdditionalDirectoriesDialog.tsx';
 
 /** Rows a Project cwd group shows before its Show more box. */
 const CWD_GROUP_ROW_LIMIT = 10;

@@ -99,7 +99,7 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Additional directories**:
-Absolute directories the Agent may see beyond the **Session cwd**. The Harness keeps the list on the session and its **Tracked session** even when the Agent cannot take it, and hands it to the Agent only when the Agent can. Part of what identifies a **Bind**; inherited by a fork, a **Handoff** target and a spawned subagent. A directory **Project** may hold a default list that every new session in it starts with (the user can override it for that session); changing the default never changes existing sessions.
+Absolute directories the Agent may see beyond the **Session cwd**. The Harness keeps the list on the session and its **Tracked session** even when the Agent cannot take it, and hands it to the Agent only when the Agent can. Part of what identifies a **Bind**; inherited by a fork, a **Handoff** target and a spawned subagent. A directory **Project** may hold a default list that every new session in it starts with (the user can override it for that session); changing the default never changes existing sessions. The user can edit a **Tracked session**'s list ("Directories…" in its row menu): the edit applies the next time the session is activated and wins over its **Workspace file**, and an open session is not changed.
 _Avoid_: extra folders, extra roots, workspace folders (the VS Code concept)
 
 **Workspace file**:
@@ -107,7 +107,7 @@ A `.code-workspace` file listing folders (JSONC; relative paths resolve against 
 _Avoid_: VS Code workspace (when you mean this file)
 
 **Session History**:
-The Tracked sessions across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from hoa-home before startup and grouped by Project cwd (groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest Last prompt time first); each row carries its agent launch target. Only sessions the user created in-app or chose to **Import** appear; `session/list` is never run in the background. When browsing, the UI hides archived rows (an app-owned flag once tracked) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
+The Tracked sessions across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from hoa-home before startup and grouped by Project cwd (groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest Last prompt time first); each row carries its agent launch target. Only sessions the user created in-app or chose to **Import** appear; `session/list` is never run in the background. When browsing, the UI hides archived rows (an app-owned flag once tracked) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**). A row shows a folder-tree badge when its session has a **Workspace file** and/or **Additional directories**.
 _Avoid_: Roster, Session roster, session list, session catalog, session drawer
 
 **Last prompt time**:

@@ -1,4 +1,6 @@
 /** Activate and Fork carry a Session's Additional directories to the Agent, only when it advertises the capability. */
+import { resolve } from 'node:path';
+
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
 
@@ -51,11 +53,13 @@ const setup = Effect.fnUntraced(function* (options: {
   return { atoms, calls, registry, requests, snapshot, target: { launchTarget: CODEX, sessionId: 's1' } };
 });
 
+const FOLDERS = [resolve('/proj'), resolve('/ws/x'), resolve('/ws/y')];
+
 describe('Activate in a multi-root workspace', () => {
   it.effect('sends the recorded list, not the current Workspace folders', () =>
     Effect.gen(function* () {
       const s = yield* setup({ capable: true, history: { additionalDirectories: FROM_HISTORY } });
-      s.registry.set(workspaceFolderPathsAtom, ['/proj', '/ws/x', '/ws/y']);
+      s.registry.set(workspaceFolderPathsAtom, FOLDERS);
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
 
       assert.deepStrictEqual(s.requests[0].params.additionalDirectories, FROM_HISTORY);
@@ -65,7 +69,7 @@ describe('Activate in a multi-root workspace', () => {
   it.effect('a record without directories sends none', () =>
     Effect.gen(function* () {
       const s = yield* setup({ capable: true });
-      s.registry.set(workspaceFolderPathsAtom, ['/proj', '/ws/x', '/ws/y']);
+      s.registry.set(workspaceFolderPathsAtom, FOLDERS);
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
 
       assert.isFalse('additionalDirectories' in s.requests[0].params);

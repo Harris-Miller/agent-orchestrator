@@ -1,3 +1,5 @@
+import { join, resolve } from 'node:path';
+
 import { assert, describe, it } from '@effect/vitest';
 import { upsertTrackedSessions } from '@lib/hoa-home';
 import { mapFsTestServices } from '@lib/hoa-home/testing';
@@ -13,6 +15,9 @@ import { bindHostRuntime } from '../hostRuntime.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { sessionHistorySearchAtom } from './sessionHistorySearch.atoms.ts';
+
+const WORKSPACE_FILE = join(resolve('/workspace'), 'x.code-workspace');
+const NEW_DIR = resolve('/new');
 
 bindHostRuntime(createHostRuntime(mockHostLayer));
 
@@ -60,14 +65,14 @@ describe('workspace folder policy', () => {
       }));
 
       yield* handleWorkspaceFoldersChanged(registry, {
-        paths: ['/workspace', '/new'],
-        workspaceFile: '/workspace/x.code-workspace',
+        paths: [resolve('/workspace'), NEW_DIR],
+        workspaceFile: WORKSPACE_FILE,
       }).pipe(Effect.provide(mockHostLayer));
 
-      assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), ['/workspace', '/new']);
+      assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), [resolve('/workspace'), NEW_DIR]);
       assert.deepStrictEqual(registry.get(workspaceDirectoriesAtom), {
-        additionalDirectories: ['/new'],
-        workspaceFile: '/workspace/x.code-workspace',
+        additionalDirectories: [NEW_DIR],
+        workspaceFile: WORKSPACE_FILE,
       });
       assert.strictEqual(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions.session.status, 'active');
       registry.dispose();

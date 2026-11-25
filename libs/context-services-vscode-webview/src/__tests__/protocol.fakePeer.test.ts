@@ -1,3 +1,5 @@
+import { join, resolve } from 'node:path';
+
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
 
@@ -11,6 +13,11 @@ import {
 import type { IpcMessage, WorkspaceFolders } from '../protocol/index.ts';
 
 import { connectFakePeers } from '../protocol/fakePeer.testing.ts';
+
+const WS_A = resolve('/ws/a');
+const WS_B = resolve('/ws/b');
+const WS_CHANGED = resolve('/ws/changed');
+const WORKSPACE_FILE = join(resolve('/ws'), 'x.code-workspace');
 
 describe('extension↔webview IPC protocol (fake peer)', () => {
   it.effect('round-trips OsSnapshot request and result over duplex ports', () =>
@@ -145,14 +152,14 @@ describe('extension↔webview IPC protocol (fake peer)', () => {
           encodeIpcMessage({
             _tag: 'WorkspaceFoldersResult',
             id: message.id,
-            paths: ['/ws/a', '/ws/b'],
-            workspaceFile: '/ws/x.code-workspace',
+            paths: [WS_A, WS_B],
+            workspaceFile: WORKSPACE_FILE,
           }),
         );
       });
 
       const folders = yield* requestWorkspaceFolders(client);
-      assert.deepStrictEqual(folders, { paths: ['/ws/a', '/ws/b'], workspaceFile: '/ws/x.code-workspace' });
+      assert.deepStrictEqual(folders, { paths: [WS_A, WS_B], workspaceFile: WORKSPACE_FILE });
       client.dispose();
     }),
   );
@@ -170,13 +177,13 @@ describe('extension↔webview IPC protocol (fake peer)', () => {
         extension.postMessage(
           encodeIpcMessage({
             _tag: 'WorkspaceFoldersChanged',
-            paths: ['/ws/changed'],
-            workspaceFile: '/ws/x.code-workspace',
+            paths: [WS_CHANGED],
+            workspaceFile: WORKSPACE_FILE,
           }),
         );
       });
 
-      assert.deepStrictEqual(received, { paths: ['/ws/changed'], workspaceFile: '/ws/x.code-workspace' });
+      assert.deepStrictEqual(received, { paths: [WS_CHANGED], workspaceFile: WORKSPACE_FILE });
       client.dispose();
     }),
   );
@@ -191,10 +198,10 @@ describe('extension↔webview IPC protocol (fake peer)', () => {
           dispose();
           resume(Effect.succeed(folders));
         });
-        extension.postMessage(encodeIpcMessage({ _tag: 'WorkspaceFoldersChanged', paths: ['/ws/changed'] }));
+        extension.postMessage(encodeIpcMessage({ _tag: 'WorkspaceFoldersChanged', paths: [WS_CHANGED] }));
       });
 
-      assert.deepStrictEqual(received, { paths: ['/ws/changed'] });
+      assert.deepStrictEqual(received, { paths: [WS_CHANGED] });
       client.dispose();
     }),
   );

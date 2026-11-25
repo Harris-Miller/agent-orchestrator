@@ -20,7 +20,7 @@ One root folder in the VS Code workspace. Distinct from OS snapshot `cwd` (exten
 _Avoid_: OS cwd, Host cwd, workspace root, project root (when you mean this VS Code root)
 
 **Workspace cwd**:
-The absolute path the sidebar treats as the project cwd — the first Workspace folder’s path when folders exist, else absent. vscode-only; not a desktop concept. When present, it is the Session cwd for create and Import (the user cannot pick another). The workspace's other folders are **Additional directories**. The first time a session is tracked under it (a Virtual session materializes, or an Import is confirmed), it also becomes a Project if it is not one already.
+The absolute path the sidebar treats as the project cwd — the first Workspace folder’s path when folders exist, else absent. vscode-only; not a desktop concept. When present, it is the Session cwd for create and Import (the user cannot pick another). The other Workspace folders are **Additional directories**. The first time a session is tracked under it (a Virtual session materializes, or an Import is confirmed), it also becomes a Project if it is not one already.
 _Avoid_: Session cwd (when you mean this vscode binding), OS cwd, Host cwd
 
 **Additional directories**:

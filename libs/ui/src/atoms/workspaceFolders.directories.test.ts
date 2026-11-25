@@ -1,4 +1,6 @@
 /** Workspace folders feed the Virtual blob's Additional directories and workspace file; Projects stay the Workspace cwd only. */
+import { join, resolve } from 'node:path';
+
 import { assert, describe, it } from '@effect/vitest';
 import { projectsPath, readProjects, readTrackedSessions, trackedSessionRows } from '@lib/hoa-home';
 import { mapFsTestServices } from '@lib/hoa-home/testing';
@@ -26,7 +28,15 @@ import {
 import { bootWorkspaceFolders, handleWorkspaceFoldersChanged } from './workspaceFolders.ts';
 import { workspaceDirectoriesAtom } from './workspaceFolderPaths.atoms.ts';
 
-const WORKSPACE_FILE = '/w/app.code-workspace';
+const W = resolve('/w');
+const A = resolve('/a');
+const B = resolve('/b');
+const N = resolve('/n');
+const M = resolve('/m');
+const PROJ = resolve('/proj');
+const LIB_A = resolve('/lib/a');
+const WORKSPACE_FILE = join(W, 'app.code-workspace');
+const PROJ_FILE = join(PROJ, 'x.code-workspace');
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -47,15 +57,15 @@ describe('a set change with the same first folder', () => {
       const requests: SessionRequest[] = [];
       yield* installFakeAgent(calls, { additionalDirectories: true, requests });
       const registry = yield* freshRegistry;
-      yield* boot(registry, { paths: ['/w', '/a'], workspaceFile: WORKSPACE_FILE });
+      yield* boot(registry, { paths: [W, A], workspaceFile: WORKSPACE_FILE });
       yield* bindVirtualOnUsable(registry, CODEX);
       updateHarnessSnapshot(registry, CODEX, current => ({
         ...current,
-        sessions: { ...current.sessions, active: { ...initialSessionSnapshot('active', 'active'), cwd: '/w' } },
+        sessions: { ...current.sessions, active: { ...initialSessionSnapshot('active', 'active'), cwd: W } },
       }));
       calls.length = 0;
 
-      yield* handleWorkspaceFoldersChanged(registry, { paths: ['/w', '/a', '/b'], workspaceFile: WORKSPACE_FILE }).pipe(
+      yield* handleWorkspaceFoldersChanged(registry, { paths: [W, A, B], workspaceFile: WORKSPACE_FILE }).pipe(
         Effect.provide(mockHostLayer),
       );
       yield* bindVirtualOnUsable(registry, CODEX);
@@ -64,10 +74,10 @@ describe('a set change with the same first folder', () => {
       assert.sameMembers(calls, ['close:bound-1', 'delete:bound-1', 'new']);
       assert.deepStrictEqual(
         requests.map(request => request.params.additionalDirectories),
-        [['/a'], ['/a', '/b']],
+        [[A], [A, B]],
       );
       assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, 'bound-2');
-      assert.deepStrictEqual(sessionsOf(registry)['bound-2'].additionalDirectories, ['/a', '/b']);
+      assert.deepStrictEqual(sessionsOf(registry)['bound-2'].additionalDirectories, [A, B]);
       assert.strictEqual(sessionsOf(registry).active.status, 'active');
     }).pipe(Effect.scoped),
   );
@@ -77,22 +87,26 @@ describe('a set change with the same first folder', () => {
       const calls: string[] = [];
       yield* installFakeAgent(calls, { additionalDirectories: true });
       const registry = yield* freshRegistry;
-      yield* boot(registry, { paths: ['/w', '/a'] });
+      yield* boot(registry, { paths: [W, A] });
 
-      yield* handleWorkspaceFoldersChanged(registry, { paths: ['/w'] }).pipe(Effect.provide(mockHostLayer));
-      assert.isEmpty(registry.get(virtualSessionAtom)?.additionalDirectories ?? []);
+      yield* handleWorkspaceFoldersChanged(registry, { paths: [W] }).pipe(Effect.provide(mockHostLayer));
+      const unbound = registry.get(virtualSessionAtom);
+      assert.isOk(unbound);
+      assert.isEmpty(unbound?.additionalDirectories ?? []);
       assert.deepStrictEqual(calls, []);
 
       yield* bindVirtualOnUsable(registry, CODEX);
       calls.length = 0;
-      yield* handleWorkspaceFoldersChanged(registry, { paths: ['/w'], workspaceFile: WORKSPACE_FILE }).pipe(
+      yield* handleWorkspaceFoldersChanged(registry, { paths: [W], workspaceFile: WORKSPACE_FILE }).pipe(
         Effect.provide(mockHostLayer),
       );
       yield* Effect.yieldNow;
 
       assert.deepStrictEqual(calls, []);
-      assert.strictEqual(registry.get(virtualSessionAtom)?.workspaceFile, WORKSPACE_FILE);
-      assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
+      const bound = registry.get(virtualSessionAtom);
+      assert.isOk(bound);
+      assert.strictEqual(bound?.workspaceFile, WORKSPACE_FILE);
+      assert.strictEqual(bound?.sessionId, 'bound-1');
     }).pipe(Effect.scoped),
   );
 });
@@ -102,14 +116,15 @@ describe('a changed first folder', () => {
     Effect.gen(function* () {
       yield* installFakeAgent([], { additionalDirectories: true });
       const registry = yield* freshRegistry;
-      yield* boot(registry, { paths: ['/w', '/a'], workspaceFile: WORKSPACE_FILE });
+      yield* boot(registry, { paths: [W, A], workspaceFile: WORKSPACE_FILE });
 
-      yield* handleWorkspaceFoldersChanged(registry, { paths: ['/n', '/m'] }).pipe(Effect.provide(mockHostLayer));
+      yield* handleWorkspaceFoldersChanged(registry, { paths: [N, M] }).pipe(Effect.provide(mockHostLayer));
       yield* bindVirtualOnUsable(registry, CODEX);
 
       const blob = registry.get(virtualSessionAtom);
-      assert.strictEqual(blob?.cwd, '/n');
-      assert.deepStrictEqual(blob?.additionalDirectories, ['/m']);
+      assert.isOk(blob);
+      assert.strictEqual(blob?.cwd, N);
+      assert.deepStrictEqual(blob?.additionalDirectories, [M]);
       assert.isUndefined(blob?.workspaceFile);
     }).pipe(Effect.scoped),
   );
@@ -119,15 +134,19 @@ describe('ensureVirtual without a Workspace', () => {
   it.effect('a desktop-style cwd or no cwd never stamps directories over a blob', () =>
     Effect.gen(function* () {
       const registry = yield* freshRegistry;
-      yield* ensureVirtual(registry, { cwd: '/proj' });
-      assert.isUndefined(registry.get(virtualSessionAtom)?.additionalDirectories);
+      yield* ensureVirtual(registry, { cwd: PROJ });
+      const first = registry.get(virtualSessionAtom);
+      assert.isOk(first);
+      assert.isUndefined(first?.additionalDirectories);
 
-      yield* editVirtual(registry, { additionalDirectories: ['/lib/a'], workspaceFile: '/proj/x.code-workspace' });
+      yield* editVirtual(registry, { additionalDirectories: [LIB_A], workspaceFile: PROJ_FILE });
       yield* ensureVirtual(registry, {});
-      yield* ensureVirtual(registry, { cwd: '/proj', patchCwdIfSelectedVirtual: true });
+      yield* ensureVirtual(registry, { cwd: PROJ, patchCwdIfSelectedVirtual: true });
 
-      assert.deepStrictEqual(registry.get(virtualSessionAtom)?.additionalDirectories, ['/lib/a']);
-      assert.strictEqual(registry.get(virtualSessionAtom)?.workspaceFile, '/proj/x.code-workspace');
+      const after = registry.get(virtualSessionAtom);
+      assert.isOk(after);
+      assert.deepStrictEqual(after?.additionalDirectories, [LIB_A]);
+      assert.strictEqual(after?.workspaceFile, PROJ_FILE);
       assert.deepStrictEqual(registry.get(workspaceDirectoriesAtom), {});
     }).pipe(Effect.scoped),
   );
@@ -156,22 +175,24 @@ describe('Materialize in a workspace', () => {
   it.effect('a saved multi-root workspace records its Additional directories and workspace file', () =>
     Effect.gen(function* () {
       const { projects, projectsFile, record, requests } = yield* run({
-        paths: ['/w', '/a', '/b'],
+        paths: [W, A, B],
         workspaceFile: WORKSPACE_FILE,
       });
 
-      assert.deepStrictEqual(requests[0].params.additionalDirectories, ['/a', '/b']);
-      assert.deepStrictEqual(record.additionalDirectories, ['/a', '/b']);
+      assert.deepStrictEqual(requests[0].params.additionalDirectories, [A, B]);
+      assert.deepStrictEqual(record.additionalDirectories, [A, B]);
       assert.strictEqual(record.workspaceFile, WORKSPACE_FILE);
-      assert.deepStrictEqual(projects.projects, ['/w']);
+      assert.deepStrictEqual(projects.projects, [W]);
       const text = JSON.stringify(projectsFile);
-      assert.isFalse(text.includes('/a') || text.includes('code-workspace'));
+      assert.notInclude(text, A);
+      assert.notInclude(text, B);
+      assert.notInclude(text, WORKSPACE_FILE);
     }).pipe(Effect.scoped),
   );
 
   it.effect('a saved single-folder workspace records the workspace file and no directories', () =>
     Effect.gen(function* () {
-      const { record, requests } = yield* run({ paths: ['/w'], workspaceFile: WORKSPACE_FILE });
+      const { record, requests } = yield* run({ paths: [W], workspaceFile: WORKSPACE_FILE });
 
       assert.isFalse('additionalDirectories' in requests[0].params);
       assert.isFalse('additionalDirectories' in record);
@@ -181,9 +202,9 @@ describe('Materialize in a workspace', () => {
 
   it.effect('an untitled workspace records no workspace file', () =>
     Effect.gen(function* () {
-      const { record } = yield* run({ paths: ['/w', '/a'] });
+      const { record } = yield* run({ paths: [W, A] });
 
-      assert.deepStrictEqual(record.additionalDirectories, ['/a']);
+      assert.deepStrictEqual(record.additionalDirectories, [A]);
       assert.isFalse('workspaceFile' in record);
     }).pipe(Effect.scoped),
   );

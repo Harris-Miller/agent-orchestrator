@@ -33,10 +33,9 @@ const workspaceFoldersPayload = (
   folders: null | readonly vscode.WorkspaceFolder[] | undefined,
   workspaceFile: undefined | vscode.Uri,
 ) => {
+  const paths = [...fileWorkspaceFolderPaths(folders)];
   const file = fileWorkspaceFilePath(workspaceFile);
-  return file === undefined
-    ? { paths: [...fileWorkspaceFolderPaths(folders)] }
-    : { paths: [...fileWorkspaceFolderPaths(folders)], workspaceFile: file };
+  return file === undefined ? { paths } : { paths, workspaceFile: file };
 };
 
 /** Push current Workspace folder paths and workspace file to the webview (unsolicited). */

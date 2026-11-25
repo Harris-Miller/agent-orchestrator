@@ -426,6 +426,23 @@ describe('Bind', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('Materialize stamps the blob workspace file, not the Bound session one edited since the Bind', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      yield* installFakeAgent(calls, { additionalDirectories: true });
+      const registry = yield* freshRegistry;
+      yield* seedUnbound(registry, { draft: 'hello' });
+      yield* editVirtual(registry, { workspaceFile: '/proj/old.code-workspace' });
+      yield* bindVirtualOnUsable(registry, CODEX);
+      yield* editVirtual(registry, { workspaceFile: '/proj/new.code-workspace' });
+
+      yield* sendVirtual(registry, recordingPrompt(calls).prompt);
+
+      const [entry] = registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory;
+      assert.strictEqual(entry.workspaceFile, '/proj/new.code-workspace');
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('the same Additional directories in another order, or an emptied list on none, does not rebind', () =>
     Effect.gen(function* () {
       const calls: string[] = [];

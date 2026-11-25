@@ -123,11 +123,9 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       clientCapabilities: clientCapabilitiesFor(launchTarget),
       protocolVersion: 1,
     });
+    const capabilities = agentCapabilitiesFrom(launchTarget, initializeResult);
     setBackendMcpHttp(launchTarget, supportsMcpHttp(initializeResult));
-    setBackendAdditionalDirectories(
-      launchTarget,
-      agentCapabilitiesFrom(launchTarget, initializeResult).sessionAdditionalDirectories,
-    );
+    setBackendAdditionalDirectories(launchTarget, capabilities.sessionAdditionalDirectories);
     handlers.onInitializeResult(initializeResult);
     handlers.onPhase('initialized');
     yield* Effect.logInfo('ACP harness initialized');

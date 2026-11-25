@@ -41,13 +41,16 @@ describe('sameDirectories', () => {
   });
 });
 
-describe('normalizeSessionInfo additionalDirectories', () => {
-  it('keeps a session/list row string list and drops anything else', () => {
-    const base = { cwd: '/w', sessionId: 's1' };
-    assert.deepStrictEqual(normalizeSessionInfo({ ...base, additionalDirectories: ['/a'] })?.additionalDirectories, [
-      '/a',
-    ]);
-    const malformed = normalizeSessionInfo({ ...base, additionalDirectories: [1] });
-    assert.isFalse(malformed !== undefined && 'additionalDirectories' in malformed);
+describe('normalizeSessionInfo directories', () => {
+  it('never lifts Additional directories or a workspace file off a session/list row', () => {
+    const row = normalizeSessionInfo({
+      additionalDirectories: ['/a'],
+      cwd: '/w',
+      sessionId: 's1',
+      workspaceFile: '/w/app.code-workspace',
+    });
+    assert.isDefined(row);
+    assert.isFalse('additionalDirectories' in row);
+    assert.isFalse('workspaceFile' in row);
   });
 });

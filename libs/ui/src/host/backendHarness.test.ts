@@ -6,11 +6,13 @@ import { vi } from 'vitest';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { BackendHarnessCallbacks } from './backendHarness.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
-import { BackendNotConnected, listSessionsPage } from './sessionRpc.ts';
+import { BackendNotConnected, createSession, listSessionsPage } from './sessionRpc.ts';
 
 const control = vi.hoisted(() => ({
+  initializeResult: {} as unknown,
   listGate: undefined as unknown,
   probe: undefined as unknown,
+  newRequests: [] as unknown[],
   probeCalls: 0,
 }));
 
@@ -19,8 +21,12 @@ vi.mock('@lib/effect-acp', async importOriginal => ({
   connectAcpAgent: () =>
     Effect.succeed({
       agent: {
-        initialize: () => Effect.succeed({}),
+        initialize: () => Effect.succeed(control.initializeResult),
         'session/list': () => control.listGate,
+        'session/new': (params: unknown) => {
+          control.newRequests.push(params);
+          return Effect.succeed({ sessionId: 'new-1' });
+        },
       },
       notify: () => Effect.void,
       sessionArchive: () => Effect.void,
@@ -166,6 +172,38 @@ describe('runBackendHarness', () => {
       assert.strictEqual(events.filter(event => event === 'error').length, 3);
       const error = yield* Effect.flip(listSessionsPage(LT, listPayload, undefined));
       assert.instanceOf(error, BackendNotConnected);
+    }),
+  );
+
+  const newRequestAfterInitialize = (initializeResult: unknown) =>
+    Effect.gen(function* () {
+      const events: string[] = [];
+      control.initializeResult = initializeResult;
+      control.newRequests = [];
+      control.listGate = Effect.never;
+      const fiber = yield* run(events, true);
+      yield* Effect.yieldNow;
+      yield* Effect.yieldNow;
+      assert.include(events, 'initialized');
+      yield* createSession(LT, '/w', { additionalDirectories: ['/lib/a'] });
+      yield* Fiber.interrupt(fiber);
+      control.initializeResult = {};
+      return control.newRequests[0] as Record<string, unknown>;
+    });
+
+  it.effect('an initialize result advertising sessionCapabilities.additionalDirectories puts them on session/new', () =>
+    Effect.gen(function* () {
+      const request = yield* newRequestAfterInitialize({
+        agentCapabilities: { sessionCapabilities: { additionalDirectories: {} } },
+      });
+      assert.deepStrictEqual(request.additionalDirectories, ['/lib/a']);
+    }),
+  );
+
+  it.effect('an initialize result without it leaves the key off session/new', () =>
+    Effect.gen(function* () {
+      const request = yield* newRequestAfterInitialize({ agentCapabilities: {} });
+      assert.isFalse('additionalDirectories' in request);
     }),
   );
 });

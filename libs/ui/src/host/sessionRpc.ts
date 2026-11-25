@@ -126,19 +126,17 @@ export const setBackendAdditionalDirectories = (launchTarget: AgentLaunchTarget,
 };
 
 /**
- * The request field for the intended Additional directories: `{ additionalDirectories }` only when the Agent is capable
- * and the list is non-empty, else `{}` (the key is never sent otherwise).
+ * The wire side of the intended Additional directories: `params` carries `{ additionalDirectories }` only when the Agent
+ * is capable and the list is non-empty (the key is never sent otherwise); `log` is the count sent, never the paths.
  */
-const additionalDirectoriesParams = (
-  capable: boolean,
-  directories: readonly string[] | undefined,
-): { readonly additionalDirectories?: string[] } =>
-  capable && directories !== undefined && directories.length > 0 ? { additionalDirectories: [...directories] } : {};
+const wireDirectories = (capable: boolean, directories: readonly string[] | undefined) => {
+  const params: { readonly additionalDirectories?: string[] } =
+    capable && directories !== undefined && directories.length > 0 ? { additionalDirectories: [...directories] } : {};
+  return { log: { additional_directories: params.additionalDirectories?.length ?? 0 }, params };
+};
 
-/** Log field for a session request's Additional directories: the count sent, never the paths. */
-const directoriesCount = (params: { readonly additionalDirectories?: readonly string[] }) => ({
-  additional_directories: params.additionalDirectories?.length ?? 0,
-});
+/** What a `session/fork`, `session/load` or `session/resume` may carry beyond the cwd. */
+export type SessionDirectoriesOptions = Pick<SessionDirectories, 'additionalDirectories'>;
 
 /** Child ids resolve to the root ancestor's in-flight Prompt turn; a closed root turn yields undefined (short root). */
 export const getPromptTurn = (launchTarget: AgentLaunchTarget, sessionId: string): PromptTurn | undefined => {
@@ -194,12 +192,12 @@ const createSessionTraced = Effect.fn('createSession')(
   function* (launchTarget: AgentLaunchTarget, cwd: string, options: CreateSessionOptions) {
     const { additionalDirectories, agent, mcpHttp, onConfigIndexEvent } = yield* requireBackendConnection(launchTarget);
     const { parentSessionId } = options;
-    const directories = additionalDirectoriesParams(additionalDirectories, options.additionalDirectories);
+    const directories = wireDirectories(additionalDirectories, options.additionalDirectories);
     yield* Effect.logInfo('Creating ACP session').pipe(
-      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directoriesCount(directories) }),
+      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directories.log }),
     );
     const mcp = yield* beginMcp(launchTarget, mcpHttp, parentSessionId);
-    const result = yield* agent['session/new']({ cwd, ...directories, ...mcp.params }).pipe(
+    const result = yield* agent['session/new']({ cwd, ...directories.params, ...mcp.params }).pipe(
       Effect.onError(() => mcp.abandon),
     );
     yield* mcp.bind(result.sessionId);
@@ -228,19 +226,14 @@ export const createSession = (launchTarget: AgentLaunchTarget, cwd: string, opti
 
 /** Unstable `session/fork`. Caller owns any UI materialize of the response. */
 export const forkSession = Effect.fn('forkSession')(
-  function* (
-    launchTarget: AgentLaunchTarget,
-    sessionId: string,
-    cwd: string,
-    additionalDirectories?: readonly string[],
-  ) {
+  function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string, options: SessionDirectoriesOptions = {}) {
     const { additionalDirectories: capable, mcpHttp, sessionFork } = yield* requireBackendConnection(launchTarget);
-    const directories = additionalDirectoriesParams(capable, additionalDirectories);
+    const directories = wireDirectories(capable, options.additionalDirectories);
     yield* Effect.logInfo('Forking ACP session').pipe(
-      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directoriesCount(directories) }),
+      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directories.log }),
     );
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
-    const result = yield* sessionFork({ cwd, ...directories, ...mcp.params, sessionId }).pipe(
+    const result = yield* sessionFork({ cwd, ...directories.params, ...mcp.params, sessionId }).pipe(
       Effect.onError(() => mcp.abandon),
     );
     // Some agents answer without an id (the caller then skips the fork); the credential has no session to bind to.
@@ -258,19 +251,14 @@ export const forkSession = Effect.fn('forkSession')(
 );
 
 export const loadSession = Effect.fn('loadSession')(
-  function* (
-    launchTarget: AgentLaunchTarget,
-    sessionId: string,
-    cwd: string,
-    additionalDirectories?: readonly string[],
-  ) {
+  function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string, options: SessionDirectoriesOptions = {}) {
     const { additionalDirectories: capable, agent, mcpHttp } = yield* requireBackendConnection(launchTarget);
-    const directories = additionalDirectoriesParams(capable, additionalDirectories);
+    const directories = wireDirectories(capable, options.additionalDirectories);
     yield* Effect.logInfo('Loading ACP session').pipe(
-      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directoriesCount(directories) }),
+      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directories.log }),
     );
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
-    const result = yield* agent['session/load']({ cwd, ...directories, ...mcp.params, sessionId }).pipe(
+    const result = yield* agent['session/load']({ cwd, ...directories.params, ...mcp.params, sessionId }).pipe(
       Effect.onError(() => mcp.abandon),
     );
     yield* mcp.bind(sessionId);
@@ -281,19 +269,14 @@ export const loadSession = Effect.fn('loadSession')(
 );
 
 export const resumeSession = Effect.fn('resumeSession')(
-  function* (
-    launchTarget: AgentLaunchTarget,
-    sessionId: string,
-    cwd: string,
-    additionalDirectories?: readonly string[],
-  ) {
+  function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string, options: SessionDirectoriesOptions = {}) {
     const { additionalDirectories: capable, agent, mcpHttp } = yield* requireBackendConnection(launchTarget);
-    const directories = additionalDirectoriesParams(capable, additionalDirectories);
+    const directories = wireDirectories(capable, options.additionalDirectories);
     yield* Effect.logInfo('Resuming ACP session').pipe(
-      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directoriesCount(directories) }),
+      Effect.annotateLogs({ cwd: Redacted.make(cwd), ...directories.log }),
     );
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
-    const result = yield* agent['session/resume']({ cwd, ...directories, ...mcp.params, sessionId }).pipe(
+    const result = yield* agent['session/resume']({ cwd, ...directories.params, ...mcp.params, sessionId }).pipe(
       Effect.onError(() => mcp.abandon),
     );
     yield* mcp.bind(sessionId);

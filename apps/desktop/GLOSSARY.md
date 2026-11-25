@@ -99,8 +99,12 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Additional directories**:
-Absolute directories handed to the Agent beyond the **Session cwd**, so it can see more than one tree. Only sent when the Agent advertises `sessionCapabilities.additionalDirectories`; otherwise the Session works with its cwd alone. Persisted on the **Tracked session** (with an optional workspace file they came from, never sent to the Agent), part of the **Bind** key (a changed set re-Binds; order is ignored), and inherited by a fork, a **Handoff** target and a spawned subagent. No UI source for them yet.
+Absolute directories the Agent may see beyond the **Session cwd**. The Harness keeps the list on the session and its **Tracked session** even when the Agent cannot take it, and hands it to the Agent only when the Agent can. Part of what identifies a **Bind**; inherited by a fork, a **Handoff** target and a spawned subagent.
 _Avoid_: extra folders, extra roots, workspace folders (the VS Code concept)
+
+**Workspace file**:
+An optional `.code-workspace` file a session's **Additional directories** came from. Kept with the list, never handed to the Agent.
+_Avoid_: VS Code workspace (when you mean this file)
 
 **Session History**:
 The Tracked sessions across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from hoa-home before startup and grouped by Project cwd (groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest Last prompt time first); each row carries its agent launch target. Only sessions the user created in-app or chose to **Import** appear; `session/list` is never run in the background. When browsing, the UI hides archived rows (an app-owned flag once tracked) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
@@ -135,7 +139,7 @@ A desktop Session History accordion group for one Project, always shown (blank w
 _Avoid_: empty cwd group, ghost group
 
 **Tracked session**:
-A session the app owns a record of: created in-app (when its Virtual session materializes, or a fork or handoff creates it) or chosen through **Import**. Persisted per launch target and cwd (hoa-home Tracked sessions document), with its optional **Additional directories** and workspace file. The only source for Session History, Recent sessions and Session History search. Delete is the only way to fully remove one; Archive never un-imports it. Title and Last prompt time change only from live signals for loaded sessions; a never-loaded one keeps its import-time snapshot.
+A session the app owns a record of: created in-app (when its Virtual session materializes, or a fork or handoff creates it) or chosen through **Import**. Persisted per launch target and cwd (hoa-home Tracked sessions document), with its optional **Additional directories** and **Workspace file**. The only source for Session History, Recent sessions and Session History search. Delete is the only way to fully remove one; Archive never un-imports it. Title and Last prompt time change only from live signals for loaded sessions; a never-loaded one keeps its import-time snapshot.
 _Avoid_: listed session, cached row, imported session (when you mean any Tracked session)
 
 **Import**:

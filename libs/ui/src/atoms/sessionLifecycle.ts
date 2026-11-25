@@ -228,8 +228,8 @@ export const activateSession = Effect.fn('activateSession')(function* (
 
   const exit = yield* Effect.exit(
     useResume
-      ? resumeSession(arg.launchTarget, arg.sessionId, cwd, directories.additionalDirectories)
-      : loadSession(arg.launchTarget, arg.sessionId, cwd, directories.additionalDirectories),
+      ? resumeSession(arg.launchTarget, arg.sessionId, cwd, directories)
+      : loadSession(arg.launchTarget, arg.sessionId, cwd, directories),
   );
 
   if (Exit.isFailure(exit)) {
@@ -366,7 +366,7 @@ export const forkSession = Effect.fn('forkSession')(
     const sourceSession = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
     const directories = resolveSessionDirectories(sourceSession, sourceEntry);
 
-    const result = yield* forkOnAgent(arg.launchTarget, arg.sessionId, arg.cwd, directories.additionalDirectories).pipe(
+    const result = yield* forkOnAgent(arg.launchTarget, arg.sessionId, arg.cwd, directories).pipe(
       reportRequestError(registry, arg, 'session/fork'),
     );
     if (result === undefined) {
@@ -375,7 +375,6 @@ export const forkSession = Effect.fn('forkSession')(
     const forkedSessionId = result.sessionId;
     yield* Effect.annotateCurrentSpan(ACP_FORKED_SESSION_ID, forkedSessionId);
 
-    const parentEntry = snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId);
     const createdEntry = historyEntryFromNew(result, arg.cwd, directories);
     if (createdEntry === undefined) {
       yield* Effect.logError('forkSession skipped; fork result missing sessionId').pipe(
@@ -384,7 +383,7 @@ export const forkSession = Effect.fn('forkSession')(
       return false;
     }
     const historyEntry =
-      parentEntry?.title !== undefined ? { ...createdEntry, title: parentEntry.title } : createdEntry;
+      sourceEntry?.title !== undefined ? { ...createdEntry, title: sourceEntry.title } : createdEntry;
 
     yield* trackSession(registry, arg.launchTarget, historyEntry);
     yield* activateSession(registry, { launchTarget: arg.launchTarget, sessionId: forkedSessionId });

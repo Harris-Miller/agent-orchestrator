@@ -45,7 +45,7 @@ import {
 import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from '../host/configProbe.ts';
 import { bindSession, dropSession, dropSessionIfPresent } from '../host/harnessStateTransitions.ts';
-import { resolveSessionDirectories, sameDirectories } from '../host/sessionDirectories.ts';
+import { normalizeSessionDirectories, sameDirectories } from '../host/sessionDirectories.ts';
 import type { SessionDirectories } from '../host/sessionDirectories.ts';
 import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
@@ -322,10 +322,14 @@ const boundRefOf = (virtual: null | VirtualSession): BoundRef | undefined =>
     ? { launchTarget: virtual.launchTarget, sessionId: virtual.sessionId }
     : undefined;
 
+/** Same Bind key: launch target, cwd and Additional directories (as a set). */
+const sameBindKey = (a: Partial<BindKey> | null | undefined, b: Partial<BindKey> | null | undefined): boolean =>
+  a?.launchTarget === b?.launchTarget &&
+  a?.cwd === b?.cwd &&
+  sameDirectories(a?.additionalDirectories, b?.additionalDirectories);
+
 const bindKeyMatches = (virtual: null | VirtualSession, key: BindKey): boolean =>
-  virtual?.launchTarget === key.launchTarget &&
-  virtual.cwd === key.cwd &&
-  sameDirectories(virtual.additionalDirectories, key.additionalDirectories);
+  virtual !== null && sameBindKey(virtual, key);
 
 /** Best-effort close+delete Bound session (no session dir). Failed delete must not block replacement Bind. */
 const teardownBound = Effect.fn('teardownBound')(function* (registry: Registry, bound: BoundRef) {
@@ -421,11 +425,7 @@ const requestBind = Effect.fn('requestBind')(function* (registry: Registry) {
   }
 
   const state = registry.get(virtualBindAtom);
-  if (
-    state.current?.launchTarget === launchTarget &&
-    state.current.cwd === cwd &&
-    sameDirectories(state.current.additionalDirectories, additionalDirectories)
-  ) {
+  if (state.current !== null && sameBindKey(state.current, { additionalDirectories, cwd, launchTarget })) {
     return state.current;
   }
 
@@ -518,12 +518,7 @@ const mutateThenRebind = Effect.fn('mutateThenRebind')(function* (
 
   const after = registry.get(virtualSessionAtom);
   if (oldBound !== undefined) {
-    const stillBound =
-      after !== null &&
-      after.sessionId === oldBound.sessionId &&
-      after.launchTarget === oldBound.launchTarget &&
-      after.cwd === before?.cwd &&
-      sameDirectories(after.additionalDirectories, before?.additionalDirectories);
+    const stillBound = after !== null && after.sessionId === oldBound.sessionId && sameBindKey(after, before);
     if (!stillBound) {
       yield* releaseBoundInBackground(registry, oldBound);
     }
@@ -696,7 +691,8 @@ const materialize = Effect.fn('materialize')(
     const historyEntry = historyEntryFromNew(
       { sessionId },
       liveSession.cwd ?? cwd,
-      resolveSessionDirectories(liveSession, target),
+      // The Virtual blob's own directories, never the Bound session's possibly stale ones.
+      normalizeSessionDirectories(target),
     );
     if (historyEntry !== undefined) {
       yield* trackSession(registry, launchTarget, historyEntry);

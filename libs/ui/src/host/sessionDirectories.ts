@@ -38,7 +38,3 @@ export const sameDirectories = (a: readonly string[] | undefined, b: readonly st
   const right = new Set(b);
   return left.size === right.size && [...left].every(directory => right.has(directory));
 };
-
-/** Wire `additionalDirectories` of a `session/list` row: the string list, or undefined when it is not one. */
-export const additionalDirectoriesOfRow = (value: unknown): readonly string[] | undefined =>
-  Array.isArray(value) && value.every((item): item is string => typeof item === 'string') ? value : undefined;

@@ -16,9 +16,9 @@ const requestsFor = (capable: boolean, directories: readonly string[] | undefine
     const requests: SessionRequest[] = [];
     yield* installFakeAgent([], { additionalDirectories: capable, requests });
     yield* createSession(CODEX, '/w', { additionalDirectories: directories });
-    yield* loadSession(CODEX, 's1', '/w', directories);
-    yield* resumeSession(CODEX, 's2', '/w', directories);
-    yield* forkSession(CODEX, 's3', '/w', directories);
+    yield* loadSession(CODEX, 's1', '/w', { additionalDirectories: directories });
+    yield* resumeSession(CODEX, 's2', '/w', { additionalDirectories: directories });
+    yield* forkSession(CODEX, 's3', '/w', { additionalDirectories: directories });
     return requests;
   });
 

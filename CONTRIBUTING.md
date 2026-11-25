@@ -67,7 +67,11 @@ pnpm run vscode:dev    # terminal 1: extension host + webview watchers
 pnpm run vscode:open   # terminal 2: launch an Extension Development Host
 ```
 
-Or press **F5 → Run Extension** in VS Code. See [`apps/vscode/DEVELOPMENT.md`](./apps/vscode/DEVELOPMENT.md) for debugging, reload rules and installing a `.vsix`.
+Or press **F5 → Run Extension** in VS Code.
+
+Without watchers running, `pnpm run vscode:build:dev` then `pnpm run vscode:open` runs a development-mode build.
+
+See [`apps/vscode/DEVELOPMENT.md`](./apps/vscode/DEVELOPMENT.md) for debugging, reload rules and installing a `.vsix`.
 
 ### Website
 

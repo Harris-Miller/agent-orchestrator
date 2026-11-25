@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { assert, it } from '@effect/vitest';
-import { act, cleanup } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { Effect } from 'effect';
 import { Profiler } from 'react';
 import type { ReactNode } from 'react';
@@ -23,6 +23,18 @@ vi.mock('./transcript/chatItems/AgentMessageView.tsx', () => ({
     rowRenders.set(key, (rowRenders.get(key) ?? 0) + 1);
     return <li>{text}</li>;
   },
+}));
+
+const regionRenders = new Map<string, number>();
+vi.mock('./transcript/workRegion/workRegionPhrase.ts', () => ({
+  // Called once per WorkRegionView render: counts renders per region id.
+  workRegionPhrase: (id: string) => {
+    regionRenders.set(id, (regionRenders.get(id) ?? 0) + 1);
+    return `phrase-${id}`;
+  },
+}));
+vi.mock('./transcript/chatItems/ToolCallView.tsx', () => ({
+  ToolCallView: ({ item }: { readonly item: { readonly title: string } }) => <li>{item.title}</li>,
 }));
 
 bindHostRuntime(createHostRuntime(mockHostLayer));
@@ -156,6 +168,67 @@ it.effect('own-session chunks re-render only the last transcript row', () =>
     }
     assert.strictEqual(rowRenders.get(last) ?? 0, CHUNKS);
     const earlier = [...rowRenders].filter(([key]) => key !== last);
+    assert.deepStrictEqual(earlier, []);
+  }).pipe(Effect.scoped),
+);
+
+it.effect('own-session updates re-render only the live WorkRegionView, and it shows the new content', () =>
+  Effect.gen(function* () {
+    const REGIONS = 5;
+    const items: ChatItem[] = Array.from({ length: REGIONS }, (_, i): ChatItem[] => [
+      { id: `u${String(i)}`, kind: 'user_message', text: 'go' },
+      {
+        id: `t${String(i)}`,
+        kind: 'tool_call',
+        status: 'completed',
+        title: `tool-${String(i)}`,
+        toolCallId: `t${String(i)}`,
+      },
+    ]).flat();
+    const lastId = `t${String(REGIONS - 1)}`;
+    const { registry } = yield* renderInSessionChatSurface(
+      <SessionChatSurfaceProvider onClientError={() => undefined}>
+        <ChatTranscript />
+      </SessionChatSurfaceProvider>,
+      {
+        session: {
+          transcript: {
+            items,
+            messageIndices: new Map(),
+            toolCallIndices: new Map(Array.from({ length: REGIONS }, (_, i) => [`t${String(i)}`, i * 2 + 1] as const)),
+          },
+        },
+      },
+    );
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        registry.dispose();
+      }),
+    );
+    // Open the live region so its items are visible.
+    fireEvent.click(screen.getByText(`phrase-${lastId}`));
+    assert.isNotNull(screen.queryByText(`tool-${String(REGIONS - 1)}`));
+
+    regionRenders.clear();
+    for (let i = 0; i < CHUNKS; i += 1) {
+      act(() => {
+        updateHarnessSnapshot(
+          registry,
+          CODEX,
+          current =>
+            applyLiveSessionUpdate(current, 's1', {
+              sessionUpdate: 'tool_call',
+              status: 'pending',
+              title: `new-${String(i)}`,
+              toolCallId: `n${String(i)}`,
+            }).snapshot,
+        );
+      });
+    }
+    // Stale-UI guard: the live region shows the latest content.
+    assert.isNotNull(screen.queryByText(`new-${String(CHUNKS - 1)}`));
+    assert.isAtLeast(regionRenders.get(lastId) ?? 0, 1);
+    const earlier = [...regionRenders].filter(([key]) => key !== lastId);
     assert.deepStrictEqual(earlier, []);
   }).pipe(Effect.scoped),
 );

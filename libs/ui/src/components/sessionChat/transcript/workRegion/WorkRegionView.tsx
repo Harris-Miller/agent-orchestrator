@@ -89,7 +89,11 @@ type WorkRegionViewProps = {
   region: WorkRegion;
 };
 
-/** `groupChatItems` rebuilds region objects every call; compare by content so unchanged regions skip re-rendering. */
+/**
+ * `groupChatItems` rebuilds region objects every call; compare by content so unchanged regions skip re-rendering.
+ * Must compare every `WorkRegion` field that `WorkRegionView`, `workRegionLabel` and `isLiveRegion` read (`kind` is
+ * constant): adding a field to `WorkRegion` means updating this.
+ */
 const sameRegion = (a: WorkRegion, b: WorkRegion): boolean =>
   a === b ||
   (a.id === b.id &&

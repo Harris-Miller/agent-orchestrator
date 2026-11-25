@@ -1,5 +1,13 @@
 /** Projects: one hoa-home list for all launch targets, hydrated by `hydrateHarnessCaches`. Never grown from rows or probe cwds. */
-import { addProject, ProjectsMalformed, readWorkspaceFolders, removeProject } from '@lib/hoa-home';
+import {
+  addProject,
+  normalizeProjectPath,
+  projectDefaultsOf,
+  ProjectsMalformed,
+  readWorkspaceFolders,
+  removeProject,
+  setProjectAdditionalDirectories,
+} from '@lib/hoa-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
@@ -9,6 +17,7 @@ import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { projectParentCaption } from '../host/projectParentCaption.ts';
 import {
+  projectDefaultsFor,
   projectKind,
   projectLabel,
   projectOfRecord,
@@ -21,10 +30,11 @@ import type { ProjectMembership } from '../host/projectSessions.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { projectAdded } from '../analytics/catalog.ts';
-import { trackEvent } from '../analytics/trackEvent.ts';
+import { projectAdded, projectDirectoriesChanged } from '../analytics/catalog.ts';
+import { captureEvent, trackEvent } from '../analytics/trackEvent.ts';
 import { hydrateTrackedSessions } from './trackedSessions.ts';
 import { isChildIn, subagentLinksAtom } from './spawnedSubagent/links.ts';
+import { projectDefaultsAtom } from './projectDefaults.atoms.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 import {
   refreshWorkspaceProject,
@@ -44,7 +54,7 @@ export const projectsLoadedAtom = Atom.make(false).pipe(Atom.withLabel('projects
  */
 export const projectDisplayAtom = Atom.family((project: string) =>
   Atom.make(get => {
-    const resolution = resolveProject(project, get(workspaceFilesAtom));
+    const resolution = resolveProject(project, get(workspaceFilesAtom), get(projectDefaultsAtom));
     return {
       error: resolution._tag === 'Error' ? resolution.message : undefined,
       label: projectLabel(project),
@@ -87,6 +97,7 @@ export const removeProjectEverywhere = Effect.fn('removeProjectEverywhere')(func
   const before = registry.get(projectsAtom);
   const document = yield* removeProject(project);
   registry.set(projectsAtom, document.projects);
+  registry.set(projectDefaultsAtom, projectDefaultsOf(document));
   const { [project]: _removed, ...remainingStates } = registry.get(workspaceFilesAtom);
   registry.set(workspaceFilesAtom, remainingStates);
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
@@ -171,6 +182,29 @@ export const repickProject = Effect.fn('repickProject')(function* (
   yield* removeProjectEverywhere(registry, from);
 });
 
+/**
+ * Sets (or clears, with an empty list) a directory Project's default Additional directories. Only new sessions read them:
+ * Tracked sessions keep the list they were created with. Fails until the Projects file was read.
+ */
+export const setProjectDirectories = Effect.fn('setProjectDirectories')(function* (
+  registry: AtomRegistry.AtomRegistry,
+  project: string,
+  directories: readonly string[],
+) {
+  if (!registry.get(projectsLoadedAtom)) {
+    return yield* new ProjectsMalformed({
+      message: 'Projects file could not be read; fix or remove projects.json to change Projects.',
+    });
+  }
+  const before = registry.get(projectDefaultsAtom);
+  const document = yield* setProjectAdditionalDirectories(project, directories);
+  const after = projectDefaultsOf(document);
+  registry.set(projectDefaultsAtom, after);
+  const key = normalizeProjectPath(project);
+  const stored = projectDefaultsFor(after, key);
+  return { changed: stored.join('\n') !== projectDefaultsFor(before, key).join('\n'), count: stored.length };
+});
+
 export const createProjectsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 'atomRuntime'>) => {
   /** Adds a Project: {@link addProjectToApp} under its root span, with the `project_added` event when it was new. */
   const addProjectAtomFn = atomRuntime
@@ -193,5 +227,16 @@ export const createProjectsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 'atomR
     )
     .pipe(Atom.keepAlive);
 
-  return { addProjectAtomFn, reloadProjectAtomFn, repickProjectAtomFn };
+  const setProjectDirectoriesAtomFn = atomRuntime
+    .fn((arg: { readonly directories: readonly string[]; readonly project: string }, get: Atom.FnContext) =>
+      setProjectDirectories(get.registry, arg.project, arg.directories).pipe(
+        // Only a real change counts: a no-op (not a Project, a Workspace file, same list) records nothing.
+        Effect.tap(({ changed, count }) => (changed ? captureEvent(projectDirectoriesChanged(count)) : Effect.void)),
+        Effect.asVoid,
+        Effect.withSpan('setProjectDirectoriesAtomFn', { root: true }),
+      ),
+    )
+    .pipe(Atom.keepAlive);
+
+  return { addProjectAtomFn, reloadProjectAtomFn, repickProjectAtomFn, setProjectDirectoriesAtomFn };
 };

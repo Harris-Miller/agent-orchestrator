@@ -1,4 +1,4 @@
-import { useAtomSet } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { Option } from 'effect';
 import type { FC } from 'react';
 
@@ -7,6 +7,8 @@ import {
   resendPromptAtomFn,
   signInAntigravityAtomFn,
 } from '../../../../atoms/boundHarnessAtoms.ts';
+import { projectsAtom } from '../../../../atoms/projects.atoms.ts';
+import { projectOfRecord } from '../../../../host/projectResolution.ts';
 import { PROVIDER_META } from '../../../../host/providerView.ts';
 import {
   canContinueFailure,
@@ -29,6 +31,7 @@ export const SessionFailureRow: FC<{ readonly item: ChatItemOf<'session_failure'
   const resend = useAtomSet(resendPromptAtomFn, { mode: 'promise' });
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const signIn = useAtomSet(signInAntigravityAtomFn, { mode: 'promise' });
+  const projects = useAtomValue(projectsAtom);
 
   const owned = selectedSession !== undefined && selectedLaunchTarget !== undefined && chatItems.includes(item);
   if (!owned) {
@@ -55,7 +58,12 @@ export const SessionFailureRow: FC<{ readonly item: ChatItemOf<'session_failure'
         : {}),
     },
     onNewSession: () => {
-      ensureVirtualSession({ cwd: selectedSession.cwd })
+      // On desktop the new session starts in the Project (its Workspace file or default directories included).
+      const project =
+        selectedSession.cwd === undefined
+          ? undefined
+          : projectOfRecord({ ...selectedSession, cwd: selectedSession.cwd }, projects);
+      ensureVirtualSession(project === undefined ? { cwd: selectedSession.cwd } : { project })
         .then(() => setVirtualLaunchTarget(selectedLaunchTarget))
         .catch(onClientError);
     },

@@ -64,12 +64,14 @@ const Keycap: FC<{ readonly label: string }> = ({ label }) => (
 
 /** Project picker: a directory, or "Open workspace file…" for a `.code-workspace` file. The caller owns what happens with the chosen Project path. */
 export const CreateSessionDirectoryPicker: FC<{
+  /** Offer "Open workspace file…" (a Project can be a Workspace file); off when picking a plain directory. Default on. */
+  readonly allowWorkspaceFile?: boolean;
   /** Label of the confirm button ("Select" in the Composer, "Add Project" in the rail). */
   readonly confirmLabel: string;
   readonly onClose: () => void;
   /** The chosen Project path: a directory, or a Workspace file. */
   readonly onSelectDirectory: (project: string) => void;
-}> = ({ confirmLabel, onClose, onSelectDirectory }) => {
+}> = ({ allowWorkspaceFile = true, confirmLabel, onClose, onSelectDirectory }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const [homePath, setHomePath] = useState<string | undefined>(undefined);
@@ -446,15 +448,17 @@ export const CreateSessionDirectoryPicker: FC<{
             label={<Typography variant="caption">Show hidden</Typography>}
             sx={{ m: 0 }}
           />
-          <Button
-            onClick={() => {
-              openWorkspaceFile();
-            }}
-            size="small"
-            sx={{ textTransform: 'none' }}
-          >
-            Open workspace file…
-          </Button>
+          {allowWorkspaceFile ? (
+            <Button
+              onClick={() => {
+                openWorkspaceFile();
+              }}
+              size="small"
+              sx={{ textTransform: 'none' }}
+            >
+              Open workspace file…
+            </Button>
+          ) : null}
           <Button
             onClick={() => {
               openFinder();

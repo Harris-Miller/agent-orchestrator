@@ -24,7 +24,7 @@ The absolute path the sidebar treats as the project cwd — the first Workspace 
 _Avoid_: Session cwd (when you mean this vscode binding), OS cwd, Host cwd
 
 **Additional directories**:
-Absolute directories handed to the Agent beyond the Session cwd, sent only when the Agent advertises support. The same concept as on desktop (see the desktop glossary). A new session here gets the other Workspace folders (every folder after the **Workspace cwd**) as its Additional directories; a Tracked session keeps the list it was created with, whatever the workspace holds later.
+Absolute directories handed to the Agent beyond the Session cwd, sent only when the Agent advertises support. The same concept as on desktop (see the desktop glossary). A new session here gets the other Workspace folders (every folder after the **Workspace cwd**) as its Additional directories; the default Additional directories of the Workspace cwd's Project (set on desktop) follow them, without repeating a folder. A Tracked session keeps the list it was created with, whatever the workspace or the Project holds later.
 _Avoid_: Workspace folder (the VS Code root folder), extra roots
 
 **Workspace file**:

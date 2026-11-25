@@ -99,7 +99,7 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Additional directories**:
-Absolute directories the Agent may see beyond the **Session cwd**. The Harness keeps the list on the session and its **Tracked session** even when the Agent cannot take it, and hands it to the Agent only when the Agent can. Part of what identifies a **Bind**; inherited by a fork, a **Handoff** target and a spawned subagent.
+Absolute directories the Agent may see beyond the **Session cwd**. The Harness keeps the list on the session and its **Tracked session** even when the Agent cannot take it, and hands it to the Agent only when the Agent can. Part of what identifies a **Bind**; inherited by a fork, a **Handoff** target and a spawned subagent. A directory **Project** may hold a default list that every new session in it starts with (the user can override it for that session); changing the default never changes existing sessions.
 _Avoid_: extra folders, extra roots, workspace folders (the VS Code concept)
 
 **Workspace file**:
@@ -131,7 +131,7 @@ Desktop-only control under a long Session History cwd group that toggles the gro
 _Avoid_: pagination, load more (when you mean this local toggle; no fetch happens)
 
 **Project**:
-An absolute directory, or a **Workspace file** (a **Workspace project**), the user chose to bring into the app, persisted in hoa-home (one list shared across launch targets and host apps). Desktop Session History shows Tracked sessions only for Projects. Added through the Project Selection Modal (the "Add Project" row or the Composer's "Choose Project", idempotent; "Open workspace file…" picks a Workspace file) and removed only by **Stop tracking**. Never added from Config probe cwds; VS Code adds its Workspace cwd the first time a session is tracked there. Paths compare exact after trailing-separator normalization.
+An absolute directory, or a **Workspace file** (a **Workspace project**), the user chose to bring into the app, persisted in hoa-home (one list shared across launch targets and host apps). Desktop Session History shows Tracked sessions only for Projects. Added through the Project Selection Modal (the "Add Project" row or the Composer's "Choose Project", idempotent; "Open workspace file…" picks a Workspace file) and removed only by **Stop tracking**. Never added from Config probe cwds; VS Code adds its Workspace cwd the first time a session is tracked there. Paths compare exact after trailing-separator normalization. A directory Project can carry default **Additional directories** ("Additional directories…" in its `⋯` menu); it stays a directory, not a set of folders.
 _Avoid_: tracked cwd, remembered folder, saved cwd, workspace (say **Workspace project** only for a Project that is a Workspace file)
 
 **Workspace project**:

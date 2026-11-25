@@ -42,3 +42,7 @@ export const projectTrackingStopped = () => makeAnalyticsEvent('project_tracking
 
 /** The Project kind only, never its path: a directory, or a `.code-workspace` file. */
 export const projectAdded = (kind: 'directory' | 'workspace_file') => makeAnalyticsEvent('project_added', { kind });
+
+/** How many default Additional directories the Project now has (0 = cleared), never their paths. */
+export const projectDirectoriesChanged = (directoryCount: number) =>
+  makeAnalyticsEvent('project_directories_changed', { directory_count: directoryCount });

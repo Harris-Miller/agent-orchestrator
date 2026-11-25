@@ -13,6 +13,7 @@ import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { resolveProject } from '../host/projectResolution.ts';
 import type { ProjectResolution, WorkspaceFileState, WorkspaceFileStates } from '../host/projectResolution.ts';
 
+import { projectDefaultsAtom } from './projectDefaults.atoms.ts';
 import { hydrateTrackedSessions } from './trackedSessions.ts';
 
 export const workspaceFilesAtom = Atom.make<WorkspaceFileStates>({}).pipe(
@@ -64,7 +65,7 @@ export const loadWorkspaceFileStates = (
 
 /** `project` resolved against the stored states. */
 export const resolveProjectIn = (registry: AtomRegistry.AtomRegistry, project: string): ProjectResolution =>
-  resolveProject(project, registry.get(workspaceFilesAtom));
+  resolveProject(project, registry.get(workspaceFilesAtom), registry.get(projectDefaultsAtom));
 
 /**
  * Re-reads a Workspace project's file, so a session created or imported now sees the file's current folders and an errored

@@ -4,15 +4,19 @@ import {
   ensureVirtualSessionAtomFn,
   LucideMuiIcon,
   pickWorkspaceFile,
+  projectDefaultsAtom,
+  projectDefaultsFor,
   projectDisplayAtom,
   projectMembershipAtom,
   reloadProjectAtomFn,
   repickProjectAtomFn,
   sessionEntryKey,
   SessionHistoryRow,
+  setProjectDirectoriesAtomFn,
   stopTrackingProjectAtomFn,
 } from '@lib/ui';
 import { hostRunPromise } from '@lib/ui/host-runtime';
+import { isWorkspaceFilePath } from '@lib/hoa-home';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -35,6 +39,7 @@ import {
   EyeOff,
   Folder,
   FolderOpen,
+  FolderPlus,
   FolderSearch,
   RefreshCw,
   SquarePen,
@@ -42,6 +47,8 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
+
+import { AdditionalDirectoriesDialog } from './AdditionalDirectoriesDialog.tsx';
 
 /** Rows a Project cwd group shows before its Show more box. */
 const CWD_GROUP_ROW_LIMIT = 10;
@@ -80,6 +87,9 @@ export const ProjectGroup: FC<{
   const { activeSessions } = useAtomValue(projectMembershipAtom(project));
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const stopTracking = useAtomSet(stopTrackingProjectAtomFn, { mode: 'promise' });
+  const defaults = useAtomValue(projectDefaultsAtom);
+  const setDirectories = useAtomSet(setProjectDirectoriesAtomFn, { mode: 'promise' });
+  const [editingDirectories, setEditingDirectories] = useState(false);
   const reload = useAtomSet(reloadProjectAtomFn, { mode: 'promise' });
   const repick = useAtomSet(repickProjectAtomFn, { mode: 'promise' });
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -225,6 +235,19 @@ export const ProjectGroup: FC<{
             Re-pick workspace file…
           </MenuItem>
         )}
+        {isWorkspaceFilePath(project) ? null : (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              setEditingDirectories(true);
+            }}
+          >
+            <ListItemIcon sx={{ color: 'inherit', minWidth: 32 }}>
+              <LucideMuiIcon fontSize="small" icon={FolderPlus} />
+            </ListItemIcon>
+            Additional directories…
+          </MenuItem>
+        )}
         <MenuItem
           disabled={error !== undefined}
           onClick={() => {
@@ -254,6 +277,19 @@ export const ProjectGroup: FC<{
           {error === undefined ? 'Stop tracking' : 'Remove'}
         </MenuItem>
       </Menu>
+      {editingDirectories ? (
+        <AdditionalDirectoriesDialog
+          description={`New sessions in ${label} start with these directories as well. Sessions that already exist keep theirs.`}
+          initial={projectDefaultsFor(defaults, project)}
+          onClose={() => {
+            setEditingDirectories(false);
+          }}
+          onSave={directories => {
+            setDirectories({ directories, project }).catch(onClientError);
+          }}
+          title={`Additional directories for ${label}`}
+        />
+      ) : null}
       <Dialog
         onClose={() => {
           setConfirmingStop(false);
